@@ -2,6 +2,14 @@
 
 **실시간 컨텍스트(날씨/기분)와 성격 특성(MBTI)을 결합한 초개인화 영화 큐레이션 플랫폼**
 
+## Live Demo
+
+| Service | URL |
+|---------|-----|
+| **Frontend** | https://frontend-eight-gules-78.vercel.app |
+| **Backend API** | https://backend-production-cff2.up.railway.app |
+| **API Docs** | https://backend-production-cff2.up.railway.app/docs |
+
 ## Features
 
 - MBTI 기반 영화 추천 (16개 유형별)

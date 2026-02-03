@@ -4,6 +4,19 @@
 
 ---
 
+## 0. 배포 정보 (2026-02-03)
+
+| 서비스 | URL |
+|--------|-----|
+| Frontend (Vercel) | https://frontend-eight-gules-78.vercel.app |
+| Backend API (Railway) | https://backend-production-cff2.up.railway.app |
+| API Docs | https://backend-production-cff2.up.railway.app/docs |
+| GitHub | https://github.com/sky1522/recflix |
+
+**데이터**: 32,625편 영화 (Railway PostgreSQL에 마이그레이션 완료)
+
+---
+
 ## 1. 아키텍처
 
 ```

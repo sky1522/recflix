@@ -108,6 +108,21 @@
 | CORS 프로덕션 설정 | ✅ | 동적 CORS 지원 |
 | 배포 가이드 | ✅ | DEPLOYMENT.md |
 
+### Phase 9: 프로덕션 배포 (2026-02-03)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| GitHub 저장소 생성 | ✅ | https://github.com/sky1522/recflix |
+| Vercel 프론트엔드 배포 | ✅ | https://frontend-eight-gules-78.vercel.app |
+| Railway 프로젝트 생성 | ✅ | recflix 프로젝트 |
+| Railway PostgreSQL | ✅ | 자동 프로비저닝 |
+| Railway Redis | ✅ | 캐싱용 |
+| Railway Backend 배포 | ✅ | https://backend-production-cff2.up.railway.app |
+| 데이터베이스 마이그레이션 | ✅ | pg_dump → Railway (32,625편 영화) |
+| 환경변수 설정 | ✅ | DATABASE_URL, REDIS_URL, JWT, CORS 등 |
+| CORS 설정 수정 | ✅ | pydantic field_validator로 파싱 |
+| 테이블 자동 생성 | ✅ | FastAPI lifespan 이벤트 |
+
 ---
 
 ## 프로젝트 구조
@@ -183,7 +198,18 @@ C:\dev\recflix\
 
 ---
 
-## 실행 방법
+## 프로덕션 URL
+
+| 서비스 | URL |
+|--------|-----|
+| Frontend (Vercel) | https://frontend-eight-gules-78.vercel.app |
+| Backend API (Railway) | https://backend-production-cff2.up.railway.app |
+| API Docs | https://backend-production-cff2.up.railway.app/docs |
+| GitHub | https://github.com/sky1522/recflix |
+
+---
+
+## 로컬 실행 방법
 
 ```bash
 # 1. PostgreSQL 실행 확인 (Windows 서비스)
@@ -223,21 +249,23 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 
 ## 미구현 / TODO
 
-### 우선순위 높음
-- [x] 영화 상세 페이지 (`/movies/[id]`) - 완료
-- [x] 내 찜 목록 페이지 (`/favorites`) - 완료
-- [x] 내 평점 목록 페이지 (`/ratings`) - 완료
-
-### 우선순위 중간
+### 완료됨
+- [x] 영화 상세 페이지 (`/movies/[id]`)
+- [x] 내 찜 목록 페이지 (`/favorites`)
+- [x] 내 평점 목록 페이지 (`/ratings`)
 - [x] 검색 자동완성
 - [x] 무한 스크롤 (영화 목록)
-- [x] 반응형 모바일 최적화 - 완료
+- [x] 반응형 모바일 최적화
+- [x] 배포 설정 (Vercel + Railway)
+- [x] **프로덕션 배포 완료** (2026-02-03)
 
-### 우선순위 낮음
+### 향후 개선사항
 - [ ] LLM 캐치프레이즈 (GPT 연동)
 - [ ] 소셜 로그인 (Google, Kakao)
 - [ ] PWA 지원
-- [x] 배포 설정 (Vercel + Railway) - 완료
+- [ ] 커스텀 도메인 설정
+- [ ] CI/CD 파이프라인 (GitHub Actions)
+- [ ] 모니터링/로깅 설정 (Sentry 등)
 
 ---
 
@@ -248,3 +276,8 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 3. **bcrypt/passlib 호환성**: bcrypt 직접 사용
 4. **JWT sub claim 타입**: str 변환/int 변환
 5. **pydantic-settings env_file**: 상대경로 이슈 → backend/.env 직접 복사
+6. **Next.js Suspense boundary**: `useSearchParams` 훅을 Suspense로 감싸야 함 (movies/page.tsx)
+7. **Railway PORT 변수**: `sh -c` 래퍼로 환경변수 확장 (railway.toml)
+8. **CORS_ORIGINS 파싱**: `List[str]`을 `field_validator`로 comma-separated 문자열 파싱
+9. **DB 테이블 자동 생성**: FastAPI `lifespan` 이벤트에서 `Base.metadata.create_all()` 호출
+10. **Windows nul 파일 충돌**: 예약된 파일명 삭제 후 Railway 배포 진행

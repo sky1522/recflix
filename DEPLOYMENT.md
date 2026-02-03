@@ -1,5 +1,30 @@
 # RecFlix 배포 가이드
 
+## 현재 배포 상태 (2026-02-03)
+
+| 서비스 | 플랫폼 | URL |
+|--------|--------|-----|
+| Frontend | Vercel | https://frontend-eight-gules-78.vercel.app |
+| Backend API | Railway | https://backend-production-cff2.up.railway.app |
+| API Docs | Railway | https://backend-production-cff2.up.railway.app/docs |
+| PostgreSQL | Railway | 내부 연결 (32,625편 영화) |
+| Redis | Railway | 내부 연결 |
+
+### 설정된 환경변수
+
+**Backend (Railway):**
+- `DATABASE_URL` - PostgreSQL 연결 (자동)
+- `REDIS_URL` - Redis 연결 (자동)
+- `JWT_SECRET_KEY` - JWT 서명 키
+- `WEATHER_API_KEY` - OpenWeatherMap API
+- `CORS_ORIGINS` - Vercel 프론트엔드 URL
+- `APP_ENV` - production
+
+**Frontend (Vercel):**
+- `NEXT_PUBLIC_API_URL` - https://backend-production-cff2.up.railway.app/api/v1
+
+---
+
 ## 아키텍처
 
 ```
