@@ -1,0 +1,88 @@
+# RecFlix Docker Compose - Local Development & Testing
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:16-alpine
+    container_name: recflix-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: recflix
+      POSTGRES_PASSWORD: recflix123
+      POSTGRES_DB: recflix
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U recflix -d recflix"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: recflix-redis
+    restart: unless-stopped
+    command: redis-server --requirepass recflix123
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "recflix123", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: recflix-backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://recflix:recflix123@db:5432/recflix
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: recflix123
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-super-secret-jwt-key-change-in-production}
+      WEATHER_API_KEY: ${WEATHER_API_KEY}
+      CORS_ORIGINS: http://localhost:3000,https://recflix.vercel.app
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend (optional - for full local testing)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: recflix-frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  default:
+    name: recflix-network

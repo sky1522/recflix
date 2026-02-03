@@ -1,0 +1,208 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #141414;
+  --foreground: #ffffff;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #404040;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #505050;
+}
+
+/* Hide scrollbar for movie rows */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Gradient overlay for movie cards */
+.movie-card-gradient {
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.9) 0%,
+    rgba(0, 0, 0, 0.5) 50%,
+    transparent 100%
+  );
+}
+
+/* Weather theme backgrounds */
+.theme-sunny {
+  --theme-gradient: linear-gradient(135deg, #ffd93d20 0%, #ff914420 100%);
+  --theme-primary: #ffd93d;
+  --theme-secondary: #ff9144;
+  --theme-accent: #ffb347;
+}
+
+.theme-rainy {
+  --theme-gradient: linear-gradient(135deg, #6b7aa120 0%, #3d5a8020 100%);
+  --theme-primary: #6b7aa1;
+  --theme-secondary: #3d5a80;
+  --theme-accent: #5c7999;
+}
+
+.theme-cloudy {
+  --theme-gradient: linear-gradient(135deg, #95a5a620 0%, #7f8c8d20 100%);
+  --theme-primary: #95a5a6;
+  --theme-secondary: #7f8c8d;
+  --theme-accent: #8a9a9b;
+}
+
+.theme-snowy {
+  --theme-gradient: linear-gradient(135deg, #e8f4f820 0%, #b8d4e320 100%);
+  --theme-primary: #e8f4f8;
+  --theme-secondary: #b8d4e3;
+  --theme-accent: #d0e4ed;
+}
+
+/* Weather theme body background effect */
+body.theme-sunny {
+  background: linear-gradient(180deg, #1a1510 0%, #141414 15%, #141414 100%);
+}
+
+body.theme-rainy {
+  background: linear-gradient(180deg, #0f1318 0%, #141414 15%, #141414 100%);
+}
+
+body.theme-cloudy {
+  background: linear-gradient(180deg, #151617 0%, #141414 15%, #141414 100%);
+}
+
+body.theme-snowy {
+  background: linear-gradient(180deg, #141820 0%, #141414 15%, #141414 100%);
+}
+
+/* Theme transition */
+body {
+  transition: background 0.5s ease-in-out;
+}
+
+/* Weather accent colors for interactive elements */
+.theme-sunny .weather-accent {
+  color: var(--theme-primary);
+}
+
+.theme-rainy .weather-accent {
+  color: var(--theme-primary);
+}
+
+.theme-cloudy .weather-accent {
+  color: var(--theme-primary);
+}
+
+.theme-snowy .weather-accent {
+  color: var(--theme-primary);
+}
+
+/* Safe area for notched devices */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0);
+}
+
+/* Touch-friendly tap targets */
+@media (hover: none) and (pointer: coarse) {
+  button,
+  a,
+  [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Smooth scrolling for iOS */
+.scroll-smooth {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent text selection on touch */
+.no-select {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Horizontal scroll container for touch */
+.touch-scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.touch-scroll-x::-webkit-scrollbar {
+  display: none;
+}
+
+.touch-scroll-x > * {
+  scroll-snap-align: start;
+}
+
+/* Active state for touch devices */
+@media (hover: none) {
+  .touch-active:active {
+    opacity: 0.7;
+    transform: scale(0.98);
+  }
+}
+
+/* Focus visible for accessibility */
+:focus-visible {
+  outline: 2px solid #e50914;
+  outline-offset: 2px;
+}
+
+/* Remove tap highlight on mobile */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Loading shimmer animation */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.05) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
