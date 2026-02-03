@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { Suspense, useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Film, RefreshCw } from "lucide-react";
@@ -18,7 +18,7 @@ const SORT_OPTIONS = [
   { value: "release_date", label: "최신순" },
 ];
 
-export default function MoviesPage() {
+function MoviesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -406,5 +406,32 @@ export default function MoviesPage() {
         <MovieModal movie={selectedMovie} onClose={() => setSelectedMovie(null)} />
       )}
     </div>
+  );
+}
+
+// Loading fallback for Suspense
+function MoviesPageLoading() {
+  return (
+    <div className="min-h-screen bg-dark-200 pt-20 pb-12 px-4">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-8">
+          <div className="h-10 w-48 bg-dark-100 rounded animate-pulse mb-6" />
+          <div className="h-12 w-full bg-dark-100 rounded-lg animate-pulse mb-6" />
+          <div className="flex gap-4">
+            <div className="h-10 w-32 bg-dark-100 rounded-lg animate-pulse" />
+            <div className="h-10 w-32 bg-dark-100 rounded-lg animate-pulse" />
+          </div>
+        </div>
+        <MovieGridSkeleton count={24} />
+      </div>
+    </div>
+  );
+}
+
+export default function MoviesPage() {
+  return (
+    <Suspense fallback={<MoviesPageLoading />}>
+      <MoviesPageContent />
+    </Suspense>
   );
 }
