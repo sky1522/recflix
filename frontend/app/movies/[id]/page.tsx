@@ -263,11 +263,11 @@ export default function MovieDetailPage() {
               <div className="flex flex-wrap gap-1.5 md:gap-2 mb-4 md:mb-6">
                 {movie.genres.slice(0, 4).map((genre) => (
                   <Link
-                    key={typeof genre === 'string' ? genre : genre.name}
-                    href={`/movies?genre=${encodeURIComponent(typeof genre === 'string' ? genre : genre.name)}`}
+                    key={genre}
+                    href={`/movies?genre=${encodeURIComponent(genre)}`}
                     className="px-2 md:px-3 py-1 bg-white/10 hover:bg-white/20 rounded-full text-xs md:text-sm text-white/80 transition"
                   >
-                    {typeof genre === 'string' ? genre : genre.name}
+                    {genre}
                   </Link>
                 ))}
               </div>
