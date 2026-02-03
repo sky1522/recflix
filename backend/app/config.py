@@ -2,8 +2,9 @@
 RecFlix Configuration Management
 """
 import os
-from typing import List, Optional
+from typing import List, Optional, Union
 from pydantic_settings import BaseSettings
+from pydantic import field_validator
 from functools import lru_cache
 
 
@@ -35,7 +36,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
 
     # CORS - supports comma-separated string from environment
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    CORS_ORIGINS: Union[str, List[str]] = "http://localhost:3000,http://127.0.0.1:3000"
 
     # Server
     PORT: int = 8000
@@ -44,6 +45,13 @@ class Settings(BaseSettings):
     DATA_RAW_PATH: str = "./data/raw"
     DATA_PROCESSED_PATH: str = "./data/processed"
 
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v):
+        if isinstance(v, str):
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
+
     class Config:
         env_file = ".env"
         case_sensitive = True
@@ -51,11 +59,6 @@ class Settings(BaseSettings):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-
-        # Parse CORS_ORIGINS from comma-separated string if needed
-        cors_env = os.getenv("CORS_ORIGINS")
-        if cors_env and isinstance(cors_env, str):
-            self.CORS_ORIGINS = [origin.strip() for origin in cors_env.split(",")]
 
         # Set DEBUG based on environment
         if self.APP_ENV == "production":
