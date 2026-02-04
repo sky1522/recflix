@@ -376,8 +376,8 @@ def get_home_recommendations(
             movies=[MovieListItem.from_orm_with_genres(m) for m in tension_movies]
         ))
 
-    # Featured movie (random from top 10 popular)
-    featured = random.choice(popular_pool[:10]) if popular_pool else None
+    # Featured movie = 셔플된 인기 영화 리스트의 첫 번째 영화 (일관성 유지)
+    featured = popular[0] if popular else None
 
     return HomeRecommendations(
         featured=MovieListItem.from_orm_with_genres(featured) if featured else None,
