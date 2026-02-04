@@ -26,15 +26,27 @@ async def get_redis_client() -> Optional[aioredis.Redis]:
             _redis_client = None
 
     try:
-        _redis_client = aioredis.Redis(
-            host=settings.REDIS_HOST,
-            port=settings.REDIS_PORT,
-            password=settings.REDIS_PASSWORD,
-            db=0,
-            decode_responses=True,
-            socket_connect_timeout=5,
-        )
+        # REDIS_URL이 있으면 사용 (Railway 등 클라우드 환경)
+        if settings.REDIS_URL:
+            print(f"Connecting to Redis via URL...")
+            _redis_client = aioredis.from_url(
+                settings.REDIS_URL,
+                decode_responses=True,
+                socket_connect_timeout=5,
+            )
+        else:
+            # 로컬 개발 환경
+            print(f"Connecting to Redis via host/port...")
+            _redis_client = aioredis.Redis(
+                host=settings.REDIS_HOST,
+                port=settings.REDIS_PORT,
+                password=settings.REDIS_PASSWORD,
+                db=0,
+                decode_responses=True,
+                socket_connect_timeout=5,
+            )
         await _redis_client.ping()
+        print("Redis connection successful")
         return _redis_client
     except Exception as e:
         print(f"Redis connection failed: {e}")
