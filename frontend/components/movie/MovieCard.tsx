@@ -86,7 +86,7 @@ export default function MovieCard({ movie, index = 0, showQuickView = true }: Mo
               {movie.genres.length > 0 && (
                 <>
                   <span>·</span>
-                  <span className="truncate">{movie.genres[0]}</span>
+                  <span className="truncate">{typeof movie.genres[0] === 'string' ? movie.genres[0] : (movie.genres[0] as any)?.name_ko || (movie.genres[0] as any)?.name}</span>
                 </>
               )}
             </div>

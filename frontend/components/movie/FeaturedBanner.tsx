@@ -49,7 +49,7 @@ export default function FeaturedBanner({ movie }: FeaturedBannerProps) {
                 <span>{new Date(movie.release_date).getFullYear()}</span>
               )}
               {movie.genres.length > 0 && (
-                <span>{movie.genres.slice(0, 3).join(" • ")}</span>
+                <span>{movie.genres.slice(0, 3).map(g => typeof g === 'string' ? g : (g as any)?.name_ko || (g as any)?.name).join(" • ")}</span>
               )}
             </div>
 

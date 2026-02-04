@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     # External APIs
     WEATHER_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
+    GEMINI_API_KEY: str = ""
+    ANTHROPIC_API_KEY: str = ""
 
     # CORS - supports comma-separated string from environment
     CORS_ORIGINS: Union[str, List[str]] = "http://localhost:3000,http://127.0.0.1:3000"

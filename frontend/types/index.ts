@@ -146,3 +146,10 @@ export type MBTIType =
   | "INFJ" | "INFP" | "ENFJ" | "ENFP"
   | "ISTJ" | "ISFJ" | "ESTJ" | "ESFJ"
   | "ISTP" | "ISFP" | "ESTP" | "ESFP";
+
+// LLM types
+export interface CatchphraseResponse {
+  movie_id: number;
+  catchphrase: string;
+  cached: boolean;
+}

@@ -157,14 +157,17 @@ export default function MovieModal({ movie, onClose }: MovieModalProps) {
 
             {/* Genres */}
             <div className="flex flex-wrap gap-2 mb-6">
-              {movie.genres.map((genre) => (
-                <span
-                  key={genre}
-                  className="px-3 py-1 bg-white/10 rounded-full text-sm text-white/80"
-                >
-                  {genre}
-                </span>
-              ))}
+              {movie.genres.map((genre, index) => {
+                const genreName = typeof genre === 'string' ? genre : (genre as any)?.name_ko || (genre as any)?.name;
+                return (
+                  <span
+                    key={genreName || index}
+                    className="px-3 py-1 bg-white/10 rounded-full text-sm text-white/80"
+                  >
+                    {genreName}
+                  </span>
+                );
+              })}
             </div>
 
             {/* Overview */}

@@ -88,7 +88,7 @@ function RatingCard({
               {movie.genres && movie.genres.length > 0 && (
                 <>
                   <span>·</span>
-                  <span className="truncate">{movie.genres.slice(0, 2).join(", ")}</span>
+                  <span className="truncate">{movie.genres.slice(0, 2).map(g => typeof g === 'string' ? g : (g as any)?.name_ko || (g as any)?.name).join(", ")}</span>
                 </>
               )}
             </div>

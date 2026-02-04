@@ -16,7 +16,7 @@ import {
   Tag,
   Globe,
 } from "lucide-react";
-import { getMovie, getSimilarMovies } from "@/lib/api";
+import { getMovie, getSimilarMovies, getCatchphrase } from "@/lib/api";
 import { getImageUrl, formatRuntime, formatDate } from "@/lib/utils";
 import { useInteractionStore } from "@/stores/interactionStore";
 import { useAuthStore } from "@/stores/authStore";
@@ -34,6 +34,8 @@ export default function MovieDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ratingHover, setRatingHover] = useState(0);
+  const [catchphrase, setCatchphrase] = useState<string | null>(null);
+  const [catchphraseLoading, setCatchphraseLoading] = useState(false);
 
   const { isAuthenticated } = useAuthStore();
   const { interactions, fetchInteraction, toggleFavorite, setRating } =
@@ -49,6 +51,7 @@ export default function MovieDetailPage() {
       }
 
       setLoading(true);
+      setCatchphrase(null);
       try {
         const [movieData, similarData] = await Promise.all([
           getMovie(movieId),
@@ -56,6 +59,13 @@ export default function MovieDetailPage() {
         ]);
         setMovie(movieData);
         setSimilar(similarData);
+
+        // 캐치프레이즈는 영화 데이터 로드 후 별도로 요청 (비동기)
+        setCatchphraseLoading(true);
+        getCatchphrase(movieId)
+          .then((res) => setCatchphrase(res.catchphrase))
+          .catch(() => setCatchphrase(movieData.tagline || null))
+          .finally(() => setCatchphraseLoading(false));
 
         if (isAuthenticated) {
           await fetchInteraction(movieId);
@@ -219,12 +229,16 @@ export default function MovieDetailPage() {
                 <p className="text-white/60 text-sm md:text-lg mb-2 md:mb-4 truncate">{movie.title}</p>
               )}
 
-              {/* Tagline - hidden on mobile */}
-              {movie.tagline && (
-                <p className="hidden sm:block text-white/80 italic text-base md:text-lg mb-4 line-clamp-2">
-                  &quot;{movie.tagline}&quot;
-                </p>
-              )}
+              {/* Catchphrase - hidden on mobile */}
+              <div className="hidden sm:block mb-4">
+                {catchphraseLoading ? (
+                  <div className="h-7 w-64 bg-white/10 animate-pulse rounded" />
+                ) : (catchphrase || movie.tagline) && (
+                  <p className="text-white/80 italic text-base md:text-lg line-clamp-2">
+                    &quot;{catchphrase || movie.tagline}&quot;
+                  </p>
+                )}
+              </div>
 
               {/* Meta Info */}
               <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs sm:text-sm md:text-base text-white/70 mb-4 md:mb-6">
@@ -261,15 +275,18 @@ export default function MovieDetailPage() {
 
               {/* Genres */}
               <div className="flex flex-wrap gap-1.5 md:gap-2 mb-4 md:mb-6">
-                {movie.genres.slice(0, 4).map((genre) => (
-                  <Link
-                    key={genre}
-                    href={`/movies?genre=${encodeURIComponent(genre)}`}
-                    className="px-2 md:px-3 py-1 bg-white/10 hover:bg-white/20 rounded-full text-xs md:text-sm text-white/80 transition"
-                  >
-                    {genre}
-                  </Link>
-                ))}
+                {movie.genres.slice(0, 4).map((genre, index) => {
+                  const genreName = typeof genre === 'string' ? genre : (genre as any).name_ko || (genre as any).name;
+                  return (
+                    <Link
+                      key={genreName || index}
+                      href={`/movies?genre=${encodeURIComponent(genreName)}`}
+                      className="px-2 md:px-3 py-1 bg-white/10 hover:bg-white/20 rounded-full text-xs md:text-sm text-white/80 transition"
+                    >
+                      {genreName}
+                    </Link>
+                  );
+                })}
               </div>
 
               {/* Action Buttons */}
