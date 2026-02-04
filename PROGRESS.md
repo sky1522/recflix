@@ -1,6 +1,6 @@
 # RecFlix 개발 진행 상황
 
-**최종 업데이트**: 2026-02-03
+**최종 업데이트**: 2026-02-04
 
 ---
 
@@ -27,6 +27,7 @@
 | 컬렉션 | ✅ | `/collections`, `/collections/{id}/movies` |
 | 날씨 | ✅ | `/weather` (OpenWeatherMap + Redis 캐싱) |
 | 상호작용 | ✅ | `/interactions/movie/{id}`, `/interactions/favorite/{id}` |
+| LLM 캐치프레이즈 | ✅ | `/llm/catchphrase/{movie_id}` (Claude API + Redis 캐싱) |
 
 ### Phase 3: Frontend (Next.js 14)
 
@@ -123,6 +124,23 @@
 | CORS 설정 수정 | ✅ | pydantic field_validator로 파싱 |
 | 테이블 자동 생성 | ✅ | FastAPI lifespan 이벤트 |
 
+### Phase 10: LLM 캐치프레이즈 & UX 개선 (2026-02-04)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| LLM 캐치프레이즈 API | ✅ | Claude API 연동, `/api/v1/llm/catchphrase/{id}` |
+| Redis 캐싱 (LLM) | ✅ | TTL 24시간, 프로덕션 REDIS_URL 지원 |
+| 영화 상세 캐치프레이즈 표시 | ✅ | DB tagline 대신 LLM 생성 캐치프레이즈 |
+| 모바일 캐치프레이즈 표시 | ✅ | `hidden sm:block` 제거 |
+| 메인 배너 레이아웃 개선 | ✅ | 영화정보 좌하단, MBTI유도 우상단 |
+| MBTI 유도 메시지 | ✅ | 랜덤 메시지, 로그인/MBTI 설정 유도 |
+| 내 리스트 버튼 기능 | ✅ | 로그인 체크, toggleFavorite 연동 |
+| 영화 목록 다양성 | ✅ | 50개로 증가, 랜덤 셔플 |
+| 텍스트 정렬 개선 | ✅ | 섹션 타이틀 한줄, 카드 중앙정렬 |
+| 무한스크롤 버그 수정 | ✅ | callback ref 패턴, enabled 옵션 |
+| 헤더 메뉴명 변경 | ✅ | "영화" → "영화 검색" |
+| 콘솔 에러 수정 | ✅ | manifest.json, meta tag, icons |
+
 ---
 
 ## 프로젝트 구조
@@ -148,7 +166,8 @@ C:\dev\recflix\
 │   │   ├── models/
 │   │   ├── schemas/
 │   │   ├── services/
-│   │   │   └── weather.py
+│   │   │   ├── weather.py
+│   │   │   └── llm.py
 │   │   ├── database.py
 │   │   └── main.py
 │   ├── .env
@@ -258,9 +277,11 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 - [x] 반응형 모바일 최적화
 - [x] 배포 설정 (Vercel + Railway)
 - [x] **프로덕션 배포 완료** (2026-02-03)
+- [x] **LLM 캐치프레이즈** (Claude API 연동) (2026-02-04)
+- [x] **메인 배너 UX 개선** (2026-02-04)
+- [x] **무한스크롤 버그 수정** (2026-02-04)
 
 ### 향후 개선사항
-- [ ] LLM 캐치프레이즈 (GPT 연동)
 - [ ] 소셜 로그인 (Google, Kakao)
 - [ ] PWA 지원
 - [ ] 커스텀 도메인 설정
@@ -281,3 +302,5 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 8. **CORS_ORIGINS 파싱**: `List[str]`을 `field_validator`로 comma-separated 문자열 파싱
 9. **DB 테이블 자동 생성**: FastAPI `lifespan` 이벤트에서 `Base.metadata.create_all()` 호출
 10. **Windows nul 파일 충돌**: 예약된 파일명 삭제 후 Railway 배포 진행
+11. **Redis 프로덕션 연결**: `REDIS_URL` 환경변수 사용 → `aioredis.from_url()` (2026-02-04)
+12. **무한스크롤 중단**: callback ref 패턴 + refs로 stale closure 방지 (2026-02-04)
