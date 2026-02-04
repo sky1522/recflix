@@ -130,6 +130,7 @@ function MoviesPageContent() {
     onLoadMore: loadMore,
     hasMore,
     isLoading: loadingMore,
+    enabled: useInfiniteMode,
   });
 
   const handleMovieSelect = (movieId: number) => {
@@ -290,8 +291,8 @@ function MoviesPageContent() {
                     </div>
                   )}
 
-                  {/* Intersection observer target */}
-                  {hasMore && <div ref={loadMoreRef} className="h-10" />}
+                  {/* Intersection observer target - always mounted for proper observation */}
+                  <div ref={loadMoreRef} className="h-10" />
 
                   {/* End of results */}
                   {!hasMore && movies.length > 0 && (

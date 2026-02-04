@@ -78,7 +78,7 @@ export default function Header() {
 
   const navItems = [
     { href: "/", label: "홈", icon: Home },
-    { href: "/movies", label: "영화", icon: Film },
+    { href: "/movies", label: "영화 검색", icon: Film },
   ];
 
   const authNavItems = [
