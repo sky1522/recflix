@@ -7,10 +7,8 @@ export const metadata: Metadata = {
   title: "RecFlix - Personalized Movie Recommendations",
   description: "Context-aware personalized movie recommendation platform",
   manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "RecFlix",
+  other: {
+    "mobile-web-app-capable": "yes",
   },
 };
 
