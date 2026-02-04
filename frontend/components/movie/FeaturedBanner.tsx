@@ -48,7 +48,7 @@ export default function FeaturedBanner({ movie }: FeaturedBannerProps) {
 
   return (
     <>
-      <div className="relative h-[70vh] md:h-[80vh] w-full">
+      <div className="relative h-[75vh] md:h-[85vh] w-full">
         {/* Background Image */}
         <div className="absolute inset-0">
           <Image
@@ -64,8 +64,8 @@ export default function FeaturedBanner({ movie }: FeaturedBannerProps) {
         </div>
 
         {/* Content */}
-        <div className="absolute bottom-0 left-0 right-0 p-8 md:p-12 lg:p-16">
-          <div className="max-w-2xl flex flex-col gap-4">
+        <div className="absolute bottom-12 md:bottom-16 lg:bottom-20 left-0 right-0 px-8 md:px-12 lg:px-16">
+          <div className="max-w-2xl flex flex-col gap-3 md:gap-4">
             {/* MBTI/Login Prompt - 영화 제목 위에 배치 */}
             <AnimatePresence>
               {showPrompt && randomMessage && (
