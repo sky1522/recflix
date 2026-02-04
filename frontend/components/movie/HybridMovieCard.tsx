@@ -114,17 +114,17 @@ export default function HybridMovieCard({ movie, index = 0, showQuickView = true
             )}
           </div>
 
-          {/* Info */}
-          <div className="mt-2 space-y-1">
+          {/* Info - 중앙 정렬 */}
+          <div className="mt-2 space-y-1 text-center">
             <h3 className="text-white font-medium text-sm truncate group-hover:text-primary-400 transition">
               {displayTitle}
             </h3>
 
-            <div className="flex items-center space-x-2 text-xs text-white/50">
+            <div className="flex items-center justify-center gap-1.5 text-xs text-white/50">
               {year && <span>{year}</span>}
               {movie.genres.length > 0 && (
                 <>
-                  <span>|</span>
+                  <span>·</span>
                   <span className="truncate">{typeof movie.genres[0] === 'string' ? movie.genres[0] : (movie.genres[0] as any)?.name_ko || (movie.genres[0] as any)?.name}</span>
                 </>
               )}
@@ -132,7 +132,7 @@ export default function HybridMovieCard({ movie, index = 0, showQuickView = true
 
             {/* Recommendation Tags */}
             {displayTags.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-1.5">
+              <div className="flex flex-wrap justify-center gap-1 mt-1.5">
                 {displayTags.map((tag, i) => (
                   <RecommendationTagBadge key={`${tag.type}-${i}`} tag={tag} />
                 ))}

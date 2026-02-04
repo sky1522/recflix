@@ -76,12 +76,12 @@ export default function MovieCard({ movie, index = 0, showQuickView = true }: Mo
             </div>
           </div>
 
-          {/* Info */}
-          <div className="mt-2 px-1">
+          {/* Info - 중앙 정렬 */}
+          <div className="mt-2 px-1 text-center">
             <h3 className="text-sm font-medium text-white truncate group-hover:text-primary-400 transition">
               {movie.title_ko || movie.title}
             </h3>
-            <div className="flex items-center space-x-2 text-xs text-white/50 mt-1">
+            <div className="flex items-center justify-center gap-1.5 text-xs text-white/50 mt-1">
               <span>{formatDate(movie.release_date)}</span>
               {movie.genres.length > 0 && (
                 <>

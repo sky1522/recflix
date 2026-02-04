@@ -46,15 +46,17 @@ export default function HybridMovieRow({
       transition={{ duration: 0.5 }}
       className="relative group"
     >
-      {/* Header with gradient background */}
+      {/* Header with gradient background - 한 줄 배치 */}
       <div className="mb-4 p-4 rounded-lg bg-gradient-to-r from-primary-600/20 to-purple-600/20 border border-primary-500/30">
-        <div className="flex items-center space-x-2 mb-1">
-          <Sparkles className="w-5 h-5 text-primary-400" />
-          <h2 className="text-xl md:text-2xl font-bold text-white">{title}</h2>
+        <div className="flex items-baseline gap-3">
+          <div className="flex items-center space-x-2">
+            <Sparkles className="w-5 h-5 text-primary-400" />
+            <h2 className="text-xl md:text-2xl font-bold text-white">{title}</h2>
+          </div>
+          {description && (
+            <p className="text-sm text-gray-400">{description}</p>
+          )}
         </div>
-        {description && (
-          <p className="text-sm text-white/60">{description}</p>
-        )}
       </div>
 
       {/* Scroll Container */}

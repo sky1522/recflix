@@ -40,11 +40,11 @@ export default function MovieRow({ title, description, movies }: MovieRowProps) 
 
   return (
     <section className="relative group/row">
-      {/* Header */}
-      <div className="mb-3">
+      {/* Header - 한 줄 배치 */}
+      <div className="mb-3 flex items-baseline gap-3">
         <h2 className="text-xl md:text-2xl font-bold text-white">{title}</h2>
         {description && (
-          <p className="text-sm text-white/60 mt-1">{description}</p>
+          <p className="text-sm text-gray-400">{description}</p>
         )}
       </div>
 
