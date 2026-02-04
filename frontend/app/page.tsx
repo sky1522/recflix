@@ -142,50 +142,6 @@ export default function HomePage() {
           />
         )}
 
-        {/* Login prompt if not authenticated */}
-        {!isAuthenticated && !loading && (
-          <div className="p-6 rounded-lg bg-gradient-to-r from-primary-600/20 to-purple-600/20 border border-primary-500/30">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-bold text-white mb-1">
-                  더 정확한 추천을 받아보세요
-                </h3>
-                <p className="text-white/60 text-sm">
-                  로그인하고 MBTI를 설정하면 당신의 성향과 오늘 날씨를 모두 고려한 맞춤 추천을 받을 수 있어요.
-                </p>
-              </div>
-              <a
-                href="/login"
-                className="px-6 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition whitespace-nowrap"
-              >
-                로그인하기
-              </a>
-            </div>
-          </div>
-        )}
-
-        {/* MBTI prompt if authenticated but no MBTI */}
-        {isAuthenticated && !user?.mbti && !loading && (
-          <div className="p-6 rounded-lg bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-bold text-white mb-1">
-                  MBTI를 설정해보세요
-                </h3>
-                <p className="text-white/60 text-sm">
-                  MBTI를 설정하면 당신의 성격 유형에 맞는 영화를 추천받을 수 있어요.
-                </p>
-              </div>
-              <a
-                href="/profile"
-                className="px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition whitespace-nowrap"
-              >
-                MBTI 설정
-              </a>
-            </div>
-          </div>
-        )}
-
         {/* Loading Skeletons */}
         {loading && !recommendations && (
           <>
