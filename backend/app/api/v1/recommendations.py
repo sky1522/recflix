@@ -2,6 +2,7 @@
 Recommendation API endpoints
 Hybrid recommendation engine combining MBTI, Weather, and Personal preferences
 """
+import random
 from typing import Optional, List, Dict, Tuple
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -43,18 +44,23 @@ def get_movies_by_score(
     db: Session,
     score_type: str,
     score_key: str,
-    limit: int = 20,
-    min_votes: int = 10
+    limit: int = 10,
+    pool_size: int = 40,
+    min_votes: int = 10,
+    shuffle: bool = True
 ) -> List[Movie]:
-    """Get movies sorted by a specific score"""
+    """
+    Get movies sorted by a specific score with optional shuffling.
+    Fetches top `pool_size` movies, then randomly selects `limit` from them.
+    """
     result = db.execute(text(f"""
         SELECT id FROM movies
         WHERE vote_count >= :min_votes
         AND {score_type} IS NOT NULL
         AND {score_type}->>:score_key IS NOT NULL
         ORDER BY ({score_type}->>:score_key)::float DESC
-        LIMIT :limit
-    """), {"score_key": score_key, "limit": limit, "min_votes": min_votes}).fetchall()
+        LIMIT :pool_size
+    """), {"score_key": score_key, "pool_size": pool_size, "min_votes": min_votes}).fetchall()
 
     movie_ids = [row[0] for row in result]
     if not movie_ids:
@@ -63,7 +69,16 @@ def get_movies_by_score(
     movies = db.query(Movie).filter(Movie.id.in_(movie_ids)).all()
     # Preserve order
     movie_dict = {m.id: m for m in movies}
-    return [movie_dict[mid] for mid in movie_ids if mid in movie_dict]
+    ordered_movies = [movie_dict[mid] for mid in movie_ids if mid in movie_dict]
+
+    # Shuffle and limit
+    if shuffle and len(ordered_movies) > limit:
+        selected = random.sample(ordered_movies, limit)
+        # Optionally shuffle the order too
+        random.shuffle(selected)
+        return selected
+
+    return ordered_movies[:limit]
 
 
 def get_user_preferences(
@@ -267,8 +282,13 @@ def get_home_recommendations(
             genre_counts, favorited_ids, similar_ids
         )
 
-        # Take top 20
-        top_recommendations = scored[:20]
+        # Shuffle from top 40, pick 10
+        top_pool = scored[:40]
+        if len(top_pool) > 10:
+            top_recommendations = random.sample(top_pool, 10)
+            random.shuffle(top_recommendations)
+        else:
+            top_recommendations = top_pool
 
         if top_recommendations:
             hybrid_movies = [
@@ -294,10 +314,12 @@ def get_home_recommendations(
 
     # === REGULAR RECOMMENDATION ROWS ===
 
-    # 1. Popular movies
-    popular = db.query(Movie).filter(
+    # 1. Popular movies (shuffle from top 40)
+    popular_pool = db.query(Movie).filter(
         Movie.vote_count >= 50
-    ).order_by(Movie.popularity.desc()).limit(20).all()
+    ).order_by(Movie.popularity.desc()).limit(40).all()
+    popular = random.sample(popular_pool, min(10, len(popular_pool))) if popular_pool else []
+    random.shuffle(popular)
     rows.append(RecommendationRow(
         title="🔥 인기 영화",
         description="지금 가장 핫한 영화들",
@@ -306,7 +328,7 @@ def get_home_recommendations(
 
     # 2. Weather-based recommendations
     if weather:
-        weather_movies = get_movies_by_score(db, "weather_scores", weather, limit=20)
+        weather_movies = get_movies_by_score(db, "weather_scores", weather, limit=10, pool_size=40)
         if weather_movies:
             rows.append(RecommendationRow(
                 title=WEATHER_TITLES.get(weather, f"{weather} 날씨 추천"),
@@ -316,7 +338,7 @@ def get_home_recommendations(
 
     # 3. MBTI-based recommendations
     if mbti:
-        mbti_movies = get_movies_by_score(db, "mbti_scores", mbti, limit=20)
+        mbti_movies = get_movies_by_score(db, "mbti_scores", mbti, limit=10, pool_size=40)
         if mbti_movies:
             rows.append(RecommendationRow(
                 title=f"💜 {mbti} 성향 추천",
@@ -324,10 +346,12 @@ def get_home_recommendations(
                 movies=[MovieListItem.from_orm_with_genres(m) for m in mbti_movies]
             ))
 
-    # 4. Top rated
-    top_rated = db.query(Movie).filter(
+    # 4. Top rated (shuffle from top 40)
+    top_rated_pool = db.query(Movie).filter(
         Movie.vote_count >= 100
-    ).order_by(Movie.vote_average.desc()).limit(20).all()
+    ).order_by(Movie.vote_average.desc()).limit(40).all()
+    top_rated = random.sample(top_rated_pool, min(10, len(top_rated_pool))) if top_rated_pool else []
+    random.shuffle(top_rated)
     rows.append(RecommendationRow(
         title="⭐ 높은 평점 영화",
         description="평점이 높은 명작들",
@@ -335,7 +359,7 @@ def get_home_recommendations(
     ))
 
     # 5. Healing movies
-    healing_movies = get_movies_by_score(db, "emotion_tags", "healing", limit=20)
+    healing_movies = get_movies_by_score(db, "emotion_tags", "healing", limit=10, pool_size=40)
     if healing_movies:
         rows.append(RecommendationRow(
             title="😊 힐링이 필요할 때",
@@ -344,7 +368,7 @@ def get_home_recommendations(
         ))
 
     # 6. Tension movies
-    tension_movies = get_movies_by_score(db, "emotion_tags", "tension", limit=20)
+    tension_movies = get_movies_by_score(db, "emotion_tags", "tension", limit=10, pool_size=40)
     if tension_movies:
         rows.append(RecommendationRow(
             title="😰 긴장감 넘치는",
@@ -352,8 +376,8 @@ def get_home_recommendations(
             movies=[MovieListItem.from_orm_with_genres(m) for m in tension_movies]
         ))
 
-    # Featured movie (most popular)
-    featured = popular[0] if popular else None
+    # Featured movie (random from top 10 popular)
+    featured = random.choice(popular_pool[:10]) if popular_pool else None
 
     return HomeRecommendations(
         featured=MovieListItem.from_orm_with_genres(featured) if featured else None,
