@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Cloud } from "lucide-react";
+import { Sparkles, Cloud, Plus, Check } from "lucide-react";
 import { getImageUrl } from "@/lib/utils";
 import { useAuthStore } from "@/stores/authStore";
+import { useInteractionStore } from "@/stores/interactionStore";
 import type { Movie } from "@/types";
 import MovieModal from "./MovieModal";
 
@@ -30,8 +32,21 @@ interface FeaturedBannerProps {
 }
 
 export default function FeaturedBanner({ movie }: FeaturedBannerProps) {
+  const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAddingToList, setIsAddingToList] = useState(false);
   const { isAuthenticated, user } = useAuthStore();
+  const { interactions, fetchInteraction, toggleFavorite } = useInteractionStore();
+
+  const interaction = interactions[movie.id];
+  const isFavorited = interaction?.is_favorited ?? false;
+
+  // Fetch interaction when authenticated
+  useEffect(() => {
+    if (isAuthenticated && movie.id) {
+      fetchInteraction(movie.id);
+    }
+  }, [isAuthenticated, movie.id, fetchInteraction]);
 
   // 랜덤 메시지 선택 (컴포넌트 마운트 시 한 번만)
   const randomMessage = useMemo(() => {
@@ -45,6 +60,22 @@ export default function FeaturedBanner({ movie }: FeaturedBannerProps) {
   }, [isAuthenticated, user?.mbti]);
 
   const showPrompt = !isAuthenticated || (isAuthenticated && !user?.mbti);
+
+  const handleAddToList = async () => {
+    if (!isAuthenticated) {
+      router.push("/login");
+      return;
+    }
+
+    setIsAddingToList(true);
+    try {
+      await toggleFavorite(movie.id);
+    } catch (error) {
+      console.error("Failed to toggle favorite:", error);
+    } finally {
+      setIsAddingToList(false);
+    }
+  };
 
   return (
     <>
@@ -151,11 +182,23 @@ export default function FeaturedBanner({ movie }: FeaturedBannerProps) {
                 </svg>
                 <span>상세보기</span>
               </button>
-              <button className="flex items-center space-x-2 bg-white/20 text-white px-4 md:px-6 py-2.5 md:py-3 rounded-md font-medium hover:bg-white/30 transition backdrop-blur-sm text-sm md:text-base">
-                <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                <span>내 리스트</span>
+              <button
+                onClick={handleAddToList}
+                disabled={isAddingToList}
+                className={`flex items-center space-x-2 px-4 md:px-6 py-2.5 md:py-3 rounded-md font-medium transition text-sm md:text-base ${
+                  isFavorited
+                    ? "bg-primary-600 text-white hover:bg-primary-700"
+                    : "bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm"
+                } ${isAddingToList ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                {isAddingToList ? (
+                  <div className="w-4 h-4 md:w-5 md:h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                ) : isFavorited ? (
+                  <Check className="w-4 h-4 md:w-5 md:h-5" />
+                ) : (
+                  <Plus className="w-4 h-4 md:w-5 md:h-5" />
+                )}
+                <span>{isFavorited ? "내 리스트에 추가됨" : "내 리스트"}</span>
               </button>
             </div>
           </motion.div>
