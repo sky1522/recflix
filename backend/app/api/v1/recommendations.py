@@ -312,13 +312,13 @@ def get_home_recommendations(
                 movies=hybrid_movies
             )
 
-    # === REGULAR RECOMMENDATION ROWS ===
+    # === REGULAR RECOMMENDATION ROWS (50개씩) ===
 
-    # 1. Popular movies (shuffle from top 40)
+    # 1. Popular movies (shuffle from top 100)
     popular_pool = db.query(Movie).filter(
         Movie.vote_count >= 50
-    ).order_by(Movie.popularity.desc()).limit(40).all()
-    popular = random.sample(popular_pool, min(10, len(popular_pool))) if popular_pool else []
+    ).order_by(Movie.popularity.desc()).limit(100).all()
+    popular = random.sample(popular_pool, min(50, len(popular_pool))) if popular_pool else []
     random.shuffle(popular)
     rows.append(RecommendationRow(
         title="🔥 인기 영화",
@@ -328,7 +328,7 @@ def get_home_recommendations(
 
     # 2. Weather-based recommendations
     if weather:
-        weather_movies = get_movies_by_score(db, "weather_scores", weather, limit=10, pool_size=40)
+        weather_movies = get_movies_by_score(db, "weather_scores", weather, limit=50, pool_size=100)
         if weather_movies:
             rows.append(RecommendationRow(
                 title=WEATHER_TITLES.get(weather, f"{weather} 날씨 추천"),
@@ -338,7 +338,7 @@ def get_home_recommendations(
 
     # 3. MBTI-based recommendations
     if mbti:
-        mbti_movies = get_movies_by_score(db, "mbti_scores", mbti, limit=10, pool_size=40)
+        mbti_movies = get_movies_by_score(db, "mbti_scores", mbti, limit=50, pool_size=100)
         if mbti_movies:
             rows.append(RecommendationRow(
                 title=f"💜 {mbti} 성향 추천",
@@ -346,11 +346,11 @@ def get_home_recommendations(
                 movies=[MovieListItem.from_orm_with_genres(m) for m in mbti_movies]
             ))
 
-    # 4. Top rated (shuffle from top 40)
+    # 4. Top rated (shuffle from top 100)
     top_rated_pool = db.query(Movie).filter(
         Movie.vote_count >= 100
-    ).order_by(Movie.vote_average.desc()).limit(40).all()
-    top_rated = random.sample(top_rated_pool, min(10, len(top_rated_pool))) if top_rated_pool else []
+    ).order_by(Movie.vote_average.desc()).limit(100).all()
+    top_rated = random.sample(top_rated_pool, min(50, len(top_rated_pool))) if top_rated_pool else []
     random.shuffle(top_rated)
     rows.append(RecommendationRow(
         title="⭐ 높은 평점 영화",
@@ -359,7 +359,7 @@ def get_home_recommendations(
     ))
 
     # 5. Healing movies
-    healing_movies = get_movies_by_score(db, "emotion_tags", "healing", limit=10, pool_size=40)
+    healing_movies = get_movies_by_score(db, "emotion_tags", "healing", limit=50, pool_size=100)
     if healing_movies:
         rows.append(RecommendationRow(
             title="😊 힐링이 필요할 때",
@@ -368,7 +368,7 @@ def get_home_recommendations(
         ))
 
     # 6. Tension movies
-    tension_movies = get_movies_by_score(db, "emotion_tags", "tension", limit=10, pool_size=40)
+    tension_movies = get_movies_by_score(db, "emotion_tags", "tension", limit=50, pool_size=100)
     if tension_movies:
         rows.append(RecommendationRow(
             title="😰 긴장감 넘치는",

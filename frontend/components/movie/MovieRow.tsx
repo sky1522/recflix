@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useCallback } from "react";
 import MovieCard from "./MovieCard";
 import type { Movie } from "@/types";
 
@@ -14,6 +14,12 @@ export default function MovieRow({ title, description, movies }: MovieRowProps) 
   const rowRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
+
+  // Drag scroll state
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const [hasDragged, setHasDragged] = useState(false);
 
   const scroll = (direction: "left" | "right") => {
     if (!rowRef.current) return;
@@ -35,6 +41,52 @@ export default function MovieRow({ title, description, movies }: MovieRowProps) 
     setShowLeftArrow(scrollLeft > 0);
     setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 10);
   };
+
+  // Drag handlers
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!rowRef.current) return;
+    setIsDragging(true);
+    setHasDragged(false);
+    setStartX(e.pageX - rowRef.current.offsetLeft);
+    setScrollLeft(rowRef.current.scrollLeft);
+    rowRef.current.style.cursor = "grabbing";
+  }, []);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isDragging || !rowRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - rowRef.current.offsetLeft;
+    const walk = (x - startX) * 1.5; // Scroll speed multiplier
+    rowRef.current.scrollLeft = scrollLeft - walk;
+    if (Math.abs(walk) > 5) {
+      setHasDragged(true);
+    }
+  }, [isDragging, startX, scrollLeft]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+    if (rowRef.current) {
+      rowRef.current.style.cursor = "grab";
+    }
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    if (isDragging) {
+      setIsDragging(false);
+      if (rowRef.current) {
+        rowRef.current.style.cursor = "grab";
+      }
+    }
+  }, [isDragging]);
+
+  // Prevent click during drag
+  const handleClickCapture = useCallback((e: React.MouseEvent) => {
+    if (hasDragged) {
+      e.preventDefault();
+      e.stopPropagation();
+      setHasDragged(false);
+    }
+  }, [hasDragged]);
 
   if (!movies || movies.length === 0) return null;
 
@@ -74,11 +126,17 @@ export default function MovieRow({ title, description, movies }: MovieRowProps) 
           </button>
         )}
 
-        {/* Scrollable Container */}
+        {/* Scrollable Container with Drag */}
         <div
           ref={rowRef}
           onScroll={handleScroll}
-          className="flex space-x-3 overflow-x-auto hide-scrollbar pb-4"
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseLeave}
+          onClickCapture={handleClickCapture}
+          className="flex space-x-3 overflow-x-auto hide-scrollbar pb-4 cursor-grab select-none"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           {movies.map((movie, index) => (
             <MovieCard key={movie.id} movie={movie} index={index} />
