@@ -229,12 +229,12 @@ export default function MovieDetailPage() {
                 <p className="text-white/60 text-sm md:text-lg mb-2 md:mb-4 truncate">{movie.title}</p>
               )}
 
-              {/* Catchphrase - hidden on mobile */}
-              <div className="hidden sm:block mb-4">
+              {/* Catchphrase */}
+              <div className="mb-3 sm:mb-4">
                 {catchphraseLoading ? (
-                  <div className="h-7 w-64 bg-white/10 animate-pulse rounded" />
+                  <div className="h-6 sm:h-7 w-48 sm:w-64 bg-white/10 animate-pulse rounded" />
                 ) : (catchphrase || movie.tagline) && (
-                  <p className="text-white/80 italic text-base md:text-lg line-clamp-2">
+                  <p className="text-white/80 italic text-sm sm:text-base md:text-lg line-clamp-2">
                     &quot;{catchphrase || movie.tagline}&quot;
                   </p>
                 )}
