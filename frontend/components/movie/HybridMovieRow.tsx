@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import HybridMovieCard from "./HybridMovieCard";
@@ -21,12 +21,6 @@ export default function HybridMovieRow({
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
 
-  // Drag scroll state
-  const [isDragging, setIsDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
-  const [hasDragged, setHasDragged] = useState(false);
-
   const handleScroll = () => {
     if (!scrollRef.current) return;
     const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
@@ -42,51 +36,6 @@ export default function HybridMovieRow({
       behavior: "smooth",
     });
   };
-
-  // Drag handlers
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (!scrollRef.current) return;
-    setIsDragging(true);
-    setHasDragged(false);
-    setStartX(e.pageX - scrollRef.current.offsetLeft);
-    setScrollLeft(scrollRef.current.scrollLeft);
-    scrollRef.current.style.cursor = "grabbing";
-  }, []);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isDragging || !scrollRef.current) return;
-    e.preventDefault();
-    const x = e.pageX - scrollRef.current.offsetLeft;
-    const walk = (x - startX) * 1.5;
-    scrollRef.current.scrollLeft = scrollLeft - walk;
-    if (Math.abs(walk) > 5) {
-      setHasDragged(true);
-    }
-  }, [isDragging, startX, scrollLeft]);
-
-  const handleMouseUp = useCallback(() => {
-    setIsDragging(false);
-    if (scrollRef.current) {
-      scrollRef.current.style.cursor = "grab";
-    }
-  }, []);
-
-  const handleMouseLeave = useCallback(() => {
-    if (isDragging) {
-      setIsDragging(false);
-      if (scrollRef.current) {
-        scrollRef.current.style.cursor = "grab";
-      }
-    }
-  }, [isDragging]);
-
-  const handleClickCapture = useCallback((e: React.MouseEvent) => {
-    if (hasDragged) {
-      e.preventDefault();
-      e.stopPropagation();
-      setHasDragged(false);
-    }
-  }, [hasDragged]);
 
   if (movies.length === 0) return null;
 
@@ -132,17 +81,11 @@ export default function HybridMovieRow({
           </button>
         )}
 
-        {/* Movie Cards with Drag */}
+        {/* Movie Cards */}
         <div
           ref={scrollRef}
           onScroll={handleScroll}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseLeave}
-          onClickCapture={handleClickCapture}
-          className="flex space-x-3 overflow-x-auto hide-scrollbar pb-4 cursor-grab select-none"
-          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+          className="flex space-x-3 overflow-x-auto hide-scrollbar pb-4"
         >
           {movies.map((movie, index) => (
             <HybridMovieCard key={movie.id} movie={movie} index={index} />
