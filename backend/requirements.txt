@@ -28,6 +28,9 @@ passlib[bcrypt]==1.7.4
 # HTTP Client
 httpx==0.26.0
 
+# LLM
+anthropic==0.42.0
+
 # Data Processing
 pandas==2.1.4
 numpy==1.26.3
