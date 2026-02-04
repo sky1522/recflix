@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -48,7 +48,7 @@ export default function FeaturedBanner({ movie }: FeaturedBannerProps) {
 
   return (
     <>
-      <div className="relative h-[75vh] md:h-[85vh] w-full">
+      <div className="relative h-[55vh] md:h-[60vh] lg:h-[65vh] w-full mb-16 md:mb-20">
         {/* Background Image */}
         <div className="absolute inset-0">
           <Image
@@ -59,63 +59,30 @@ export default function FeaturedBanner({ movie }: FeaturedBannerProps) {
             priority
           />
           {/* Gradient Overlays */}
-          <div className="absolute inset-0 bg-gradient-to-r from-dark-200 via-dark-200/60 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-t from-dark-200 via-transparent to-dark-200/30" />
+          <div className="absolute inset-0 bg-gradient-to-r from-dark-200 via-dark-200/70 to-dark-200/30" />
+          <div className="absolute inset-0 bg-gradient-to-t from-dark-200 via-transparent to-dark-200/50" />
+          <div className="absolute inset-0 bg-gradient-to-b from-dark-200/60 via-transparent to-dark-200" />
         </div>
 
-        {/* Content */}
-        <div className="absolute bottom-12 md:bottom-16 lg:bottom-20 left-0 right-0 px-8 md:px-12 lg:px-16">
-          <div className="max-w-2xl flex flex-col gap-3 md:gap-4">
-            {/* MBTI/Login Prompt - 영화 제목 위에 배치 */}
-            <AnimatePresence>
-              {showPrompt && randomMessage && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.5, ease: "easeOut" }}
-                >
-                  <Link
-                    href={isAuthenticated ? "/profile" : "/login"}
-                    className="inline-flex items-center gap-3 px-4 py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full border border-white/20 transition-all duration-300 group"
-                  >
-                    <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full">
-                      {isAuthenticated ? (
-                        <Sparkles className="w-4 h-4 text-white" />
-                      ) : (
-                        <Cloud className="w-4 h-4 text-white" />
-                      )}
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium text-white group-hover:text-white/90">
-                        {randomMessage.title}
-                      </span>
-                      <span className="text-xs text-white/60 group-hover:text-white/70">
-                        {randomMessage.desc}
-                      </span>
-                    </div>
-                    <svg
-                      className="w-4 h-4 text-white/50 group-hover:text-white/80 group-hover:translate-x-1 transition-all"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </Link>
-                </motion.div>
-              )}
-            </AnimatePresence>
+        {/* Content Container - 모바일: 세로 스택, 데스크탑: 좌우 분리 */}
+        <div className="absolute inset-0 flex flex-col md:flex-row md:justify-between p-6 md:p-10 lg:p-12">
 
+          {/* 좌측: 영화 정보 (모바일에서는 아래쪽에 배치) */}
+          <motion.div
+            className="order-2 md:order-1 mt-auto md:mt-0 max-w-xl flex flex-col gap-3"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+          >
             {/* Movie Title */}
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white">
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-tight">
               {movie.title_ko || movie.title}
             </h1>
 
             {/* Meta Info */}
-            <div className="flex items-center space-x-4 text-white/80">
+            <div className="flex flex-wrap items-center gap-2 md:gap-4 text-sm md:text-base text-white/80">
               <div className="flex items-center space-x-1">
-                <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-4 h-4 md:w-5 md:h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                 </svg>
                 <span className="font-medium">{movie.vote_average.toFixed(1)}</span>
@@ -124,29 +91,73 @@ export default function FeaturedBanner({ movie }: FeaturedBannerProps) {
                 <span>{new Date(movie.release_date).getFullYear()}</span>
               )}
               {movie.genres.length > 0 && (
-                <span>{movie.genres.slice(0, 3).map(g => typeof g === 'string' ? g : (g as any)?.name_ko || (g as any)?.name).join(" • ")}</span>
+                <span className="hidden sm:inline">
+                  {movie.genres.slice(0, 3).map(g => typeof g === 'string' ? g : (g as any)?.name_ko || (g as any)?.name).join(" • ")}
+                </span>
               )}
             </div>
 
             {/* Buttons */}
-            <div className="flex space-x-4 mt-2">
+            <div className="flex space-x-3 mt-1">
               <button
                 onClick={() => setIsModalOpen(true)}
-                className="flex items-center space-x-2 bg-white text-black px-6 py-3 rounded-md font-medium hover:bg-white/90 transition"
+                className="flex items-center space-x-2 bg-white text-black px-4 md:px-6 py-2.5 md:py-3 rounded-md font-medium hover:bg-white/90 transition text-sm md:text-base"
               >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-4 h-4 md:w-5 md:h-5" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
                 </svg>
                 <span>상세보기</span>
               </button>
-              <button className="flex items-center space-x-2 bg-white/20 text-white px-6 py-3 rounded-md font-medium hover:bg-white/30 transition backdrop-blur-sm">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <button className="flex items-center space-x-2 bg-white/20 text-white px-4 md:px-6 py-2.5 md:py-3 rounded-md font-medium hover:bg-white/30 transition backdrop-blur-sm text-sm md:text-base">
+                <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
                 <span>내 리스트</span>
               </button>
             </div>
-          </div>
+          </motion.div>
+
+          {/* 우측 상단: MBTI/Login Prompt (모바일에서는 위쪽에 배치) */}
+          <AnimatePresence>
+            {showPrompt && randomMessage && (
+              <motion.div
+                className="order-1 md:order-2 self-start md:self-start"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+              >
+                <Link
+                  href={isAuthenticated ? "/profile" : "/login"}
+                  className="inline-flex items-center gap-3 px-4 py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full border border-white/20 transition-all duration-300 group"
+                >
+                  <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex-shrink-0">
+                    {isAuthenticated ? (
+                      <Sparkles className="w-4 h-4 text-white" />
+                    ) : (
+                      <Cloud className="w-4 h-4 text-white" />
+                    )}
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-white group-hover:text-white/90 whitespace-nowrap">
+                      {randomMessage.title}
+                    </span>
+                    <span className="text-xs text-white/60 group-hover:text-white/70">
+                      {randomMessage.desc}
+                    </span>
+                  </div>
+                  <svg
+                    className="w-4 h-4 text-white/50 group-hover:text-white/80 group-hover:translate-x-1 transition-all flex-shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 

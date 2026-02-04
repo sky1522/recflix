@@ -119,7 +119,7 @@ export default function HomePage() {
           <FeaturedBannerSkeleton />
         </div>
       ) : recommendations?.featured ? (
-        <div className="mt-6 mb-8">
+        <div className="mt-4 md:mt-6">
           <FeaturedBanner movie={recommendations.featured} />
         </div>
       ) : null}
@@ -132,7 +132,7 @@ export default function HomePage() {
       )}
 
       {/* Main Content */}
-      <div className="space-y-8 px-4 md:px-8 lg:px-12 -mt-24 md:-mt-28 relative z-10">
+      <div className="space-y-8 px-4 md:px-8 lg:px-12">
         {/* === HYBRID RECOMMENDATION (Personalized - Top Priority) === */}
         {recommendations?.hybrid_row && (
           <HybridMovieRow
