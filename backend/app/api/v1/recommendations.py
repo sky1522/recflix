@@ -399,13 +399,9 @@ def get_home_recommendations(
             genre_counts, favorited_ids, similar_ids, mood
         )
 
-        # Shuffle from top 40, pick 10
-        top_pool = scored[:40]
-        if len(top_pool) > 10:
-            top_recommendations = random.sample(top_pool, 10)
-            random.shuffle(top_recommendations)
-        else:
-            top_recommendations = top_pool
+        # Return top 40 for client-side shuffle (display 20)
+        top_pool = scored[:60]
+        top_recommendations = top_pool[:40]  # Send 40, frontend displays 20
 
         if top_recommendations:
             hybrid_movies = [

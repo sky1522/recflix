@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useMemo, useCallback } from "react";
+import { RefreshCw } from "lucide-react";
 import MovieCard from "./MovieCard";
 import type { Movie } from "@/types";
 
@@ -8,12 +9,44 @@ interface MovieRowProps {
   title: string;
   description?: string | null;
   movies: Movie[];
+  displayCount?: number;
 }
 
-export default function MovieRow({ title, description, movies }: MovieRowProps) {
+// Fisher-Yates shuffle
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+export default function MovieRow({ title, description, movies, displayCount = 20 }: MovieRowProps) {
   const rowRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
+  const [shuffleKey, setShuffleKey] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Memoize displayed movies based on shuffleKey
+  const displayedMovies = useMemo(() => {
+    const shuffled = shuffleArray(movies);
+    return shuffled.slice(0, displayCount);
+  }, [movies, displayCount, shuffleKey]);
+
+  const handleRefresh = useCallback(() => {
+    setIsRefreshing(true);
+    // Scroll back to start
+    if (rowRef.current) {
+      rowRef.current.scrollTo({ left: 0, behavior: "smooth" });
+    }
+    // Trigger reshuffle
+    setTimeout(() => {
+      setShuffleKey((prev) => prev + 1);
+      setIsRefreshing(false);
+    }, 300);
+  }, []);
 
   const scroll = (direction: "left" | "right") => {
     if (!rowRef.current) return;
@@ -41,10 +74,25 @@ export default function MovieRow({ title, description, movies }: MovieRowProps) 
   return (
     <section className="relative group/row">
       {/* Header - 한 줄 배치 */}
-      <div className="mb-3 flex items-baseline gap-3">
+      <div className="mb-3 flex items-center gap-3">
         <h2 className="text-xl md:text-2xl font-bold text-white">{title}</h2>
         {description && (
           <p className="text-sm text-gray-400">{description}</p>
+        )}
+        {/* Refresh Button */}
+        {movies.length > displayCount && (
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="ml-auto p-1.5 rounded-full hover:bg-white/10 transition-colors group/refresh"
+            title="다른 영화 보기"
+          >
+            <RefreshCw
+              className={`w-4 h-4 text-gray-400 group-hover/refresh:text-white transition-colors ${
+                isRefreshing ? "animate-spin" : ""
+              }`}
+            />
+          </button>
         )}
       </div>
 
@@ -80,7 +128,7 @@ export default function MovieRow({ title, description, movies }: MovieRowProps) 
           onScroll={handleScroll}
           className="flex space-x-3 overflow-x-auto hide-scrollbar pb-4"
         >
-          {movies.map((movie, index) => (
+          {displayedMovies.map((movie, index) => (
             <MovieCard key={movie.id} movie={movie} index={index} />
           ))}
         </div>
