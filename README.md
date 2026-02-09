@@ -120,19 +120,24 @@ Score = (0.35 × MBTI) + (0.25 × Weather) + (0.40 × Personal)
 
 ```env
 # Database
-DATABASE_URL=postgresql://recflix:recflix123@localhost:5432/recflix
+DATABASE_URL=postgresql://recflix:your-db-password-here@localhost:5432/recflix
 
 # Redis
 REDIS_HOST=localhost
 REDIS_PORT=6379
-REDIS_PASSWORD=recflix123
+REDIS_PASSWORD=your-redis-password-here
 
-# JWT
-JWT_SECRET_KEY=your-secret-key
+# JWT (Generate with: openssl rand -hex 32)
+JWT_SECRET_KEY=your-jwt-secret-key-here
 
-# Weather API
-WEATHER_API_KEY=your-openweathermap-key
+# Weather API (https://openweathermap.org/api)
+WEATHER_API_KEY=your-openweathermap-api-key-here
+
+# Anthropic API (for LLM features)
+ANTHROPIC_API_KEY=your-anthropic-api-key-here
 ```
+
+See `.env.example` for full configuration template.
 
 ## License
 
