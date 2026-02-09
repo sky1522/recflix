@@ -19,8 +19,14 @@ All notable changes to RecFlix will be documented in this file.
 - **네거티브 키워드 & 장르 페널티 로직**: 클러스터와 반대되는 키워드/장르 감점
 - **30% LLM 보장 혼합 정렬**: 추천 풀에서 최소 30% LLM 분석 영화 포함
 - **품질 필터**: 모든 추천에 vote_count >= 30, vote_average >= 5.0 적용
+- **🔄 새로고침 버튼**: 모든 영화 섹션 제목 우측에 추가
+  - 클릭 시 풀(50개) 내에서 20개 재셔플 (API 호출 없음)
+  - Fisher-Yates 알고리즘 사용
+  - 회전 애니메이션 피드백
 
 ### Changed
+- **맞춤 추천 영화 수 증가**: 10개 → 20개 (풀 40개에서 셔플)
+- **섹션별 표시 영화 수**: 20개 표시, 50개 풀에서 셔플
 - **emotion_tags 키워드 점수 상한**: 0.7로 제한 (LLM 영화와의 균형)
 - **emotion_tags 7대 클러스터 재정의**: healing, tension, energy, romance, deep, fantasy, light
 - **섹션 순서 로그인 상태별 분리**:
