@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { User, AuthTokens, LoginCredentials, SignupData } from "@/types";
 import * as api from "@/lib/api";
+import { useInteractionStore } from "./interactionStore";
 
 interface AuthState {
   user: User | null;
@@ -52,6 +53,8 @@ export const useAuthStore = create<AuthState>()(
       logout: () => {
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
+        // 상호작용 캐시 초기화
+        useInteractionStore.getState().clearAll();
         set({ user: null, isAuthenticated: false });
       },
 

@@ -1,27 +1,40 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import MovieRow from "@/components/movie/MovieRow";
 import HybridMovieRow from "@/components/movie/HybridMovieRow";
 import FeaturedBanner from "@/components/movie/FeaturedBanner";
-import WeatherBanner from "@/components/weather/WeatherBanner";
 import { MovieRowSkeleton, FeaturedBannerSkeleton } from "@/components/ui/Skeleton";
 import { getHomeRecommendations } from "@/lib/api";
 import { useWeather } from "@/hooks/useWeather";
 import { useAuthStore } from "@/stores/authStore";
-import type { HomeRecommendations, WeatherType } from "@/types";
+import type { HomeRecommendations, WeatherType, Movie, Weather, MoodType } from "@/types";
 
 export default function HomePage() {
   const [recommendations, setRecommendations] = useState<HomeRecommendations | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mood, setMood] = useState<MoodType | null>(null);
 
   const { isAuthenticated, user } = useAuthStore();
+  const prevAuthRef = useRef(isAuthenticated);
+
+  // 로그아웃 감지 시 즉시 추천 데이터 초기화
+  useEffect(() => {
+    if (prevAuthRef.current && !isAuthenticated) {
+      // 로그아웃됨: 이전에 인증됨 -> 현재 미인증
+      setRecommendations(null);
+      setLoading(true);
+    }
+    prevAuthRef.current = isAuthenticated;
+  }, [isAuthenticated]);
 
   const {
     weather,
     loading: weatherLoading,
+    isManual: isManualWeather,
     setManualWeather,
+    resetToRealWeather,
   } = useWeather({ autoFetch: true });
 
   // Apply weather theme to body
@@ -48,14 +61,14 @@ export default function HomePage() {
     };
   }, [weather]);
 
-  // Fetch recommendations when weather changes
+  // Fetch recommendations when weather, mood, or auth state changes
   useEffect(() => {
     const fetchRecommendations = async () => {
       if (!weather) return;
 
       setLoading(true);
       try {
-        const data = await getHomeRecommendations(weather.condition);
+        const data = await getHomeRecommendations(weather.condition, mood);
         setRecommendations(data);
         setError(null);
       } catch (err) {
@@ -67,11 +80,27 @@ export default function HomePage() {
     };
 
     fetchRecommendations();
-  }, [weather]);
+  }, [weather, mood, isAuthenticated]);  // isAuthenticated 추가: 로그인/로그아웃 시 추천 갱신
 
   const handleWeatherChange = (condition: WeatherType) => {
     setManualWeather(condition);
   };
+
+  // Featured movie 선택 로직:
+  // 로그인 시 -> hybrid_row 첫 번째 영화 (맞춤 추천)
+  // 비로그인 or hybrid_row 없음 -> 기존 featured (인기 영화)
+  const featuredMovie: Movie | null = useMemo(() => {
+    if (!recommendations) return null;
+
+    // 로그인 상태이고 맞춤 추천 영화가 있으면 첫 번째 영화 사용
+    const hybridMovies = recommendations.hybrid_row?.movies;
+    if (isAuthenticated && hybridMovies && hybridMovies.length > 0) {
+      return hybridMovies[0];
+    }
+
+    // 비로그인이거나 맞춤 추천이 없으면 기존 featured 사용
+    return recommendations.featured ?? null;
+  }, [isAuthenticated, recommendations]);
 
   if (weatherLoading && loading) {
     return (
@@ -102,25 +131,22 @@ export default function HomePage() {
 
   return (
     <div className="pb-24 md:pb-20">
-      {/* Weather Banner */}
-      {weather && (
-        <div className="px-4 md:px-8 lg:px-12 pt-2 md:pt-4">
-          <WeatherBanner
-            weather={weather}
-            onWeatherChange={handleWeatherChange}
-            showSelector={true}
-          />
-        </div>
-      )}
-
-      {/* Featured Banner */}
+      {/* Featured Banner (includes compact weather bar) */}
       {loading ? (
-        <div className="mt-6">
+        <div className="mt-2 md:mt-4">
           <FeaturedBannerSkeleton />
         </div>
-      ) : recommendations?.featured ? (
-        <div className="mt-4 md:mt-6">
-          <FeaturedBanner movie={recommendations.featured} />
+      ) : featuredMovie ? (
+        <div className="mt-2 md:mt-4">
+          <FeaturedBanner
+            movie={featuredMovie}
+            weather={weather}
+            onWeatherChange={handleWeatherChange}
+            isManualWeather={isManualWeather}
+            onResetWeather={resetToRealWeather}
+            mood={mood}
+            onMoodChange={setMood}
+          />
         </div>
       ) : null}
 

@@ -13,9 +13,11 @@ interface UseWeatherReturn {
   weather: Weather | null;
   loading: boolean;
   error: string | null;
+  isManual: boolean;
   fetchWeather: () => Promise<void>;
   fetchWeatherByCity: (city: string) => Promise<void>;
   setManualWeather: (condition: WeatherType) => void;
+  resetToRealWeather: () => Promise<void>;
 }
 
 const WEATHER_CACHE_KEY = "recflix_weather";
@@ -67,6 +69,7 @@ export function useWeather(options: UseWeatherOptions = {}): UseWeatherReturn {
   const [weather, setWeather] = useState<Weather | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isManual, setIsManual] = useState(false);
 
   const fetchWeatherByCoords = useCallback(async (lat: number, lon: number) => {
     try {
@@ -174,23 +177,48 @@ export function useWeather(options: UseWeatherOptions = {}): UseWeatherReturn {
       snowy: "눈 오는 날에는 따뜻한 로맨스 영화 어떠세요?",
     };
 
+    // 계절별 대표 기온: 맑음=봄, 비=여름, 흐림=가을, 눈=겨울
+    const temperatures: Record<WeatherType, number> = {
+      sunny: 15,   // 봄 (15°C 내외)
+      rainy: 28,   // 여름 (28°C 내외)
+      cloudy: 12,  // 가을 (12°C 내외)
+      snowy: -3,   // 겨울 (-3°C 내외)
+    };
+
+    const seasonLabels: Record<WeatherType, string> = {
+      sunny: "봄",
+      rainy: "여름",
+      cloudy: "가을",
+      snowy: "겨울",
+    };
+
     const manualWeather: Weather = {
       condition,
-      temperature: 20,
-      feels_like: 20,
+      temperature: temperatures[condition],
+      feels_like: temperatures[condition],
       humidity: 50,
       description: condition,
       description_ko: descriptions[condition],
       icon: condition === "sunny" ? "01d" : condition === "rainy" ? "10d" : condition === "snowy" ? "13d" : "03d",
-      city: "Manual",
+      city: `가상 (${seasonLabels[condition]})`,
       country: "",
       recommendation_message: messages[condition],
       theme_class: `theme-${condition}`,
     };
 
     setWeather(manualWeather);
-    setCachedWeather(manualWeather);
+    setIsManual(true);
+    // 가상 날씨는 캐시하지 않음 (리셋 시 실시간 날씨로 복귀 위해)
   }, []);
+
+  const resetToRealWeather = useCallback(async () => {
+    setIsManual(false);
+    // 캐시 삭제 후 실시간 날씨 가져오기
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(WEATHER_CACHE_KEY);
+    }
+    await fetchWeather();
+  }, [fetchWeather]);
 
   useEffect(() => {
     if (autoFetch) {
@@ -202,8 +230,10 @@ export function useWeather(options: UseWeatherOptions = {}): UseWeatherReturn {
     weather,
     loading,
     error,
+    isManual,
     fetchWeather,
     fetchWeatherByCity,
     setManualWeather,
+    resetToRealWeather,
   };
 }

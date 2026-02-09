@@ -19,10 +19,47 @@ from app.schemas.recommendation import (
 
 router = APIRouter(prefix="/recommendations", tags=["Recommendations"])
 
-# Hybrid scoring weights
-WEIGHT_MBTI = 0.35
-WEIGHT_WEATHER = 0.25
-WEIGHT_PERSONAL = 0.40
+# Hybrid scoring weights (with mood)
+WEIGHT_MBTI = 0.30
+WEIGHT_WEATHER = 0.20
+WEIGHT_MOOD = 0.20
+WEIGHT_PERSONAL = 0.30
+
+# Hybrid scoring weights (without mood - legacy)
+WEIGHT_MBTI_NO_MOOD = 0.35
+WEIGHT_WEATHER_NO_MOOD = 0.25
+WEIGHT_PERSONAL_NO_MOOD = 0.40
+
+# Mood to emotion_tags mapping
+# DB 키 (7대 감성 클러스터): healing, tension, energy, romance, deep, fantasy, light
+MOOD_EMOTION_MAPPING = {
+    "relaxed": ["healing"],           # 편안한 → 힐링 (가족애/우정/성장/힐링)
+    "tense": ["tension"],             # 긴장감 → 긴장감 (반전/추리/서스펜스/심리전)
+    "excited": ["energy"],            # 신나는 → 에너지 (폭발/추격전/복수/히어로)
+    "emotional": ["romance", "deep"], # 감성적인 → 로맨스+깊이 (첫사랑/이별 + 인생/철학)
+    "imaginative": ["fantasy"],       # 상상력 → 판타지 (마법/우주/초능력/타임루프)
+    "light": ["light"],               # 가벼운 → 라이트 (유머/일상/친구/패러디)
+}
+
+# Mood label mapping
+MOOD_LABELS = {
+    "relaxed": "#편안한",
+    "tense": "#긴장감",
+    "excited": "#신나는",
+    "emotional": "#감성적인",
+    "imaginative": "#상상력",
+    "light": "#가벼운",
+}
+
+# Mood section titles and descriptions
+MOOD_SECTION_CONFIG = {
+    "relaxed": {"title": "😌 편안한 기분일 때", "desc": "마음이 따뜻해지는 영화"},
+    "tense": {"title": "😰 긴장감이 필요할 때", "desc": "손에 땀을 쥐게 하는 영화"},
+    "excited": {"title": "😆 신나는 기분일 때", "desc": "에너지 넘치는 영화"},
+    "emotional": {"title": "💕 감성적인 기분일 때", "desc": "감동이 밀려오는 영화"},
+    "imaginative": {"title": "🔮 상상에 빠지고 싶을 때", "desc": "판타지 세계로 떠나는 영화"},
+    "light": {"title": "😄 가볍게 보고 싶을 때", "desc": "부담 없이 즐기는 영화"},
+}
 
 # Weather label mapping
 WEATHER_LABELS = {
@@ -40,41 +77,91 @@ WEATHER_TITLES = {
 }
 
 
+def get_llm_movie_ids(db: Session) -> set:
+    """Get IDs of LLM-processed movies (top 1000 by popularity)"""
+    result = db.execute(text("""
+        SELECT id FROM movies
+        WHERE vote_count >= 50
+        ORDER BY popularity DESC
+        LIMIT 1000
+    """)).fetchall()
+    return set(row[0] for row in result)
+
+
 def get_movies_by_score(
     db: Session,
     score_type: str,
     score_key: str,
     limit: int = 10,
     pool_size: int = 40,
-    min_votes: int = 10,
-    shuffle: bool = True
+    min_votes: int = 30,
+    min_rating: float = 5.0,
+    shuffle: bool = True,
+    llm_min_ratio: float = 0.3  # Minimum 30% LLM movies
 ) -> List[Movie]:
     """
     Get movies sorted by a specific score with optional shuffling.
-    Fetches top `pool_size` movies, then randomly selects `limit` from them.
+    Ensures minimum ratio of LLM-analyzed movies for quality.
+    Quality filter: vote_count >= min_votes AND vote_average >= min_rating
     """
+    # Get LLM movie IDs for mixing
+    llm_ids = get_llm_movie_ids(db)
+
+    # Fetch more movies to ensure we can meet LLM ratio
+    extended_pool = pool_size * 2
+
     result = db.execute(text(f"""
-        SELECT id FROM movies
+        SELECT id, ({score_type}->>:score_key)::float as score FROM movies
         WHERE vote_count >= :min_votes
+        AND vote_average >= :min_rating
         AND {score_type} IS NOT NULL
         AND {score_type}->>:score_key IS NOT NULL
         ORDER BY ({score_type}->>:score_key)::float DESC
         LIMIT :pool_size
-    """), {"score_key": score_key, "pool_size": pool_size, "min_votes": min_votes}).fetchall()
+    """), {"score_key": score_key, "pool_size": extended_pool, "min_votes": min_votes, "min_rating": min_rating}).fetchall()
 
-    movie_ids = [row[0] for row in result]
-    if not movie_ids:
+    if not result:
         return []
 
-    movies = db.query(Movie).filter(Movie.id.in_(movie_ids)).all()
-    # Preserve order
+    # Separate LLM and keyword movies
+    llm_movies = [(row[0], row[1]) for row in result if row[0] in llm_ids]
+    kw_movies = [(row[0], row[1]) for row in result if row[0] not in llm_ids]
+
+    # Calculate minimum LLM count needed
+    min_llm_count = int(pool_size * llm_min_ratio)
+
+    # Build final selection with LLM guarantee
+    selected_ids = []
+
+    # First, take top LLM movies up to min_llm_count
+    llm_to_take = min(min_llm_count, len(llm_movies))
+    selected_ids.extend([m[0] for m in llm_movies[:llm_to_take]])
+
+    # Fill remaining with best overall scores (excluding already selected)
+    remaining = pool_size - len(selected_ids)
+    all_remaining = [(m[0], m[1]) for m in llm_movies[llm_to_take:]] + kw_movies
+    all_remaining.sort(key=lambda x: x[1], reverse=True)
+    selected_ids.extend([m[0] for m in all_remaining[:remaining]])
+
+    if not selected_ids:
+        return []
+
+    movies = db.query(Movie).filter(Movie.id.in_(selected_ids)).all()
     movie_dict = {m.id: m for m in movies}
-    ordered_movies = [movie_dict[mid] for mid in movie_ids if mid in movie_dict]
+
+    # Sort by score for final ordering
+    def get_score(mid):
+        m = movie_dict.get(mid)
+        if m and m.emotion_tags:
+            return m.emotion_tags.get(score_key, 0) if score_type == 'emotion_tags' else 0
+        return 0
+
+    selected_ids.sort(key=get_score, reverse=True)
+    ordered_movies = [movie_dict[mid] for mid in selected_ids if mid in movie_dict]
 
     # Shuffle and limit
     if shuffle and len(ordered_movies) > limit:
         selected = random.sample(ordered_movies, limit)
-        # Optionally shuffle the order too
         random.shuffle(selected)
         return selected
 
@@ -151,23 +238,33 @@ def calculate_hybrid_scores(
     weather: Optional[str],
     genre_counts: Dict[str, int],
     favorited_ids: set,
-    similar_ids: set
+    similar_ids: set,
+    mood: Optional[str] = None
 ) -> List[Tuple[Movie, float, List[RecommendationTag]]]:
     """
     Calculate hybrid scores for movies
-    Score = (0.35 × MBTI) + (0.25 × Weather) + (0.40 × Personal)
+    With mood: (0.30 × MBTI) + (0.20 × Weather) + (0.20 × Mood) + (0.30 × Personal)
+    Without mood: (0.35 × MBTI) + (0.25 × Weather) + (0.40 × Personal)
     """
     scored_movies = []
     top_genres = sorted(genre_counts.items(), key=lambda x: x[1], reverse=True)[:3] if genre_counts else []
     top_genre_names = {g[0] for g in top_genres}
 
+    # 가중치 선택 (mood 유무에 따라)
+    use_mood = mood is not None and mood in MOOD_EMOTION_MAPPING
+    if use_mood:
+        w_mbti, w_weather, w_mood, w_personal = WEIGHT_MBTI, WEIGHT_WEATHER, WEIGHT_MOOD, WEIGHT_PERSONAL
+    else:
+        w_mbti, w_weather, w_mood, w_personal = WEIGHT_MBTI_NO_MOOD, WEIGHT_WEATHER_NO_MOOD, 0.0, WEIGHT_PERSONAL_NO_MOOD
+
     for movie in movies:
         tags = []
         mbti_score = 0.0
         weather_score = 0.0
+        mood_score = 0.0
         personal_score = 0.0
 
-        # 1. MBTI Score (35%)
+        # 1. MBTI Score
         if mbti and movie.mbti_scores:
             mbti_val = movie.mbti_scores.get(mbti, 0.0)
             mbti_score = float(mbti_val) if mbti_val else 0.0
@@ -178,7 +275,7 @@ def calculate_hybrid_scores(
                     score=mbti_score
                 ))
 
-        # 2. Weather Score (25%)
+        # 2. Weather Score
         if weather and movie.weather_scores:
             weather_val = movie.weather_scores.get(weather, 0.0)
             weather_score = float(weather_val) if weather_val else 0.0
@@ -189,7 +286,25 @@ def calculate_hybrid_scores(
                     score=weather_score
                 ))
 
-        # 3. Personal Score (40%)
+        # 3. Mood Score (emotion_tags 기반)
+        if use_mood and movie.emotion_tags:
+            emotion_keys = MOOD_EMOTION_MAPPING.get(mood, [])
+            if emotion_keys:
+                emotion_values = []
+                for key in emotion_keys:
+                    val = movie.emotion_tags.get(key, 0.0)
+                    if val:
+                        emotion_values.append(float(val))
+                if emotion_values:
+                    mood_score = sum(emotion_values) / len(emotion_values)  # 평균
+                    if mood_score > 0.5:
+                        tags.append(RecommendationTag(
+                            type="personal",
+                            label=MOOD_LABELS.get(mood, f"#{mood}"),
+                            score=mood_score
+                        ))
+
+        # 4. Personal Score
         movie_genre_names = {g.name for g in movie.genres}
 
         # Genre match bonus
@@ -225,11 +340,12 @@ def calculate_hybrid_scores(
         elif movie.vote_average >= 7.5 and movie.vote_count >= 50:
             personal_score += 0.1
 
-        # Calculate hybrid score
+        # Calculate hybrid score (동적 가중치 사용)
         hybrid_score = (
-            (WEIGHT_MBTI * mbti_score) +
-            (WEIGHT_WEATHER * weather_score) +
-            (WEIGHT_PERSONAL * personal_score)
+            (w_mbti * mbti_score) +
+            (w_weather * weather_score) +
+            (w_mood * mood_score) +
+            (w_personal * personal_score)
         )
 
         # Popularity boost (small)
@@ -249,6 +365,7 @@ def calculate_hybrid_scores(
 @router.get("", response_model=HomeRecommendations)
 def get_home_recommendations(
     weather: Optional[str] = Query(None, regex="^(sunny|rainy|cloudy|snowy)$"),
+    mood: Optional[str] = Query(None, regex="^(relaxed|tense|excited|emotional|imaginative|light)$"),
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
@@ -269,7 +386,7 @@ def get_home_recommendations(
         similar_ids = get_similar_movie_ids(db, user_movie_ids)
 
     # === HYBRID RECOMMENDATION ROW (Main personalized) ===
-    if current_user and (mbti or weather or genre_counts):
+    if current_user and (mbti or weather or mood or genre_counts):
         # Get candidate movies
         candidate_movies = db.query(Movie).filter(
             Movie.vote_count >= 30,
@@ -279,7 +396,7 @@ def get_home_recommendations(
         # Calculate hybrid scores
         scored = calculate_hybrid_scores(
             db, candidate_movies, mbti, weather,
-            genre_counts, favorited_ids, similar_ids
+            genre_counts, favorited_ids, similar_ids, mood
         )
 
         # Shuffle from top 40, pick 10
@@ -303,78 +420,118 @@ def get_home_recommendations(
             if weather:
                 weather_emoji = {"sunny": "☀️", "rainy": "🌧️", "cloudy": "☁️", "snowy": "❄️"}
                 title_parts.append(weather_emoji.get(weather, ""))
+            if mood:
+                mood_emoji = {"relaxed": "😌", "tense": "😰", "excited": "😆", "emotional": "💕", "imaginative": "🔮", "light": "😄"}
+                title_parts.append(mood_emoji.get(mood, ""))
 
             hybrid_title = "🎯 " + (" + ".join(title_parts) if title_parts else "당신을 위한") + " 맞춤 추천"
 
+            # Build description
+            desc_parts = []
+            if mbti:
+                desc_parts.append("MBTI")
+            if weather:
+                desc_parts.append("날씨")
+            if mood:
+                desc_parts.append("기분")
+            desc_parts.append("취향")
+            hybrid_desc = ", ".join(desc_parts) + "을 모두 고려한 추천"
+
             hybrid_row = HybridRecommendationRow(
                 title=hybrid_title,
-                description="MBTI, 날씨, 취향을 모두 고려한 추천",
+                description=hybrid_desc,
                 movies=hybrid_movies
             )
 
-    # === REGULAR RECOMMENDATION ROWS (50개씩) ===
+    # === REGULAR RECOMMENDATION ROWS ===
+    # 로그인 시 순서: ①MBTI추천 ②날씨별추천 ③기분별추천 ④인기영화 ⑤높은평점
+    # 비로그인 시 순서: ①인기영화 ②높은평점 ③날씨별추천 ④기분별추천
 
-    # 1. Popular movies (shuffle from top 100)
-    popular_pool = db.query(Movie).filter(
-        Movie.vote_count >= 50
-    ).order_by(Movie.popularity.desc()).limit(100).all()
-    popular = random.sample(popular_pool, min(50, len(popular_pool))) if popular_pool else []
-    random.shuffle(popular)
-    rows.append(RecommendationRow(
-        title="🔥 인기 영화",
-        description="지금 가장 핫한 영화들",
-        movies=[MovieListItem.from_orm_with_genres(m) for m in popular]
-    ))
+    # --- 섹션 데이터 준비 ---
 
-    # 2. Weather-based recommendations
-    if weather:
-        weather_movies = get_movies_by_score(db, "weather_scores", weather, limit=50, pool_size=100)
-        if weather_movies:
-            rows.append(RecommendationRow(
-                title=WEATHER_TITLES.get(weather, f"{weather} 날씨 추천"),
-                description=f"{weather} 날씨에 어울리는 영화",
-                movies=[MovieListItem.from_orm_with_genres(m) for m in weather_movies]
-            ))
-
-    # 3. MBTI-based recommendations
+    # MBTI-based recommendations (로그인 + MBTI 설정 시)
+    mbti_row = None
     if mbti:
         mbti_movies = get_movies_by_score(db, "mbti_scores", mbti, limit=50, pool_size=100)
         if mbti_movies:
-            rows.append(RecommendationRow(
+            mbti_row = RecommendationRow(
                 title=f"💜 {mbti} 성향 추천",
                 description=f"{mbti} 유형에게 어울리는 영화",
                 movies=[MovieListItem.from_orm_with_genres(m) for m in mbti_movies]
-            ))
+            )
 
-    # 4. Top rated (shuffle from top 100)
+    # Weather-based recommendations
+    weather_row = None
+    if weather:
+        weather_movies = get_movies_by_score(db, "weather_scores", weather, limit=50, pool_size=100)
+        if weather_movies:
+            weather_row = RecommendationRow(
+                title=WEATHER_TITLES.get(weather, f"{weather} 날씨 추천"),
+                description=f"{weather} 날씨에 어울리는 영화",
+                movies=[MovieListItem.from_orm_with_genres(m) for m in weather_movies]
+            )
+
+    # 기분별 추천 (동적) - 미선택 시 기본값 relaxed
+    current_mood = mood if mood else "relaxed"
+    mood_emotion_keys = MOOD_EMOTION_MAPPING.get(current_mood, ["healing"])
+    primary_emotion = mood_emotion_keys[0]
+    mood_movies = get_movies_by_score(db, "emotion_tags", primary_emotion, limit=50, pool_size=100)
+    mood_row = None
+    if mood_movies:
+        mood_config = MOOD_SECTION_CONFIG.get(current_mood, {"title": "😌 편안한 기분일 때", "desc": "마음이 따뜻해지는 영화"})
+        mood_row = RecommendationRow(
+            title=mood_config["title"],
+            description=mood_config["desc"],
+            movies=[MovieListItem.from_orm_with_genres(m) for m in mood_movies]
+        )
+
+    # Popular movies (shuffle from top 100)
+    popular_pool = db.query(Movie).filter(
+        Movie.vote_count >= 30,
+        Movie.vote_average >= 5.0
+    ).order_by(Movie.popularity.desc()).limit(100).all()
+    popular = random.sample(popular_pool, min(50, len(popular_pool))) if popular_pool else []
+    random.shuffle(popular)
+    popular_row = RecommendationRow(
+        title="🔥 인기 영화",
+        description="지금 가장 핫한 영화들",
+        movies=[MovieListItem.from_orm_with_genres(m) for m in popular]
+    )
+
+    # Top rated (shuffle from top 100)
     top_rated_pool = db.query(Movie).filter(
-        Movie.vote_count >= 100
+        Movie.vote_count >= 100,
+        Movie.vote_average >= 5.0
     ).order_by(Movie.vote_average.desc()).limit(100).all()
     top_rated = random.sample(top_rated_pool, min(50, len(top_rated_pool))) if top_rated_pool else []
     random.shuffle(top_rated)
-    rows.append(RecommendationRow(
+    top_rated_row = RecommendationRow(
         title="⭐ 높은 평점 영화",
         description="평점이 높은 명작들",
         movies=[MovieListItem.from_orm_with_genres(m) for m in top_rated]
-    ))
+    )
 
-    # 5. Healing movies
-    healing_movies = get_movies_by_score(db, "emotion_tags", "healing", limit=50, pool_size=100)
-    if healing_movies:
-        rows.append(RecommendationRow(
-            title="😊 힐링이 필요할 때",
-            description="마음이 따뜻해지는 영화",
-            movies=[MovieListItem.from_orm_with_genres(m) for m in healing_movies]
-        ))
-
-    # 6. Tension movies
-    tension_movies = get_movies_by_score(db, "emotion_tags", "tension", limit=50, pool_size=100)
-    if tension_movies:
-        rows.append(RecommendationRow(
-            title="😰 긴장감 넘치는",
-            description="손에 땀을 쥐게 하는 영화",
-            movies=[MovieListItem.from_orm_with_genres(m) for m in tension_movies]
-        ))
+    # --- 섹션 순서 결정 ---
+    if current_user:
+        # 로그인 시: 개인화 → 범용
+        # ①MBTI ②날씨 ③기분 ④인기 ⑤높은평점
+        if mbti_row:
+            rows.append(mbti_row)
+        if weather_row:
+            rows.append(weather_row)
+        if mood_row:
+            rows.append(mood_row)
+        rows.append(popular_row)
+        rows.append(top_rated_row)
+    else:
+        # 비로그인 시: 범용 → 개인화
+        # ①인기 ②높은평점 ③날씨 ④기분
+        rows.append(popular_row)
+        rows.append(top_rated_row)
+        if weather_row:
+            rows.append(weather_row)
+        if mood_row:
+            rows.append(mood_row)
 
     # Featured movie = 셔플된 인기 영화 리스트의 첫 번째 영화 (일관성 유지)
     featured = popular[0] if popular else None
@@ -404,9 +561,10 @@ def get_hybrid_recommendations(
     user_movie_ids = favorited_ids | highly_rated_ids
     similar_ids = get_similar_movie_ids(db, user_movie_ids)
 
-    # Get candidate movies
+    # Get candidate movies (quality filter: vote_count >= 30, vote_average >= 5.0)
     candidate_movies = db.query(Movie).filter(
-        Movie.vote_count >= 20,
+        Movie.vote_count >= 30,
+        Movie.vote_average >= 5.0,
         ~Movie.id.in_(favorited_ids)
     ).order_by(desc(Movie.popularity)).limit(300).all()
 
@@ -448,11 +606,11 @@ def get_mbti_recommendations(
 
 @router.get("/emotion", response_model=List[MovieListItem])
 def get_emotion_recommendations(
-    emotion: str = Query(..., regex="^(healing|tension|touching|fun|horror|excitement|sadness)$"),
+    emotion: str = Query(..., regex="^(healing|tension|energy|romance|deep|fantasy|light)$"),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
-    """Get emotion-based recommendations"""
+    """Get emotion-based recommendations (7 clusters)"""
     movies = get_movies_by_score(db, "emotion_tags", emotion, limit=limit)
     return [MovieListItem.from_orm_with_genres(m) for m in movies]
 
@@ -462,9 +620,10 @@ def get_popular_movies(
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
-    """Get popular movies"""
+    """Get popular movies (quality filter: vote_count >= 30, vote_average >= 5.0)"""
     movies = db.query(Movie).filter(
-        Movie.vote_count >= 10
+        Movie.vote_count >= 30,
+        Movie.vote_average >= 5.0
     ).order_by(Movie.popularity.desc()).limit(limit).all()
     return [MovieListItem.from_orm_with_genres(m) for m in movies]
 
@@ -502,7 +661,8 @@ def get_personalized_recommendations(
     if not favorites or not favorites.movies:
         # 찜한 영화 없으면 인기 영화 반환
         movies = db.query(Movie).filter(
-            Movie.vote_count >= 50
+            Movie.vote_count >= 30,
+            Movie.vote_average >= 5.0
         ).order_by(Movie.popularity.desc()).limit(limit).all()
         return [MovieListItem.from_orm_with_genres(m) for m in movies]
 
@@ -518,7 +678,8 @@ def get_personalized_recommendations(
 
     if not genre_counts:
         movies = db.query(Movie).filter(
-            Movie.vote_count >= 50
+            Movie.vote_count >= 30,
+            Movie.vote_average >= 5.0
         ).order_by(Movie.popularity.desc()).limit(limit).all()
         return [MovieListItem.from_orm_with_genres(m) for m in movies]
 
@@ -526,10 +687,11 @@ def get_personalized_recommendations(
     top_genres = sorted(genre_counts.items(), key=lambda x: x[1], reverse=True)[:3]
     top_genre_names = [g[0] for g in top_genres]
 
-    # 해당 장르의 영화 중 찜하지 않은 인기 영화 추천
+    # 해당 장르의 영화 중 찜하지 않은 인기 영화 추천 (품질 필터 적용)
     movies = db.query(Movie).join(Movie.genres).filter(
         Genre.name.in_(top_genre_names),
         Movie.vote_count >= 30,
+        Movie.vote_average >= 5.0,
         ~Movie.id.in_(favorited_ids)
     ).order_by(Movie.popularity.desc()).limit(limit * 2).all()
 

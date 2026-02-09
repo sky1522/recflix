@@ -77,9 +77,12 @@ export async function getGenres(): Promise<Genre[]> {
 }
 
 // Recommendation APIs
-export async function getHomeRecommendations(weather?: string): Promise<HomeRecommendations> {
-  const params = weather ? `?weather=${weather}` : "";
-  return fetchAPI<HomeRecommendations>(`/recommendations${params}`);
+export async function getHomeRecommendations(weather?: string, mood?: string | null): Promise<HomeRecommendations> {
+  const searchParams = new URLSearchParams();
+  if (weather) searchParams.set("weather", weather);
+  if (mood) searchParams.set("mood", mood);
+  const query = searchParams.toString();
+  return fetchAPI<HomeRecommendations>(`/recommendations${query ? `?${query}` : ""}`);
 }
 
 export async function getMBTIRecommendations(mbti: string, limit = 20): Promise<Movie[]> {

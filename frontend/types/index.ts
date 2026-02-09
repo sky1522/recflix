@@ -147,6 +147,9 @@ export type MBTIType =
   | "ISTJ" | "ISFJ" | "ESTJ" | "ESFJ"
   | "ISTP" | "ISFP" | "ESTP" | "ESFP";
 
+// Mood types
+export type MoodType = "relaxed" | "tense" | "excited" | "emotional" | "imaginative" | "light";
+
 // LLM types
 export interface CatchphraseResponse {
   movie_id: number;

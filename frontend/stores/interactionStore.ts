@@ -12,6 +12,7 @@ interface InteractionState {
   toggleFavorite: (movieId: number) => Promise<boolean>;
   setRating: (movieId: number, score: number) => Promise<void>;
   clearInteraction: (movieId: number) => void;
+  clearAll: () => void;  // 로그아웃 시 전체 초기화
 }
 
 export const useInteractionStore = create<InteractionState>()((set, get) => ({
@@ -149,5 +150,9 @@ export const useInteractionStore = create<InteractionState>()((set, get) => ({
       const { [movieId]: _, ...rest } = state.interactions;
       return { interactions: rest };
     });
+  },
+
+  clearAll: () => {
+    set({ interactions: {}, loading: {} });
   },
 }));
