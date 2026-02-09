@@ -12,9 +12,12 @@
 
 ## Features
 
-- MBTI 기반 영화 추천 (16개 유형별)
-- 실시간 날씨 연동 추천 (OpenWeatherMap)
-- 감정 태그 기반 큐레이션 (힐링, 긴장감 등)
+- **MBTI 기반 영화 추천** (16개 유형별)
+- **실시간 날씨 연동 추천** (OpenWeatherMap)
+- **기분(Mood) 기반 추천** (6가지: 편안한, 긴장감, 신나는, 감성적인, 상상력, 가벼운)
+- **감정 태그 기반 큐레이션** (7대 클러스터: healing, tension, energy, romance, deep, fantasy, light)
+- **🔄 새로고침 버튼** - 섹션별 영화 재셔플 (API 호출 없음)
+- **LLM 캐치프레이즈** - Claude API로 영화별 맞춤 문구 생성
 - 별점 평가 & 찜하기 기능
 - Netflix/Watcha 스타일 UI
 
@@ -103,13 +106,22 @@ recflix/
 
 ## Recommendation Algorithm
 
+**Mood 선택 시:**
+```
+Score = (0.30 × MBTI) + (0.20 × Weather) + (0.20 × Mood) + (0.30 × Personal)
+```
+
+**Mood 미선택 시:**
 ```
 Score = (0.35 × MBTI) + (0.25 × Weather) + (0.40 × Personal)
 ```
 
 - **MBTI**: 16개 유형별 장르 선호도 매칭
 - **Weather**: 날씨 조건별 영화 분위기 매칭
+- **Mood**: 6가지 기분 → 7대 감성 클러스터 매핑
 - **Personal**: 찜한 영화 장르 기반 개인화
+
+자세한 추천 로직은 [docs/RECOMMENDATION_LOGIC.md](docs/RECOMMENDATION_LOGIC.md) 참조
 
 ## Database
 
