@@ -36,7 +36,11 @@ export default function HybridMovieRow({
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Memoize displayed movies based on shuffleKey
+  // 초기 렌더링(shuffleKey=0)에서는 백엔드 순서 유지, 새로고침 시에만 셔플
   const displayedMovies = useMemo(() => {
+    if (shuffleKey === 0) {
+      return movies.slice(0, displayCount);
+    }
     const shuffled = shuffleArray(movies);
     return shuffled.slice(0, displayCount);
   }, [movies, displayCount, shuffleKey]);

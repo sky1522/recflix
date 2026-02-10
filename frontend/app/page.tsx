@@ -88,7 +88,7 @@ export default function HomePage() {
 
   // Featured movie 선택 로직:
   // 로그인 시 -> hybrid_row 첫 번째 영화 (맞춤 추천)
-  // 비로그인 or hybrid_row 없음 -> 기존 featured (인기 영화)
+  // 비로그인 -> rows[0] 첫 번째 영화 (인기 영화)
   const featuredMovie: Movie | null = useMemo(() => {
     if (!recommendations) return null;
 
@@ -98,7 +98,12 @@ export default function HomePage() {
       return hybridMovies[0];
     }
 
-    // 비로그인이거나 맞춤 추천이 없으면 기존 featured 사용
+    // 비로그인: rows의 첫 번째 섹션(인기 영화)의 첫 번째 영화
+    const firstRow = recommendations.rows?.[0];
+    if (firstRow?.movies?.length > 0) {
+      return firstRow.movies[0];
+    }
+
     return recommendations.featured ?? null;
   }, [isAuthenticated, recommendations]);
 

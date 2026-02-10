@@ -80,7 +80,8 @@
       "Bash(do)",
       "Bash(ls:*)",
       "Bash(node -e:*)",
-      "Bash(git status:*)"
+      "Bash(git status:*)",
+      "Bash(npx next build:*)"
     ]
   }
 }
