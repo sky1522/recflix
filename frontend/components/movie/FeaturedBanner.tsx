@@ -138,172 +138,8 @@ export default function FeaturedBanner({
           <div className="absolute inset-0 bg-gradient-to-b from-dark-200/60 via-transparent to-dark-200" />
         </div>
 
-        {/* Content Container */}
-        <div className="absolute inset-0 flex flex-col justify-between p-6 md:p-10 lg:p-12">
-
-          {/* 상단 우측: MBTI 유도 섹션 + 날씨 + 기분 (통일된 스타일) */}
-          <div className="flex justify-end">
-            <div className="flex flex-col items-end gap-2">
-              {/* 공통 박스 스타일: w-80 px-4 py-2.5 rounded-2xl */}
-
-              {/* MBTI 유도 섹션 */}
-              <AnimatePresence>
-                {showPrompt && randomMessage && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.5, ease: "easeOut" }}
-                    className="w-80"
-                  >
-                    <Link
-                      href={isAuthenticated ? "/profile" : "/login"}
-                      className="flex items-center gap-3 w-full px-4 py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-2xl border border-white/20 transition-all duration-300 group"
-                    >
-                      <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex-shrink-0">
-                        {isAuthenticated ? (
-                          <Sparkles className="w-4 h-4 text-white" />
-                        ) : (
-                          <Cloud className="w-4 h-4 text-white" />
-                        )}
-                      </div>
-                      <div className="flex flex-col flex-1 min-w-0">
-                        <span className="text-sm font-medium text-white group-hover:text-white/90 truncate">
-                          {randomMessage.title}
-                        </span>
-                        <span className="text-xs text-white/60 group-hover:text-white/70 truncate">
-                          {randomMessage.desc}
-                        </span>
-                      </div>
-                      <svg
-                        className="w-4 h-4 text-white/50 group-hover:text-white/80 group-hover:translate-x-1 transition-all flex-shrink-0"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </Link>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* 날씨 섹션 */}
-              {weather && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.1 }}
-                  className="w-80 flex flex-col gap-1.5 px-4 py-2.5 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20"
-                >
-                  {/* 고정 문구 */}
-                  <div className="text-xs text-white/70 text-center">
-                    {WEATHER_MESSAGE}
-                  </div>
-
-                  {/* 날씨 정보 + 버튼들 */}
-                  <div className="flex items-center justify-center gap-2">
-                    {/* 현재 날씨 정보 */}
-                    <div className={`flex items-center gap-1.5 ${weatherConfig[weather.condition].color}`}>
-                      {weatherConfig[weather.condition].icon}
-                      <span className="text-sm font-medium text-white">
-                        {weather.temperature}°C
-                      </span>
-                    </div>
-
-                    {/* 구분선 */}
-                    <div className="w-px h-4 bg-white/20" />
-
-                    {/* 날씨 선택 버튼들 */}
-                    <div className="flex items-center gap-1">
-                      {(["sunny", "rainy", "cloudy", "snowy"] as WeatherType[]).map((w) => (
-                        <button
-                          key={w}
-                          onClick={() => onWeatherChange?.(w)}
-                          className={`p-1.5 rounded-full transition-all ${
-                            weather.condition === w
-                              ? "bg-white/25 scale-110"
-                              : "hover:bg-white/15"
-                          } ${weatherConfig[w].color}`}
-                          title={weatherConfig[w].label}
-                        >
-                          {weatherConfig[w].icon}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* 리셋 버튼 (가상 날씨일 때만 표시) */}
-                    {isManualWeather && onResetWeather && (
-                      <>
-                        <div className="w-px h-4 bg-white/20" />
-                        <button
-                          onClick={onResetWeather}
-                          className="p-1.5 rounded-full transition-all hover:bg-white/15 text-white/70 hover:text-white"
-                          title="실시간 날씨로 복귀"
-                        >
-                          <RotateCcw className="w-4 h-4" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-
-              {/* 기분 섹션 (2x3 그리드) */}
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.2 }}
-                className="w-80 flex flex-col gap-1.5 px-4 py-2.5 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20"
-              >
-                {/* 고정 문구 */}
-                <div className="text-xs text-white/70 text-center">
-                  {MOOD_MESSAGE}
-                </div>
-
-                {/* 기분 선택 버튼 그리드 (2행 3열) */}
-                <div className="flex flex-col gap-1">
-                  {/* 1행: 편안한, 긴장감원해, 신나는 */}
-                  <div className="flex items-center justify-center gap-1">
-                    {moodRow1.map((m) => (
-                      <button
-                        key={m}
-                        onClick={() => onMoodChange?.(mood === m ? null : m)}
-                        className={`px-2 py-1 rounded-full text-xs transition-all whitespace-nowrap ${
-                          mood === m
-                            ? "bg-white/25 scale-105"
-                            : "hover:bg-white/15"
-                        }`}
-                        title={moodConfig[m].label}
-                      >
-                        <span>{moodConfig[m].emoji}</span>
-                        <span className="ml-0.5 text-white/90 hidden sm:inline">{moodConfig[m].label}</span>
-                      </button>
-                    ))}
-                  </div>
-                  {/* 2행: 감성적인, 상상에빠지고싶은, 가볍게볼래 */}
-                  <div className="flex items-center justify-center gap-1">
-                    {moodRow2.map((m) => (
-                      <button
-                        key={m}
-                        onClick={() => onMoodChange?.(mood === m ? null : m)}
-                        className={`px-2 py-1 rounded-full text-xs transition-all whitespace-nowrap ${
-                          mood === m
-                            ? "bg-white/25 scale-105"
-                            : "hover:bg-white/15"
-                        }`}
-                        title={moodConfig[m].label}
-                      >
-                        <span>{moodConfig[m].emoji}</span>
-                        <span className="ml-0.5 text-white/90 hidden sm:inline">{moodConfig[m].label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          </div>
-
+        {/* Content Container - 하단 영화 정보 */}
+        <div className="absolute inset-0 flex flex-col justify-end p-6 md:p-10 lg:p-12">
           {/* 하단 좌측: 영화 정보 */}
           <motion.div
             className="max-w-xl flex flex-col gap-3 pb-4 md:pb-6"
@@ -366,6 +202,150 @@ export default function FeaturedBanner({
             </div>
           </motion.div>
         </div>
+      </div>
+
+      {/* 우측 고정 유도 섹션: 스크롤 시에도 따라다님 */}
+      <div className="fixed top-[72px] right-4 md:right-8 lg:right-12 z-40 flex flex-col items-end gap-2">
+        {/* MBTI 유도 섹션 */}
+        <AnimatePresence>
+          {showPrompt && randomMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+              className="w-80"
+            >
+              <Link
+                href={isAuthenticated ? "/profile" : "/login"}
+                className="flex items-center gap-3 w-full px-4 py-2.5 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-2xl border border-white/20 transition-all duration-300 group"
+              >
+                <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex-shrink-0">
+                  {isAuthenticated ? (
+                    <Sparkles className="w-4 h-4 text-white" />
+                  ) : (
+                    <Cloud className="w-4 h-4 text-white" />
+                  )}
+                </div>
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span className="text-sm font-medium text-white group-hover:text-white/90 truncate">
+                    {randomMessage.title}
+                  </span>
+                  <span className="text-xs text-white/60 group-hover:text-white/70 truncate">
+                    {randomMessage.desc}
+                  </span>
+                </div>
+                <svg
+                  className="w-4 h-4 text-white/50 group-hover:text-white/80 group-hover:translate-x-1 transition-all flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* 날씨 섹션 */}
+        {weather && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="w-80 flex flex-col gap-1.5 px-4 py-2.5 bg-black/40 backdrop-blur-md rounded-2xl border border-white/20"
+          >
+            <div className="text-xs text-white/70 text-center">
+              {WEATHER_MESSAGE}
+            </div>
+            <div className="flex items-center justify-center gap-2">
+              <div className={`flex items-center gap-1.5 ${weatherConfig[weather.condition].color}`}>
+                {weatherConfig[weather.condition].icon}
+                <span className="text-sm font-medium text-white">
+                  {weather.temperature}°C
+                </span>
+              </div>
+              <div className="w-px h-4 bg-white/20" />
+              <div className="flex items-center gap-1">
+                {(["sunny", "rainy", "cloudy", "snowy"] as WeatherType[]).map((w) => (
+                  <button
+                    key={w}
+                    onClick={() => onWeatherChange?.(w)}
+                    className={`p-1.5 rounded-full transition-all ${
+                      weather.condition === w
+                        ? "bg-white/25 scale-110"
+                        : "hover:bg-white/15"
+                    } ${weatherConfig[w].color}`}
+                    title={weatherConfig[w].label}
+                  >
+                    {weatherConfig[w].icon}
+                  </button>
+                ))}
+              </div>
+              {isManualWeather && onResetWeather && (
+                <>
+                  <div className="w-px h-4 bg-white/20" />
+                  <button
+                    onClick={onResetWeather}
+                    className="p-1.5 rounded-full transition-all hover:bg-white/15 text-white/70 hover:text-white"
+                    title="실시간 날씨로 복귀"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                  </button>
+                </>
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {/* 기분 섹션 (2x3 그리드) */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="w-80 flex flex-col gap-1.5 px-4 py-2.5 bg-black/40 backdrop-blur-md rounded-2xl border border-white/20"
+        >
+          <div className="text-xs text-white/70 text-center">
+            {MOOD_MESSAGE}
+          </div>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-center gap-1">
+              {moodRow1.map((m) => (
+                <button
+                  key={m}
+                  onClick={() => onMoodChange?.(mood === m ? null : m)}
+                  className={`px-2 py-1 rounded-full text-xs transition-all whitespace-nowrap ${
+                    mood === m
+                      ? "bg-white/25 scale-105"
+                      : "hover:bg-white/15"
+                  }`}
+                  title={moodConfig[m].label}
+                >
+                  <span>{moodConfig[m].emoji}</span>
+                  <span className="ml-0.5 text-white/90 hidden sm:inline">{moodConfig[m].label}</span>
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center justify-center gap-1">
+              {moodRow2.map((m) => (
+                <button
+                  key={m}
+                  onClick={() => onMoodChange?.(mood === m ? null : m)}
+                  className={`px-2 py-1 rounded-full text-xs transition-all whitespace-nowrap ${
+                    mood === m
+                      ? "bg-white/25 scale-105"
+                      : "hover:bg-white/15"
+                  }`}
+                  title={moodConfig[m].label}
+                >
+                  <span>{moodConfig[m].emoji}</span>
+                  <span className="ml-0.5 text-white/90 hidden sm:inline">{moodConfig[m].label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </motion.div>
       </div>
 
       {/* Modal */}
