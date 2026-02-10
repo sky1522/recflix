@@ -6,7 +6,7 @@
 
 | Service | URL |
 |---------|-----|
-| **Frontend** | https://frontend-eight-gules-78.vercel.app |
+| **Frontend** | https://jnsquery-reflix.vercel.app |
 | **Backend API** | https://backend-production-cff2.up.railway.app |
 | **API Docs** | https://backend-production-cff2.up.railway.app/docs |
 
