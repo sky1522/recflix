@@ -47,15 +47,23 @@ CLUSTERS:
 - fantasy (판타지): Magic, space, superpowers, time travel, mythical creatures, sci-fi worlds
 - light (라이트): Comedy, humor, everyday life, parody, feel-good, lighthearted fun
 
-SCORING GUIDE:
-- 0.0: No relation to this cluster
-- 0.3: Minor elements present
-- 0.5: Moderate presence
-- 0.7: Strong presence
-- 1.0: Core theme of the movie
+SCORING RULES (CRITICAL - follow strictly):
+- 0.0: No relation to this cluster at all
+- 0.1~0.2: Faint trace, barely noticeable elements
+- 0.3~0.4: Minor subplot or secondary elements
+- 0.5~0.6: Notable presence but NOT the main focus
+- 0.7~0.8: Major theme, one of the film's defining aspects
+- 0.9: Dominant theme that defines the entire film's identity
+- 1.0: RESERVED for the single most iconic example of this cluster (e.g., "The Notebook" for romance, "Inception" for tension). Give 1.0 to at most 1 cluster per movie, and only if the movie is a genre-defining masterpiece for that cluster. Most movies should have 0 clusters at 1.0.
+
+DISTRIBUTION GUIDELINES:
+- Most scores should fall in the 0.2~0.7 range
+- A typical movie should have 1-2 clusters at 0.6~0.8 and the rest below 0.5
+- Having 3+ clusters above 0.7 should be very rare (only for genre-blending blockbusters)
+- Use the full range of decimal values (0.35, 0.55, 0.72, etc.), not just round numbers
 
 Return ONLY a JSON object with movie IDs as keys and score objects as values.
-Example: {"12345": {"healing": 0.3, "tension": 0.8, "energy": 0.5, "romance": 0.1, "deep": 0.2, "fantasy": 0.0, "light": 0.0}}"""
+Example: {"12345": {"healing": 0.2, "tension": 0.75, "energy": 0.45, "romance": 0.1, "deep": 0.3, "fantasy": 0.0, "light": 0.05}}"""
 
 
 def analyze_movies_batch(movies: List[Dict]) -> Dict[int, Dict[str, float]]:
