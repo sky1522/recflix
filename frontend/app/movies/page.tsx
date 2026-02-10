@@ -18,6 +18,13 @@ const SORT_OPTIONS = [
   { value: "release_date", label: "최신순" },
 ];
 
+const AGE_RATING_OPTIONS = [
+  { value: "", label: "모든 등급" },
+  { value: "family", label: "가족 (ALL/G/PG/12)" },
+  { value: "teen", label: "청소년 (15세 이하)" },
+  { value: "adult", label: "성인 포함" },
+];
+
 function MoviesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -33,6 +40,7 @@ function MoviesPageContent() {
   // URL params
   const query = searchParams.get("query") || "";
   const selectedGenre = searchParams.get("genre") || "";
+  const selectedAgeRating = searchParams.get("age_rating") || "";
   const sortBy = searchParams.get("sort") || "popularity";
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -80,6 +88,7 @@ function MoviesPageContent() {
         const data = await getMovies({
           query: query || undefined,
           genres: selectedGenre || undefined,
+          age_rating: selectedAgeRating || undefined,
           page: 1,
           page_size: 24,
           sort_by: sortBy,
@@ -101,7 +110,7 @@ function MoviesPageContent() {
       }
     };
     fetchMovies();
-  }, [query, selectedGenre, sortBy]);
+  }, [query, selectedGenre, selectedAgeRating, sortBy]);
 
   // Load more function for infinite scroll
   const loadMore = useCallback(async () => {
@@ -113,6 +122,7 @@ function MoviesPageContent() {
       const data = await getMovies({
         query: query || undefined,
         genres: selectedGenre || undefined,
+        age_rating: selectedAgeRating || undefined,
         page: nextPage,
         page_size: 24,
         sort_by: sortBy,
@@ -124,7 +134,7 @@ function MoviesPageContent() {
     } finally {
       setLoadingMore(false);
     }
-  }, [currentPage, hasMore, loadingMore, query, selectedGenre, sortBy]);
+  }, [currentPage, hasMore, loadingMore, query, selectedGenre, selectedAgeRating, sortBy]);
 
   const { loadMoreRef } = useInfiniteScroll({
     onLoadMore: loadMore,
@@ -171,6 +181,19 @@ function MoviesPageContent() {
               ))}
             </select>
 
+            {/* Age Rating Filter */}
+            <select
+              value={selectedAgeRating}
+              onChange={(e) => updateParams({ age_rating: e.target.value })}
+              className="px-4 py-2.5 bg-dark-100 border border-white/10 rounded-lg text-white focus:outline-none focus:border-primary-500 transition"
+            >
+              {AGE_RATING_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+
             {/* Sort */}
             <select
               value={sortBy}
@@ -198,7 +221,7 @@ function MoviesPageContent() {
             </button>
 
             {/* Clear Filters */}
-            {(query || selectedGenre) && (
+            {(query || selectedGenre || selectedAgeRating) && (
               <button
                 onClick={() => router.push("/movies")}
                 className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition"
@@ -314,6 +337,7 @@ function MoviesPageContent() {
                           const data = await getMovies({
                             query: query || undefined,
                             genres: selectedGenre || undefined,
+                            age_rating: selectedAgeRating || undefined,
                             page: Math.max(1, currentPage - 1),
                             page_size: 24,
                             sort_by: sortBy,
@@ -351,6 +375,7 @@ function MoviesPageContent() {
                                 const data = await getMovies({
                                   query: query || undefined,
                                   genres: selectedGenre || undefined,
+                                  age_rating: selectedAgeRating || undefined,
                                   page: pageNum,
                                   page_size: 24,
                                   sort_by: sortBy,
@@ -380,6 +405,7 @@ function MoviesPageContent() {
                           const data = await getMovies({
                             query: query || undefined,
                             genres: selectedGenre || undefined,
+                            age_rating: selectedAgeRating || undefined,
                             page: Math.min(totalPages, currentPage + 1),
                             page_size: 24,
                             sort_by: sortBy,

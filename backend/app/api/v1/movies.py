@@ -6,6 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, extract, distinct, select
 
+from app.api.v1.recommendations import AGE_RATING_MAP
+
 from app.core.deps import get_db
 from app.models import Movie, Genre, Person
 from app.models.movie import movie_cast
@@ -73,6 +75,7 @@ def get_movies(
     max_rating: Optional[float] = None,
     year_from: Optional[int] = None,
     year_to: Optional[int] = None,
+    age_rating: Optional[str] = Query(None, regex="^(all|family|teen|adult)$"),
     sort_by: str = Query("popularity", regex="^(popularity|vote_average|release_date)$"),
     sort_order: str = Query("desc", regex="^(asc|desc)$"),
     page: int = Query(1, ge=1),
@@ -128,6 +131,13 @@ def get_movies(
         q = q.filter(extract('year', Movie.release_date) >= year_from)
     if year_to is not None:
         q = q.filter(extract('year', Movie.release_date) <= year_to)
+
+    # Filter by age rating
+    if age_rating and age_rating in AGE_RATING_MAP:
+        allowed = AGE_RATING_MAP[age_rating]
+        q = q.filter(
+            or_(Movie.certification.in_(allowed), Movie.certification.is_(None))
+        )
 
     # Get total count
     total = q.count()

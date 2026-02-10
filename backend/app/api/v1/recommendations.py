@@ -19,6 +19,23 @@ from app.schemas.recommendation import (
 
 router = APIRouter(prefix="/recommendations", tags=["Recommendations"])
 
+# Age rating group mapping
+AGE_RATING_MAP = {
+    "family": ["ALL", "G", "PG", "12"],
+    "teen": ["ALL", "G", "PG", "PG-13", "12", "15"],
+}
+
+
+def apply_age_rating_filter(query, age_rating: Optional[str]):
+    """Apply certification-based age rating filter to a SQLAlchemy query"""
+    if age_rating and age_rating in AGE_RATING_MAP:
+        allowed = AGE_RATING_MAP[age_rating]
+        from sqlalchemy import or_
+        query = query.filter(
+            or_(Movie.certification.in_(allowed), Movie.certification.is_(None))
+        )
+    return query
+
 # Hybrid scoring weights (with mood)
 WEIGHT_MBTI = 0.30
 WEIGHT_WEATHER = 0.20
@@ -96,7 +113,8 @@ def get_movies_by_score(
     pool_size: int = 40,
     min_weighted_score: float = 6.0,
     shuffle: bool = True,
-    llm_min_ratio: float = 0.3  # Minimum 30% LLM movies
+    llm_min_ratio: float = 0.3,  # Minimum 30% LLM movies
+    age_rating: Optional[str] = None
 ) -> List[Movie]:
     """
     Get movies sorted by a specific score with optional shuffling.
@@ -109,14 +127,25 @@ def get_movies_by_score(
     # Fetch more movies to ensure we can meet LLM ratio
     extended_pool = pool_size * 2
 
+    # Build age rating SQL clause
+    age_rating_clause = ""
+    params = {"score_key": score_key, "pool_size": extended_pool, "min_weighted_score": min_weighted_score}
+    if age_rating and age_rating in AGE_RATING_MAP:
+        allowed = AGE_RATING_MAP[age_rating]
+        placeholders = ", ".join(f":cert_{i}" for i in range(len(allowed)))
+        age_rating_clause = f"AND (certification IN ({placeholders}) OR certification IS NULL)"
+        for i, cert in enumerate(allowed):
+            params[f"cert_{i}"] = cert
+
     result = db.execute(text(f"""
         SELECT id, ({score_type}->>:score_key)::float as score FROM movies
         WHERE COALESCE(weighted_score, 0) >= :min_weighted_score
         AND {score_type} IS NOT NULL
         AND {score_type}->>:score_key IS NOT NULL
+        {age_rating_clause}
         ORDER BY ({score_type}->>:score_key)::float DESC, weighted_score DESC
         LIMIT :pool_size
-    """), {"score_key": score_key, "pool_size": extended_pool, "min_weighted_score": min_weighted_score}).fetchall()
+    """), params).fetchall()
 
     if not result:
         return []
@@ -365,6 +394,7 @@ def calculate_hybrid_scores(
 def get_home_recommendations(
     weather: Optional[str] = Query(None, regex="^(sunny|rainy|cloudy|snowy)$"),
     mood: Optional[str] = Query(None, regex="^(relaxed|tense|excited|emotional|imaginative|light)$"),
+    age_rating: Optional[str] = Query(None, regex="^(all|family|teen|adult)$"),
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
@@ -387,10 +417,12 @@ def get_home_recommendations(
     # === HYBRID RECOMMENDATION ROW (Main personalized) ===
     if current_user and (mbti or weather or mood or genre_counts):
         # Get candidate movies (quality filter: weighted_score >= 6.0)
-        candidate_movies = db.query(Movie).filter(
+        candidate_q = db.query(Movie).filter(
             Movie.weighted_score >= 6.0,
             ~Movie.id.in_(favorited_ids)  # Exclude already favorited
-        ).order_by(desc(Movie.popularity), desc(Movie.weighted_score)).limit(200).all()
+        )
+        candidate_q = apply_age_rating_filter(candidate_q, age_rating)
+        candidate_movies = candidate_q.order_by(desc(Movie.popularity), desc(Movie.weighted_score)).limit(200).all()
 
         # Calculate hybrid scores
         scored = calculate_hybrid_scores(
@@ -447,7 +479,7 @@ def get_home_recommendations(
     # MBTI-based recommendations (로그인 + MBTI 설정 시)
     mbti_row = None
     if mbti:
-        mbti_movies = get_movies_by_score(db, "mbti_scores", mbti, limit=50, pool_size=100)
+        mbti_movies = get_movies_by_score(db, "mbti_scores", mbti, limit=50, pool_size=100, age_rating=age_rating)
         if mbti_movies:
             mbti_row = RecommendationRow(
                 title=f"💜 {mbti} 성향 추천",
@@ -458,7 +490,7 @@ def get_home_recommendations(
     # Weather-based recommendations
     weather_row = None
     if weather:
-        weather_movies = get_movies_by_score(db, "weather_scores", weather, limit=50, pool_size=100)
+        weather_movies = get_movies_by_score(db, "weather_scores", weather, limit=50, pool_size=100, age_rating=age_rating)
         if weather_movies:
             weather_row = RecommendationRow(
                 title=WEATHER_TITLES.get(weather, f"{weather} 날씨 추천"),
@@ -470,7 +502,7 @@ def get_home_recommendations(
     current_mood = mood if mood else "relaxed"
     mood_emotion_keys = MOOD_EMOTION_MAPPING.get(current_mood, ["healing"])
     primary_emotion = mood_emotion_keys[0]
-    mood_movies = get_movies_by_score(db, "emotion_tags", primary_emotion, limit=50, pool_size=100)
+    mood_movies = get_movies_by_score(db, "emotion_tags", primary_emotion, limit=50, pool_size=100, age_rating=age_rating)
     mood_row = None
     if mood_movies:
         mood_config = MOOD_SECTION_CONFIG.get(current_mood, {"title": "😌 편안한 기분일 때", "desc": "마음이 따뜻해지는 영화"})
@@ -481,9 +513,11 @@ def get_home_recommendations(
         )
 
     # Popular movies (shuffle from top 100)
-    popular_pool = db.query(Movie).filter(
+    popular_q = db.query(Movie).filter(
         Movie.weighted_score >= 6.0
-    ).order_by(Movie.popularity.desc(), Movie.weighted_score.desc()).limit(100).all()
+    )
+    popular_q = apply_age_rating_filter(popular_q, age_rating)
+    popular_pool = popular_q.order_by(Movie.popularity.desc(), Movie.weighted_score.desc()).limit(100).all()
     popular = random.sample(popular_pool, min(50, len(popular_pool))) if popular_pool else []
     random.shuffle(popular)
     popular_row = RecommendationRow(
@@ -493,9 +527,11 @@ def get_home_recommendations(
     )
 
     # Top rated (shuffle from top 100)
-    top_rated_pool = db.query(Movie).filter(
+    top_rated_q = db.query(Movie).filter(
         Movie.weighted_score >= 6.0
-    ).order_by(Movie.vote_average.desc(), Movie.weighted_score.desc()).limit(100).all()
+    )
+    top_rated_q = apply_age_rating_filter(top_rated_q, age_rating)
+    top_rated_pool = top_rated_q.order_by(Movie.vote_average.desc(), Movie.weighted_score.desc()).limit(100).all()
     top_rated = random.sample(top_rated_pool, min(50, len(top_rated_pool))) if top_rated_pool else []
     random.shuffle(top_rated)
     top_rated_row = RecommendationRow(
@@ -539,6 +575,7 @@ def get_home_recommendations(
 @router.get("/hybrid", response_model=List[HybridMovieItem])
 def get_hybrid_recommendations(
     weather: Optional[str] = Query(None, regex="^(sunny|rainy|cloudy|snowy)$"),
+    age_rating: Optional[str] = Query(None, regex="^(all|family|teen|adult)$"),
     limit: int = Query(20, ge=1, le=100),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -555,10 +592,12 @@ def get_hybrid_recommendations(
     similar_ids = get_similar_movie_ids(db, user_movie_ids)
 
     # Get candidate movies (quality filter: weighted_score >= 6.0)
-    candidate_movies = db.query(Movie).filter(
+    candidate_q = db.query(Movie).filter(
         Movie.weighted_score >= 6.0,
         ~Movie.id.in_(favorited_ids)
-    ).order_by(desc(Movie.popularity), desc(Movie.weighted_score)).limit(300).all()
+    )
+    candidate_q = apply_age_rating_filter(candidate_q, age_rating)
+    candidate_movies = candidate_q.order_by(desc(Movie.popularity), desc(Movie.weighted_score)).limit(300).all()
 
     # Calculate hybrid scores
     scored = calculate_hybrid_scores(
@@ -577,64 +616,74 @@ def get_hybrid_recommendations(
 @router.get("/weather", response_model=List[MovieListItem])
 def get_weather_recommendations(
     weather: str = Query(..., regex="^(sunny|rainy|cloudy|snowy)$"),
+    age_rating: Optional[str] = Query(None, regex="^(all|family|teen|adult)$"),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
     """Get weather-based recommendations"""
-    movies = get_movies_by_score(db, "weather_scores", weather, limit=limit)
+    movies = get_movies_by_score(db, "weather_scores", weather, limit=limit, age_rating=age_rating)
     return [MovieListItem.from_orm_with_genres(m) for m in movies]
 
 
 @router.get("/mbti", response_model=List[MovieListItem])
 def get_mbti_recommendations(
     mbti: str = Query(..., regex="^[EI][NS][TF][JP]$"),
+    age_rating: Optional[str] = Query(None, regex="^(all|family|teen|adult)$"),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
     """Get MBTI-based recommendations"""
-    movies = get_movies_by_score(db, "mbti_scores", mbti, limit=limit)
+    movies = get_movies_by_score(db, "mbti_scores", mbti, limit=limit, age_rating=age_rating)
     return [MovieListItem.from_orm_with_genres(m) for m in movies]
 
 
 @router.get("/emotion", response_model=List[MovieListItem])
 def get_emotion_recommendations(
     emotion: str = Query(..., regex="^(healing|tension|energy|romance|deep|fantasy|light)$"),
+    age_rating: Optional[str] = Query(None, regex="^(all|family|teen|adult)$"),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
     """Get emotion-based recommendations (7 clusters)"""
-    movies = get_movies_by_score(db, "emotion_tags", emotion, limit=limit)
+    movies = get_movies_by_score(db, "emotion_tags", emotion, limit=limit, age_rating=age_rating)
     return [MovieListItem.from_orm_with_genres(m) for m in movies]
 
 
 @router.get("/popular", response_model=List[MovieListItem])
 def get_popular_movies(
+    age_rating: Optional[str] = Query(None, regex="^(all|family|teen|adult)$"),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
     """Get popular movies (quality filter: weighted_score >= 6.0)"""
-    movies = db.query(Movie).filter(
+    q = db.query(Movie).filter(
         Movie.weighted_score >= 6.0
-    ).order_by(Movie.popularity.desc(), Movie.weighted_score.desc()).limit(limit).all()
+    )
+    q = apply_age_rating_filter(q, age_rating)
+    movies = q.order_by(Movie.popularity.desc(), Movie.weighted_score.desc()).limit(limit).all()
     return [MovieListItem.from_orm_with_genres(m) for m in movies]
 
 
 @router.get("/top-rated", response_model=List[MovieListItem])
 def get_top_rated_movies(
+    age_rating: Optional[str] = Query(None, regex="^(all|family|teen|adult)$"),
     limit: int = Query(20, ge=1, le=100),
     min_votes: int = Query(100, ge=1),
     db: Session = Depends(get_db)
 ):
     """Get top rated movies (quality filter: weighted_score >= 6.0)"""
-    movies = db.query(Movie).filter(
+    q = db.query(Movie).filter(
         Movie.weighted_score >= 6.0,
         Movie.vote_count >= min_votes
-    ).order_by(Movie.vote_average.desc(), Movie.weighted_score.desc()).limit(limit).all()
+    )
+    q = apply_age_rating_filter(q, age_rating)
+    movies = q.order_by(Movie.vote_average.desc(), Movie.weighted_score.desc()).limit(limit).all()
     return [MovieListItem.from_orm_with_genres(m) for m in movies]
 
 
 @router.get("/for-you", response_model=List[MovieListItem])
 def get_personalized_recommendations(
+    age_rating: Optional[str] = Query(None, regex="^(all|family|teen|adult)$"),
     limit: int = Query(20, ge=1, le=100),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -652,9 +701,11 @@ def get_personalized_recommendations(
 
     if not favorites or not favorites.movies:
         # 찜한 영화 없으면 인기 영화 반환
-        movies = db.query(Movie).filter(
+        q = db.query(Movie).filter(
             Movie.weighted_score >= 6.0
-        ).order_by(Movie.popularity.desc(), Movie.weighted_score.desc()).limit(limit).all()
+        )
+        q = apply_age_rating_filter(q, age_rating)
+        movies = q.order_by(Movie.popularity.desc(), Movie.weighted_score.desc()).limit(limit).all()
         return [MovieListItem.from_orm_with_genres(m) for m in movies]
 
     # 찜한 영화들의 장르 집계
@@ -668,9 +719,11 @@ def get_personalized_recommendations(
             genre_counts[genre_name] = genre_counts.get(genre_name, 0) + 1
 
     if not genre_counts:
-        movies = db.query(Movie).filter(
+        q = db.query(Movie).filter(
             Movie.weighted_score >= 6.0
-        ).order_by(Movie.popularity.desc(), Movie.weighted_score.desc()).limit(limit).all()
+        )
+        q = apply_age_rating_filter(q, age_rating)
+        movies = q.order_by(Movie.popularity.desc(), Movie.weighted_score.desc()).limit(limit).all()
         return [MovieListItem.from_orm_with_genres(m) for m in movies]
 
     # 상위 3개 장르
@@ -678,11 +731,13 @@ def get_personalized_recommendations(
     top_genre_names = [g[0] for g in top_genres]
 
     # 해당 장르의 영화 중 찜하지 않은 인기 영화 추천 (품질 필터 적용)
-    movies = db.query(Movie).join(Movie.genres).filter(
+    q = db.query(Movie).join(Movie.genres).filter(
         Genre.name.in_(top_genre_names),
         Movie.weighted_score >= 6.0,
         ~Movie.id.in_(favorited_ids)
-    ).order_by(Movie.popularity.desc(), Movie.weighted_score.desc()).limit(limit * 2).all()
+    )
+    q = apply_age_rating_filter(q, age_rating)
+    movies = q.order_by(Movie.popularity.desc(), Movie.weighted_score.desc()).limit(limit * 2).all()
 
     # 중복 제거 및 limit 적용
     seen = set()
