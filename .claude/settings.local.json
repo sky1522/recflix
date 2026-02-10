@@ -63,7 +63,24 @@
       "WebFetch(domain:frontend-eight-gules-78.vercel.app)",
       "Bash(for i in 1 2 3)",
       "Bash(do echo \"요청 $i:\")",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "Bash(uvicorn:*)",
+      "Bash(python3:*)",
+      "Bash(cmd.exe /c \"taskkill /F /PID 8132 & taskkill /F /PID 7012 & taskkill /F /PID 18472\")",
+      "Bash(cmd.exe /c \"wmic process where \"\"commandline like ''%uvicorn%''\"\" get processid\")",
+      "Bash(powershell.exe -Command \"Get-Process -Name python -ErrorAction SilentlyContinue | Stop-Process -Force\")",
+      "Bash(python -m venv:*)",
+      "Bash(./venv/Scripts/pip install:*)",
+      "Bash(./venv/Scripts/python.exe -m pip:*)",
+      "Bash(./venv/Scripts/python.exe:*)",
+      "Bash(xxd:*)",
+      "Bash(for mood in relaxed tense excited emotional imaginative light)",
+      "Bash(do)",
+      "Bash(ls:*)",
+      "Bash(node -e:*)",
+      "Bash(git status:*)"
     ]
   }
 }
