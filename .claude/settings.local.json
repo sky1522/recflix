@@ -97,7 +97,10 @@
       "Bash(C:/dev/recflix/backend/venv/Scripts/python.exe C:/dev/recflix/backend/scripts/test_llm_prompt.py)",
       "Bash(C:/dev/recflix/backend/venv/Scripts/python.exe C:/dev/recflix/backend/scripts/llm_reanalyze_all.py)",
       "Bash(set PGPASSWORD=recflix123:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(python:*)",
+      "Bash(PYTHONIOENCODING=utf-8 python:*)",
+      "Bash(tee:*)"
     ]
   }
 }

@@ -36,16 +36,20 @@ def apply_age_rating_filter(query, age_rating: Optional[str]):
         )
     return query
 
-# Hybrid scoring weights (with mood)
-WEIGHT_MBTI = 0.30
+# Hybrid scoring weights (with mood) - tuned v2
+WEIGHT_MBTI = 0.25
 WEIGHT_WEATHER = 0.20
-WEIGHT_MOOD = 0.20
-WEIGHT_PERSONAL = 0.30
+WEIGHT_MOOD = 0.30
+WEIGHT_PERSONAL = 0.25
 
-# Hybrid scoring weights (without mood - legacy)
+# Hybrid scoring weights (without mood)
 WEIGHT_MBTI_NO_MOOD = 0.35
 WEIGHT_WEATHER_NO_MOOD = 0.25
 WEIGHT_PERSONAL_NO_MOOD = 0.40
+
+# Quality correction range (weighted_score based)
+QUALITY_BOOST_MIN = 0.85  # floor multiplier for ws=6.0
+QUALITY_BOOST_MAX = 1.00  # ceiling multiplier for ws=max
 
 # Mood to emotion_tags mapping
 # DB 키 (7대 감성 클러스터): healing, tension, energy, romance, deep, fantasy, light
@@ -270,8 +274,9 @@ def calculate_hybrid_scores(
 ) -> List[Tuple[Movie, float, List[RecommendationTag]]]:
     """
     Calculate hybrid scores for movies
-    With mood: (0.30 × MBTI) + (0.20 × Weather) + (0.20 × Mood) + (0.30 × Personal)
+    With mood: (0.25 × MBTI) + (0.20 × Weather) + (0.30 × Mood) + (0.25 × Personal)
     Without mood: (0.35 × MBTI) + (0.25 × Weather) + (0.40 × Personal)
+    Final score is multiplied by a quality factor based on weighted_score (0.85~1.0)
     """
     scored_movies = []
     top_genres = sorted(genre_counts.items(), key=lambda x: x[1], reverse=True)[:3] if genre_counts else []
@@ -356,17 +361,14 @@ def calculate_hybrid_scores(
                     score=0.4
                 ))
 
-        # High quality bonus (weighted_score based)
+        # High quality tag (weighted_score based)
         ws = movie.weighted_score or 0.0
-        if ws >= 7.0:
-            personal_score += 0.2
+        if ws >= 7.5:
             tags.append(RecommendationTag(
                 type="rating",
                 label="#명작",
                 score=0.2
             ))
-        elif ws >= 6.5:
-            personal_score += 0.1
 
         # Calculate hybrid score (동적 가중치 사용)
         hybrid_score = (
@@ -379,6 +381,12 @@ def calculate_hybrid_scores(
         # Popularity boost (small)
         if movie.popularity > 100:
             hybrid_score += 0.05
+
+        # Quality correction: continuous boost based on weighted_score (6.0~max → 0.85~1.0)
+        max_ws = 9.0
+        quality_ratio = min(max((ws - 6.0) / (max_ws - 6.0), 0.0), 1.0)
+        quality_factor = QUALITY_BOOST_MIN + (QUALITY_BOOST_MAX - QUALITY_BOOST_MIN) * quality_ratio
+        hybrid_score *= quality_factor
 
         # Normalize to 0-1 range
         hybrid_score = min(max(hybrid_score, 0.0), 1.0)
