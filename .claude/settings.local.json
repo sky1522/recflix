@@ -81,7 +81,23 @@
       "Bash(ls:*)",
       "Bash(node -e:*)",
       "Bash(git status:*)",
-      "Bash(npx next build:*)"
+      "Bash(npx next build:*)",
+      "Bash(./backend/venv/Scripts/python.exe:*)",
+      "Bash(railway run:*)",
+      "Bash(DATABASE_URL=\"postgresql://postgres:zqlvYCwxXsnpkZmlDxKyTwNmYFrQbvte@hopper.proxy.rlwy.net:11578/railway\" ./venv/Scripts/python.exe -c \"\nimport sys, io\nsys.stdout = io.TextIOWrapper\\(sys.stdout.buffer, encoding=''utf-8''\\)\nimport psycopg2\nconn = psycopg2.connect\\(''postgresql://postgres:zqlvYCwxXsnpkZmlDxKyTwNmYFrQbvte@hopper.proxy.rlwy.net:11578/railway''\\)\ncur = conn.cursor\\(\\)\ncur.execute\\(''SELECT COUNT\\(*\\) FROM movies''\\)\nprint\\(f''Current production movies: {cur.fetchone\\(\\)[0]}''\\)\ncur.execute\\(\"\"\"\"\"\"SELECT column_name FROM information_schema.columns WHERE table_name=''movies'' ORDER BY ordinal_position\"\"\"\"\"\"\\)\ncols = [r[0] for r in cur.fetchall\\(\\)]\nprint\\(f''Columns \\({len\\(cols\\)}\\): {cols}''\\)\nconn.close\\(\\)\n\")",
+      "Bash(DATABASE_URL=\"postgresql://postgres:zqlvYCwxXsnpkZmlDxKyTwNmYFrQbvte@hopper.proxy.rlwy.net:11578/railway\" ./venv/Scripts/python.exe:*)",
+      "Bash(PGPASSWORD=recflix123 \"/c/Program Files/PostgreSQL/16/bin/pg_dump.exe\":*)",
+      "Bash(PGPASSWORD=zqlvYCwxXsnpkZmlDxKyTwNmYFrQbvte \"/c/Program Files/PostgreSQL/16/bin/pg_restore.exe\":*)",
+      "WebFetch(domain:jnsquery-reflix.vercel.app)",
+      "WebFetch(domain:backend-production-cff2.up.railway.app)",
+      "Bash(C:\\\\dev\\\\recflix\\\\backend\\\\venv\\\\Scripts\\\\python.exe:*)",
+      "Bash(PGPASSWORD=recflix123 psql:*)",
+      "Bash(\"C:\\\\Program Files\\\\PostgreSQL\\\\16\\\\bin\\\\psql.exe\":*)",
+      "Bash(PGPASSWORD=recflix123 \"C:\\\\Program Files\\\\PostgreSQL\\\\16\\\\bin\\\\psql.exe\":*)",
+      "Bash(C:/dev/recflix/backend/venv/Scripts/python.exe C:/dev/recflix/backend/scripts/test_llm_prompt.py)",
+      "Bash(C:/dev/recflix/backend/venv/Scripts/python.exe C:/dev/recflix/backend/scripts/llm_reanalyze_all.py)",
+      "Bash(set PGPASSWORD=recflix123:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

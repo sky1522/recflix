@@ -9,6 +9,19 @@ import { getImageUrl, formatDate } from "@/lib/utils";
 import type { Movie } from "@/types";
 import MovieModal from "./MovieModal";
 
+const CERT_BADGE_COLORS: Record<string, string> = {
+  ALL: "bg-green-600",
+  G: "bg-green-600",
+  PG: "bg-blue-600",
+  "12": "bg-blue-600",
+  "PG-13": "bg-yellow-600",
+  "15": "bg-yellow-600",
+  R: "bg-red-600",
+  "18": "bg-red-600",
+  "19": "bg-red-600",
+  "NC-17": "bg-red-600",
+};
+
 interface MovieCardProps {
   movie: Movie;
   index?: number;
@@ -51,6 +64,13 @@ export default function MovieCard({ movie, index = 0, showQuickView = true }: Mo
                   <path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z" />
                 </svg>
               </div>
+            )}
+
+            {/* Certification badge */}
+            {movie.certification && CERT_BADGE_COLORS[movie.certification] && (
+              <span className={`absolute top-1.5 left-1.5 px-1.5 py-0.5 text-[10px] font-bold text-white rounded ${CERT_BADGE_COLORS[movie.certification]} z-10`}>
+                {movie.certification}
+              </span>
             )}
 
             {/* Hover overlay */}
