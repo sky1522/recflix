@@ -12,7 +12,7 @@
 |------|------|------|
 | PostgreSQL 16 설치 | ✅ | Windows 로컬, 포트 5432 |
 | Redis 설치 | ✅ | Memurai, 포트 6379, 암호: recflix123 |
-| CSV → DB 마이그레이션 | ✅ | 32,625편 영화 |
+| CSV → DB 마이그레이션 | ✅ | 42,917편 영화 (신규 CSV 적용) |
 | MBTI/날씨/감정 점수 생성 | ✅ | Rule-based, JSONB 저장 |
 
 ### Phase 2: Backend API (FastAPI)
@@ -119,7 +119,7 @@
 | Railway PostgreSQL | ✅ | 자동 프로비저닝 |
 | Railway Redis | ✅ | 캐싱용 |
 | Railway Backend 배포 | ✅ | https://backend-production-cff2.up.railway.app |
-| 데이터베이스 마이그레이션 | ✅ | pg_dump → Railway (32,625편 영화) |
+| 데이터베이스 마이그레이션 | ✅ | pg_dump → Railway (42,917편 영화) |
 | 환경변수 설정 | ✅ | DATABASE_URL, REDIS_URL, JWT, CORS 등 |
 | CORS 설정 수정 | ✅ | pydantic field_validator로 파싱 |
 | 테이블 자동 생성 | ✅ | FastAPI lifespan 이벤트 |
@@ -170,6 +170,23 @@
 | CORS_ORIGINS 업데이트 | ✅ | Railway 환경변수 + 로컬 .env 동기화 |
 | Railway 백엔드 재배포 | ✅ | CORS 설정 반영 |
 | README 도메인 업데이트 | ✅ | 새 프론트엔드 URL 반영 |
+
+### Phase 13: 신규 데이터 마이그레이션 (2026-02-10)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| DB 스키마 비교 분석 | ✅ | CSV 43컬럼 vs DB 18컬럼 매핑 |
+| Movie 모델 6컬럼 추가 | ✅ | director, director_ko, cast_ko, production_countries_ko, release_season, weighted_score |
+| Pydantic 스키마 업데이트 | ✅ | MovieDetail에 신규 필드 반영 |
+| 마이그레이션 스크립트 | ✅ | `migrate_add_columns.py` (ALTER TABLE) |
+| CSV 임포트 (42,917편) | ✅ | `import_csv_data.py`, `import_relationships.py` |
+| LLM emotion_tags 복원 | ✅ | 996/1,000편 복원 (4편은 신규 CSV에 없음) |
+| 키워드 기반 emotion_tags 생성 | ✅ | 18,587편 신규 생성 → 전체 100% |
+| mbti_scores 생성 | ✅ | 21,180편 신규 생성 → 전체 100% |
+| weather_scores 생성 | ✅ | 21,180편 신규 생성 → 전체 100% |
+| 프로덕션 DB 적용 | ✅ | pg_dump → pg_restore로 Railway DB 복원 |
+| 프로덕션 검증 | ✅ | 42,917편, 점수 100%, API 정상 |
+| .gitignore CSV 제외 | ✅ | `*.csv` 패턴 추가 |
 
 ---
 
@@ -318,6 +335,10 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 - [x] **맞춤 추천 20개로 증가** (2026-02-09)
 - [x] **Vercel 도메인 변경** (jnsquery-reflix.vercel.app) (2026-02-10)
 - [x] **CORS 설정 정리** (Railway + 로컬 동기화) (2026-02-10)
+- [x] **신규 CSV 42,917편 마이그레이션** (32,625 → 42,917) (2026-02-10)
+- [x] **Movie 모델 6컬럼 추가** (director, cast_ko, release_season 등) (2026-02-10)
+- [x] **점수 데이터 100% 재생성** (emotion/mbti/weather) (2026-02-10)
+- [x] **프로덕션 DB 복원** (pg_dump → pg_restore) (2026-02-10)
 
 ### 향후 개선사항
 - [ ] 소셜 로그인 (Google, Kakao)

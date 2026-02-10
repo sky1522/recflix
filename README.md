@@ -125,7 +125,7 @@ Score = (0.35 × MBTI) + (0.25 × Weather) + (0.40 × Personal)
 
 ## Database
 
-- **Movies**: 32,625편 (TMDB 기반)
+- **Movies**: 42,917편 (TMDB 기반)
 - **Scores**: JSONB로 저장 (mbti_scores, weather_scores, emotion_tags)
 
 ## Environment Variables

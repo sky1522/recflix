@@ -8,12 +8,34 @@ All notable changes to RecFlix will be documented in this file.
 
 ## [2026-02-10]
 
+### Added
+- **신규 CSV 데이터 마이그레이션**: 32,625편 → **42,917편** (+10,292편)
+- **Movie 모델 6컬럼 추가**: `director`, `director_ko`, `cast_ko`, `production_countries_ko`, `release_season`, `weighted_score`
+- **DB 마이그레이션 스크립트**: `backend/scripts/migrate_add_columns.py`
+- **CSV 임포트 스크립트**: `backend/scripts/import_csv_data.py`, `import_relationships.py`, `import_production.py`
+- **mbti/weather 점수 생성 스크립트**: `backend/scripts/generate_mbti_weather_scores.py`
+  - MBTI 16개 유형별 장르+감정 기반 점수 산출
+  - 날씨 4개 타입별 장르+감정 기반 점수 산출 (부스트/페널티 로직)
+- **LLM emotion_tags 복원**: 백업 JSON에서 996편 복원
+- **키워드 기반 emotion_tags**: 18,587편 신규 생성 (overview 컬럼 사용으로 변경)
+- **프로덕션 DB 복원**: `pg_dump` → `pg_restore`로 Railway PostgreSQL에 전체 데이터 적용
+
 ### Changed
 - **Vercel 프로젝트 이름 변경**: `frontend` → `jnsquery-reflix`
 - **프로덕션 프론트엔드 URL**: `https://jnsquery-reflix.vercel.app`
 - **Railway CORS_ORIGINS 업데이트**: 새 도메인 반영
 - **로컬 `.env` CORS_ORIGINS**: 명시적으로 추가 및 동기화
 - **README**: 프론트엔드 URL 업데이트
+- **regenerate_emotion_tags.py**: `overview_ko` → `overview` 사용, LLM 식별을 기존 태그 존재 여부로 변경
+- **Pydantic MovieDetail 스키마**: 신규 6개 필드 추가 및 `from_orm_with_relations` 매핑
+- **.gitignore**: `*.csv` 패턴 추가 (대용량 CSV 제외)
+
+### Data Statistics
+- 영화: 42,917편
+- emotion_tags: 42,917 (100%)
+- mbti_scores: 42,917 (100%)
+- weather_scores: 42,917 (100%)
+- 관계: movie_genres 98,767 / movie_cast 252,662 / movie_keywords 77,660 / movie_countries 55,265 / similar_movies 101,386
 
 ---
 
