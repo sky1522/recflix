@@ -70,6 +70,14 @@ class Movie(Base):
     overview_lang = Column(String(10))
     is_adult = Column(Boolean, default=False)
 
+    # New columns from CSV update
+    director = Column(String(500))               # Director name (English/original)
+    director_ko = Column(String(500))            # Director name (Korean)
+    cast_ko = Column(Text)                       # Cast names in Korean (comma-separated)
+    production_countries_ko = Column(Text)        # Production countries in Korean
+    release_season = Column(String(10))           # 봄/여름/가을/겨울
+    weighted_score = Column(Float, default=0.0)   # Pre-calculated weighted score
+
     # Recommendation scores (JSONB)
     mbti_scores = Column(JSONB, default={})      # {"INTJ": 0.8, "ENFP": 0.6, ...}
     weather_scores = Column(JSONB, default={})   # {"sunny": 0.7, "rainy": 0.9, ...}

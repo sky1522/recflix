@@ -71,6 +71,12 @@ class MovieDetail(MovieBase):
     overview_ko: Optional[str]
     tagline: Optional[str]
     overview_lang: Optional[str]
+    director: Optional[str] = None
+    director_ko: Optional[str] = None
+    cast_ko: Optional[str] = None
+    production_countries_ko: Optional[str] = None
+    release_season: Optional[str] = None
+    weighted_score: Optional[float] = None
     genres: List[GenreResponse] = []
     cast_members: List[PersonResponse] = []
     keywords: List[str] = []
@@ -100,6 +106,12 @@ class MovieDetail(MovieBase):
             overview_ko=movie.overview_ko,
             tagline=movie.tagline,
             overview_lang=movie.overview_lang,
+            director=movie.director,
+            director_ko=movie.director_ko,
+            cast_ko=movie.cast_ko,
+            production_countries_ko=movie.production_countries_ko,
+            release_season=movie.release_season,
+            weighted_score=movie.weighted_score,
             genres=[GenreResponse.model_validate(g) for g in movie.genres],
             cast_members=[PersonResponse.model_validate(p) for p in movie.cast_members[:10]],
             keywords=[k.name for k in movie.keywords],

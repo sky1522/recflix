@@ -295,29 +295,25 @@ def calculate_cluster_scores(keywords: List[str], overview_ko: str, genres: List
 def main():
     print("=" * 60)
     print("Regenerating emotion_tags with 7 emotion clusters")
-    print("(Keyword-based only, excluding LLM-processed movies)")
+    print("(Keyword-based only, skipping movies with existing tags)")
     print("Max score cap: 0.7")
     print("=" * 60)
 
     conn = psycopg2.connect(os.environ['DATABASE_URL'])
     cur = conn.cursor()
 
-    # Get LLM-processed movie IDs (top 1000 by popularity)
-    print("\nIdentifying LLM-processed movies to exclude...")
-    cur.execute('''
-        SELECT id FROM movies
-        WHERE vote_count >= 50
-        ORDER BY popularity DESC
-        LIMIT 1000
-    ''')
-    llm_movie_ids = set(row[0] for row in cur.fetchall())
-    print(f"Excluding {len(llm_movie_ids)} LLM-processed movies")
+    # Count movies with existing emotion_tags (LLM or previously generated)
+    cur.execute("""
+        SELECT COUNT(*) FROM movies
+        WHERE emotion_tags IS NOT NULL AND emotion_tags != '{}'::jsonb
+    """)
+    existing_count = cur.fetchone()[0]
+    print(f"\nMovies with existing emotion_tags (skip): {existing_count}")
 
-    # Get all movies EXCEPT LLM-processed ones
-    print("\nFetching keyword-based movies...")
-    llm_ids_str = ','.join(map(str, llm_movie_ids)) if llm_movie_ids else '0'
-    cur.execute(f'''
-        SELECT m.id, m.overview_ko,
+    # Get movies WITHOUT emotion_tags - use overview (not overview_ko)
+    print("Fetching movies without emotion_tags...")
+    cur.execute("""
+        SELECT m.id, m.overview,
                ARRAY_AGG(DISTINCT k.name) FILTER (WHERE k.name IS NOT NULL) as keywords,
                ARRAY_AGG(DISTINCT g.name) FILTER (WHERE g.name IS NOT NULL) as genres
         FROM movies m
@@ -325,9 +321,9 @@ def main():
         LEFT JOIN keywords k ON mk.keyword_id = k.id
         LEFT JOIN movie_genres mg ON m.id = mg.movie_id
         LEFT JOIN genres g ON mg.genre_id = g.id
-        WHERE m.id NOT IN ({llm_ids_str})
-        GROUP BY m.id, m.overview_ko
-    ''')
+        WHERE m.emotion_tags IS NULL OR m.emotion_tags = '{}'::jsonb
+        GROUP BY m.id, m.overview
+    """)
 
     movies = cur.fetchall()
     total = len(movies)
@@ -337,10 +333,10 @@ def main():
     updates = []
     processed = 0
 
-    for movie_id, overview_ko, keywords, genres in movies:
+    for movie_id, overview, keywords, genres in movies:
         scores = calculate_cluster_scores(
             keywords or [],
-            overview_ko or "",
+            overview or "",
             genres or []
         )
         updates.append((json.dumps(scores), movie_id))
@@ -385,6 +381,17 @@ def main():
     print("\n" + "=" * 60)
     print("Statistics:")
     print("=" * 60)
+
+    cur.execute("SELECT COUNT(*) FROM movies")
+    total_movies = cur.fetchone()[0]
+    cur.execute("""
+        SELECT COUNT(*) FROM movies
+        WHERE emotion_tags IS NOT NULL AND emotion_tags != '{}'::jsonb
+    """)
+    has_tags = cur.fetchone()[0]
+    print(f"\nTotal movies: {total_movies}")
+    print(f"With emotion_tags: {has_tags} ({has_tags*100/total_movies:.1f}%)")
+    print(f"Without emotion_tags: {total_movies - has_tags}")
 
     for cluster in CLUSTER_KEYWORDS.keys():
         cur.execute(f'''
