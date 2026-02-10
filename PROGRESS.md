@@ -1,6 +1,6 @@
 # RecFlix 개발 진행 상황
 
-**최종 업데이트**: 2026-02-09
+**최종 업데이트**: 2026-02-10
 
 ---
 
@@ -114,7 +114,7 @@
 | 항목 | 상태 | 비고 |
 |------|------|------|
 | GitHub 저장소 생성 | ✅ | https://github.com/sky1522/recflix |
-| Vercel 프론트엔드 배포 | ✅ | https://frontend-eight-gules-78.vercel.app |
+| Vercel 프론트엔드 배포 | ✅ | https://jnsquery-reflix.vercel.app |
 | Railway 프로젝트 생성 | ✅ | recflix 프로젝트 |
 | Railway PostgreSQL | ✅ | 자동 프로비저닝 |
 | Railway Redis | ✅ | 캐싱용 |
@@ -160,6 +160,16 @@
 | 맞춤 추천 영화 수 증가 | ✅ | 10개 → 20개 (풀 40개에서 셔플) |
 | 🔄 새로고침 버튼 | ✅ | 모든 섹션 제목 우측, 풀 내 재셔플 |
 | .env.example 보안 | ✅ | 민감값 → your-xxx-here 플레이스홀더 |
+
+### Phase 12: 도메인 변경 & CORS 정리 (2026-02-10)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| Vercel 프로젝트 이름 변경 | ✅ | frontend → jnsquery-reflix |
+| 프로덕션 도메인 변경 | ✅ | https://jnsquery-reflix.vercel.app |
+| CORS_ORIGINS 업데이트 | ✅ | Railway 환경변수 + 로컬 .env 동기화 |
+| Railway 백엔드 재배포 | ✅ | CORS 설정 반영 |
+| README 도메인 업데이트 | ✅ | 새 프론트엔드 URL 반영 |
 
 ---
 
@@ -241,7 +251,7 @@ C:\dev\recflix\
 
 | 서비스 | URL |
 |--------|-----|
-| Frontend (Vercel) | https://frontend-eight-gules-78.vercel.app |
+| Frontend (Vercel) | https://jnsquery-reflix.vercel.app |
 | Backend API (Railway) | https://backend-production-cff2.up.railway.app |
 | API Docs | https://backend-production-cff2.up.railway.app/docs |
 | GitHub | https://github.com/sky1522/recflix |
@@ -306,11 +316,12 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 - [x] **추천 품질 필터** (2026-02-09)
 - [x] **🔄 새로고침 버튼** (풀 내 재셔플) (2026-02-09)
 - [x] **맞춤 추천 20개로 증가** (2026-02-09)
+- [x] **Vercel 도메인 변경** (jnsquery-reflix.vercel.app) (2026-02-10)
+- [x] **CORS 설정 정리** (Railway + 로컬 동기화) (2026-02-10)
 
 ### 향후 개선사항
 - [ ] 소셜 로그인 (Google, Kakao)
 - [ ] PWA 지원
-- [ ] 커스텀 도메인 설정
 - [ ] CI/CD 파이프라인 (GitHub Actions)
 - [ ] 모니터링/로깅 설정 (Sentry 등)
 

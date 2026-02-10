@@ -6,6 +6,17 @@ All notable changes to RecFlix will be documented in this file.
 
 ---
 
+## [2026-02-10]
+
+### Changed
+- **Vercel 프로젝트 이름 변경**: `frontend` → `jnsquery-reflix`
+- **프로덕션 프론트엔드 URL**: `https://jnsquery-reflix.vercel.app`
+- **Railway CORS_ORIGINS 업데이트**: 새 도메인 반영
+- **로컬 `.env` CORS_ORIGINS**: 명시적으로 추가 및 동기화
+- **README**: 프론트엔드 URL 업데이트
+
+---
+
 ## [2026-02-09]
 
 ### Added
@@ -86,7 +97,7 @@ All notable changes to RecFlix will be documented in this file.
 
 ### Added
 - **프로덕션 배포**
-  - Vercel (Frontend): https://frontend-eight-gules-78.vercel.app
+  - Vercel (Frontend): https://jnsquery-reflix.vercel.app
   - Railway (Backend): https://backend-production-cff2.up.railway.app
   - Railway PostgreSQL + Redis
 - GitHub 저장소: https://github.com/sky1522/recflix
