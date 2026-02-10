@@ -94,15 +94,14 @@ def get_movies_by_score(
     score_key: str,
     limit: int = 10,
     pool_size: int = 40,
-    min_votes: int = 30,
-    min_rating: float = 5.0,
+    min_weighted_score: float = 6.0,
     shuffle: bool = True,
     llm_min_ratio: float = 0.3  # Minimum 30% LLM movies
 ) -> List[Movie]:
     """
     Get movies sorted by a specific score with optional shuffling.
     Ensures minimum ratio of LLM-analyzed movies for quality.
-    Quality filter: vote_count >= min_votes AND vote_average >= min_rating
+    Quality filter: weighted_score >= min_weighted_score
     """
     # Get LLM movie IDs for mixing
     llm_ids = get_llm_movie_ids(db)
@@ -112,13 +111,12 @@ def get_movies_by_score(
 
     result = db.execute(text(f"""
         SELECT id, ({score_type}->>:score_key)::float as score FROM movies
-        WHERE vote_count >= :min_votes
-        AND vote_average >= :min_rating
+        WHERE COALESCE(weighted_score, 0) >= :min_weighted_score
         AND {score_type} IS NOT NULL
         AND {score_type}->>:score_key IS NOT NULL
-        ORDER BY ({score_type}->>:score_key)::float DESC
+        ORDER BY ({score_type}->>:score_key)::float DESC, weighted_score DESC
         LIMIT :pool_size
-    """), {"score_key": score_key, "pool_size": extended_pool, "min_votes": min_votes, "min_rating": min_rating}).fetchall()
+    """), {"score_key": score_key, "pool_size": extended_pool, "min_weighted_score": min_weighted_score}).fetchall()
 
     if not result:
         return []
@@ -329,15 +327,16 @@ def calculate_hybrid_scores(
                     score=0.4
                 ))
 
-        # High rating bonus (movie quality)
-        if movie.vote_average >= 8.0 and movie.vote_count >= 100:
+        # High quality bonus (weighted_score based)
+        ws = movie.weighted_score or 0.0
+        if ws >= 7.0:
             personal_score += 0.2
             tags.append(RecommendationTag(
                 type="rating",
                 label="#명작",
                 score=0.2
             ))
-        elif movie.vote_average >= 7.5 and movie.vote_count >= 50:
+        elif ws >= 6.5:
             personal_score += 0.1
 
         # Calculate hybrid score (동적 가중치 사용)
@@ -387,11 +386,11 @@ def get_home_recommendations(
 
     # === HYBRID RECOMMENDATION ROW (Main personalized) ===
     if current_user and (mbti or weather or mood or genre_counts):
-        # Get candidate movies
+        # Get candidate movies (quality filter: weighted_score >= 6.0)
         candidate_movies = db.query(Movie).filter(
-            Movie.vote_count >= 30,
+            Movie.weighted_score >= 6.0,
             ~Movie.id.in_(favorited_ids)  # Exclude already favorited
-        ).order_by(desc(Movie.popularity)).limit(200).all()
+        ).order_by(desc(Movie.popularity), desc(Movie.weighted_score)).limit(200).all()
 
         # Calculate hybrid scores
         scored = calculate_hybrid_scores(
@@ -483,9 +482,8 @@ def get_home_recommendations(
 
     # Popular movies (shuffle from top 100)
     popular_pool = db.query(Movie).filter(
-        Movie.vote_count >= 30,
-        Movie.vote_average >= 5.0
-    ).order_by(Movie.popularity.desc()).limit(100).all()
+        Movie.weighted_score >= 6.0
+    ).order_by(Movie.popularity.desc(), Movie.weighted_score.desc()).limit(100).all()
     popular = random.sample(popular_pool, min(50, len(popular_pool))) if popular_pool else []
     random.shuffle(popular)
     popular_row = RecommendationRow(
@@ -496,9 +494,8 @@ def get_home_recommendations(
 
     # Top rated (shuffle from top 100)
     top_rated_pool = db.query(Movie).filter(
-        Movie.vote_count >= 100,
-        Movie.vote_average >= 5.0
-    ).order_by(Movie.vote_average.desc()).limit(100).all()
+        Movie.weighted_score >= 6.0
+    ).order_by(Movie.vote_average.desc(), Movie.weighted_score.desc()).limit(100).all()
     top_rated = random.sample(top_rated_pool, min(50, len(top_rated_pool))) if top_rated_pool else []
     random.shuffle(top_rated)
     top_rated_row = RecommendationRow(
@@ -557,12 +554,11 @@ def get_hybrid_recommendations(
     user_movie_ids = favorited_ids | highly_rated_ids
     similar_ids = get_similar_movie_ids(db, user_movie_ids)
 
-    # Get candidate movies (quality filter: vote_count >= 30, vote_average >= 5.0)
+    # Get candidate movies (quality filter: weighted_score >= 6.0)
     candidate_movies = db.query(Movie).filter(
-        Movie.vote_count >= 30,
-        Movie.vote_average >= 5.0,
+        Movie.weighted_score >= 6.0,
         ~Movie.id.in_(favorited_ids)
-    ).order_by(desc(Movie.popularity)).limit(300).all()
+    ).order_by(desc(Movie.popularity), desc(Movie.weighted_score)).limit(300).all()
 
     # Calculate hybrid scores
     scored = calculate_hybrid_scores(
@@ -616,11 +612,10 @@ def get_popular_movies(
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
-    """Get popular movies (quality filter: vote_count >= 30, vote_average >= 5.0)"""
+    """Get popular movies (quality filter: weighted_score >= 6.0)"""
     movies = db.query(Movie).filter(
-        Movie.vote_count >= 30,
-        Movie.vote_average >= 5.0
-    ).order_by(Movie.popularity.desc()).limit(limit).all()
+        Movie.weighted_score >= 6.0
+    ).order_by(Movie.popularity.desc(), Movie.weighted_score.desc()).limit(limit).all()
     return [MovieListItem.from_orm_with_genres(m) for m in movies]
 
 
@@ -630,10 +625,11 @@ def get_top_rated_movies(
     min_votes: int = Query(100, ge=1),
     db: Session = Depends(get_db)
 ):
-    """Get top rated movies"""
+    """Get top rated movies (quality filter: weighted_score >= 6.0)"""
     movies = db.query(Movie).filter(
+        Movie.weighted_score >= 6.0,
         Movie.vote_count >= min_votes
-    ).order_by(Movie.vote_average.desc()).limit(limit).all()
+    ).order_by(Movie.vote_average.desc(), Movie.weighted_score.desc()).limit(limit).all()
     return [MovieListItem.from_orm_with_genres(m) for m in movies]
 
 
@@ -657,9 +653,8 @@ def get_personalized_recommendations(
     if not favorites or not favorites.movies:
         # 찜한 영화 없으면 인기 영화 반환
         movies = db.query(Movie).filter(
-            Movie.vote_count >= 30,
-            Movie.vote_average >= 5.0
-        ).order_by(Movie.popularity.desc()).limit(limit).all()
+            Movie.weighted_score >= 6.0
+        ).order_by(Movie.popularity.desc(), Movie.weighted_score.desc()).limit(limit).all()
         return [MovieListItem.from_orm_with_genres(m) for m in movies]
 
     # 찜한 영화들의 장르 집계
@@ -674,9 +669,8 @@ def get_personalized_recommendations(
 
     if not genre_counts:
         movies = db.query(Movie).filter(
-            Movie.vote_count >= 30,
-            Movie.vote_average >= 5.0
-        ).order_by(Movie.popularity.desc()).limit(limit).all()
+            Movie.weighted_score >= 6.0
+        ).order_by(Movie.popularity.desc(), Movie.weighted_score.desc()).limit(limit).all()
         return [MovieListItem.from_orm_with_genres(m) for m in movies]
 
     # 상위 3개 장르
@@ -686,10 +680,9 @@ def get_personalized_recommendations(
     # 해당 장르의 영화 중 찜하지 않은 인기 영화 추천 (품질 필터 적용)
     movies = db.query(Movie).join(Movie.genres).filter(
         Genre.name.in_(top_genre_names),
-        Movie.vote_count >= 30,
-        Movie.vote_average >= 5.0,
+        Movie.weighted_score >= 6.0,
         ~Movie.id.in_(favorited_ids)
-    ).order_by(Movie.popularity.desc()).limit(limit * 2).all()
+    ).order_by(Movie.popularity.desc(), Movie.weighted_score.desc()).limit(limit * 2).all()
 
     # 중복 제거 및 limit 적용
     seen = set()
