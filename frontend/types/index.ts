@@ -22,6 +22,7 @@ export interface MovieDetail extends Movie {
   cast_members: Person[];
   keywords: string[];
   countries: string[];
+  production_countries_ko: string | null;
   mbti_scores: Record<string, number> | null;
   weather_scores: Record<string, number> | null;
   emotion_tags: Record<string, number> | null;

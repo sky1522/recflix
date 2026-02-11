@@ -14,7 +14,7 @@ import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 
 const SORT_OPTIONS = [
   { value: "popularity", label: "인기순" },
-  { value: "vote_average", label: "평점순" },
+  { value: "weighted_score", label: "평점순" },
   { value: "release_date", label: "최신순" },
 ];
 
@@ -314,8 +314,20 @@ function MoviesPageContent() {
                     </div>
                   )}
 
-                  {/* Intersection observer target - always mounted for proper observation */}
+                  {/* Intersection observer target */}
                   <div ref={loadMoreRef} className="h-10" />
+
+                  {/* Manual load more button (fallback) */}
+                  {hasMore && !loadingMore && (
+                    <div className="flex justify-center py-6">
+                      <button
+                        onClick={loadMore}
+                        className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg transition"
+                      >
+                        더 보기 ({currentPage} / {totalPages} 페이지)
+                      </button>
+                    </div>
+                  )}
 
                   {/* End of results */}
                   {!hasMore && movies.length > 0 && (

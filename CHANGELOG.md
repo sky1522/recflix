@@ -6,6 +6,39 @@ All notable changes to RecFlix will be documented in this file.
 
 ---
 
+## [2026-02-11]
+
+### Security
+- **DB 비밀번호 노출 대응**: GitGuardian 경고 → Railway PostgreSQL 신규 서비스로 교체
+  - `.claude/settings.local.json` git 추적 제거 (노출된 비밀번호 포함)
+  - `.gitignore`에 `.claude/settings.local.json`, `*.dump` 추가
+  - 새 DB 호스트: `shinkansen.proxy.rlwy.net:20053`
+
+### Added
+- **인기도 로그 스케일 변환**: TMDB popularity를 10점 만점으로 변환 (log 기반 정규화)
+  - 42,917편의 min(0.007)~max(728) 기준
+  - 라벨: 8.0+ 초화제작 (~30편), 6.5+ 인기작 (~420편), 5.0+ 주목작 (~14,500편)
+  - `getPopularityScore()` 유틸리티 함수 (`frontend/lib/utils.ts`)
+- **무한스크롤 "더 보기" 버튼**: observer 미작동 시 수동 로드 fallback
+  - 현재 페이지 / 전체 페이지 표시
+
+### Changed
+- **높은 평점 정렬 기준 변경**: `vote_average` → `weighted_score` (투표수+평점 가중)
+  - 홈 "높은 평점 영화" 섹션 + top-rated API + 검색 페이지 평점순 정렬
+  - 홈 높은 평점 섹션에 `vote_count >= 100` 최소 조건 추가
+- **검색 정렬 옵션 변경**: `vote_average` → `weighted_score` (백엔드 + 프론트엔드)
+- **Vercel Image Optimization 비활성화**: `images.unoptimized: true`
+  - Hobby 플랜 월 1,000회 제한 초과로 포스터 미표시 문제 해결
+  - TMDB CDN에서 직접 로드 (성능 차이 미미)
+- **제작 국가 한국어 표시**: `production_countries_ko` 우선 표시 (없으면 영어 fallback)
+- **무한스크롤 훅 개선**: `enabled`를 콜백 ref dependency에서 제거, ref로 체크하도록 변경
+
+### Fixed
+- **Vercel 포스터 미표시**: Image Optimization 할당량 초과 (402 에러) → unoptimized 설정으로 해결
+- **무한스크롤 미작동**: IntersectionObserver 콜백 ref 타이밍 이슈 수정 + 수동 버튼 fallback
+
+---
+
 ## [2026-02-10]
 
 ### Added

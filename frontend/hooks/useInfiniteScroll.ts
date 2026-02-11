@@ -23,18 +23,19 @@ export function useInfiniteScroll({
   rootMargin = "200px",
 }: UseInfiniteScrollOptions) {
   const observerRef = useRef<IntersectionObserver | null>(null);
-  const nodeRef = useRef<HTMLDivElement | null>(null);
 
-  // Store latest callback to avoid stale closures
+  // Store latest values to avoid stale closures in observer callback
   const onLoadMoreRef = useRef(onLoadMore);
   const hasMoreRef = useRef(hasMore);
   const isLoadingRef = useRef(isLoading);
+  const enabledRef = useRef(enabled);
 
   useEffect(() => {
     onLoadMoreRef.current = onLoadMore;
     hasMoreRef.current = hasMore;
     isLoadingRef.current = isLoading;
-  }, [onLoadMore, hasMore, isLoading]);
+    enabledRef.current = enabled;
+  }, [onLoadMore, hasMore, isLoading, enabled]);
 
   // Callback ref that properly handles element attachment/detachment
   const loadMoreRef = useCallback(
@@ -45,15 +46,18 @@ export function useInfiniteScroll({
         observerRef.current = null;
       }
 
-      nodeRef.current = node;
+      if (!node) return;
 
-      // Don't observe if not enabled or no node
-      if (!enabled || !node) return;
-
+      // Create observer - always create it, check enabled in callback
       observerRef.current = new IntersectionObserver(
         (entries) => {
           const [entry] = entries;
-          if (entry.isIntersecting && hasMoreRef.current && !isLoadingRef.current) {
+          if (
+            entry.isIntersecting &&
+            enabledRef.current &&
+            hasMoreRef.current &&
+            !isLoadingRef.current
+          ) {
             onLoadMoreRef.current();
           }
         },
@@ -62,27 +66,8 @@ export function useInfiniteScroll({
 
       observerRef.current.observe(node);
     },
-    [enabled, threshold, rootMargin]
+    [threshold, rootMargin]
   );
-
-  // Re-observe when enabled changes
-  useEffect(() => {
-    if (!enabled && observerRef.current) {
-      observerRef.current.disconnect();
-      observerRef.current = null;
-    } else if (enabled && nodeRef.current && !observerRef.current) {
-      observerRef.current = new IntersectionObserver(
-        (entries) => {
-          const [entry] = entries;
-          if (entry.isIntersecting && hasMoreRef.current && !isLoadingRef.current) {
-            onLoadMoreRef.current();
-          }
-        },
-        { threshold, rootMargin }
-      );
-      observerRef.current.observe(nodeRef.current);
-    }
-  }, [enabled, threshold, rootMargin]);
 
   // Cleanup on unmount
   useEffect(() => {

@@ -130,7 +130,7 @@ class MovieSearchParams(BaseModel):
     max_rating: Optional[float] = None
     year_from: Optional[int] = None
     year_to: Optional[int] = None
-    sort_by: str = "popularity"  # popularity, vote_average, release_date
+    sort_by: str = "popularity"  # popularity, weighted_score, release_date
     sort_order: str = "desc"  # asc, desc
     page: int = 1
     page_size: int = 20
