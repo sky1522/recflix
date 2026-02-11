@@ -47,7 +47,7 @@ export default function Header() {
   useEffect(() => {
     const loadWeather = () => {
       try {
-        const cached = localStorage.getItem("recflix_weather");
+        const cached = localStorage.getItem("recflix_weather_v3");
         if (cached) {
           const { data } = JSON.parse(cached);
           setWeather(data);
@@ -103,8 +103,12 @@ export default function Header() {
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="flex items-center justify-between h-14 md:h-16">
             {/* Logo */}
-            <Link href="/" className="flex items-center space-x-2 z-10">
-              <span className="text-xl md:text-2xl font-bold text-primary-500">RecFlix</span>
+            <Link href="/" className="flex items-center gap-0.5 z-10">
+              <svg viewBox="0 0 32 32" className="w-7 h-7 md:w-8 md:h-8">
+                <rect width="32" height="32" rx="6" fill="#e50914"/>
+                <path d="M10 7h8a5 5 0 0 1 0 10h-1l5 8h-4l-5-8h-0V25h-3V7zm3 3v5h5a2.5 2.5 0 0 0 0-5z" fill="white"/>
+              </svg>
+              <span className="text-xl md:text-2xl font-bold text-primary-500">ecflix</span>
             </Link>
 
             {/* Desktop Navigation */}

@@ -1,6 +1,7 @@
 """
 Weather Service - OpenWeatherMap API Integration with Redis Caching
 """
+import asyncio
 import httpx
 import redis.asyncio as aioredis
 from typing import Optional
@@ -217,7 +218,7 @@ async def get_weather_by_coords(
         return _get_default_weather()
 
     # 캐시 키 생성 (소수점 2자리까지만 사용)
-    cache_key = f"weather:coords:{round(lat, 2)}:{round(lon, 2)}"
+    cache_key = f"weather:v2:coords:{round(lat, 2)}:{round(lon, 2)}"
 
     # Redis 캐시 확인
     redis = await get_redis_client()
@@ -232,22 +233,44 @@ async def get_weather_by_coords(
         except Exception as e:
             print(f"Redis get error: {e}")
 
-    # OpenWeatherMap API 호출
+    # OpenWeatherMap API 호출 (날씨 + 역지오코딩 병렬)
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get(
-                "https://api.openweathermap.org/data/2.5/weather",
-                params={
-                    "lat": lat,
-                    "lon": lon,
-                    "appid": settings.WEATHER_API_KEY,
-                    "units": "metric",
-                    "lang": "ko",
-                },
-                timeout=10.0,
+            weather_resp, geo_resp = await asyncio.gather(
+                client.get(
+                    "https://api.openweathermap.org/data/2.5/weather",
+                    params={
+                        "lat": lat,
+                        "lon": lon,
+                        "appid": settings.WEATHER_API_KEY,
+                        "units": "metric",
+                        "lang": "ko",
+                    },
+                    timeout=10.0,
+                ),
+                client.get(
+                    "https://api.openweathermap.org/geo/1.0/reverse",
+                    params={
+                        "lat": lat,
+                        "lon": lon,
+                        "limit": 1,
+                        "appid": settings.WEATHER_API_KEY,
+                    },
+                    timeout=10.0,
+                ),
             )
-            response.raise_for_status()
-            data = response.json()
+            weather_resp.raise_for_status()
+            data = weather_resp.json()
+
+            # 역지오코딩에서 한글 도시명 추출
+            geo_city_ko = ""
+            try:
+                geo_data = geo_resp.json()
+                if geo_data and len(geo_data) > 0:
+                    local_names = geo_data[0].get("local_names", {})
+                    geo_city_ko = local_names.get("ko", "")
+            except Exception:
+                pass
     except Exception as e:
         print(f"Weather API error: {e}")
         return _get_default_weather()
@@ -256,8 +279,9 @@ async def get_weather_by_coords(
     weather_code = data["weather"][0]["id"]
     condition = WeatherCondition.from_code(weather_code)
 
+    # 도시명 우선순위: 역지오코딩 한글 > CITY_NAME_KO 매핑 > API 원본
     city_name = data.get("name", "")
-    city_ko = CITY_NAME_KO.get(city_name, city_name)
+    city_ko = geo_city_ko or CITY_NAME_KO.get(city_name, city_name)
 
     weather_data = WeatherData(
         condition=condition,
@@ -303,7 +327,7 @@ async def get_weather_by_city(
     if not settings.WEATHER_API_KEY or settings.WEATHER_API_KEY == "your-openweathermap-api-key":
         return _get_default_weather()
 
-    cache_key = f"weather:city:{city.lower()}:{country_code.lower()}"
+    cache_key = f"weather:v2:city:{city.lower()}:{country_code.lower()}"
 
     # Redis 캐시 확인
     redis = await get_redis_client()

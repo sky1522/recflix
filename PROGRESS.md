@@ -216,6 +216,18 @@
 | 인기도 로그 스케일 표시 | ✅ | 10점 만점 변환 + 라벨 (초화제작/인기작/주목작) |
 | 무한스크롤 수정 | ✅ | observer 훅 개선 + "더 보기" 버튼 fallback |
 
+### Phase 16: Favicon & 날씨 한글화 & 배너 개선 (2026-02-11)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| Favicon 추가 | ✅ | .ico (Pillow 생성) + .svg, layout.tsx icons 설정 |
+| 헤더 로고 아이콘 | ✅ | R 아이콘 + "ecflix" 텍스트 조합 |
+| 날씨 한글 도시명 | ✅ | Reverse Geocoding API + 70개+ 매핑 딕셔너리 |
+| 날씨 도시명 헤더 표시 | ✅ | WeatherIndicator에 도시명 추가 (데스크톱만) |
+| 날씨 dong 문제 해결 | ✅ | 역지오코딩 local_names.ko 사용 |
+| FeaturedBanner 여백 축소 | ✅ | 배너 높이/마진 감소, 섹션 간격 개선 |
+| FeaturedBanner 제목 전체 표시 | ✅ | truncate 제거, 긴 제목 줄바꿈 표시 |
+
 ---
 
 ## 프로젝트 구조
@@ -379,6 +391,10 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 - [x] **평점 정렬 weighted_score 통일** (홈/검색/API) (2026-02-11)
 - [x] **인기도 로그 스케일 변환** (10점 만점 + 라벨) (2026-02-11)
 - [x] **무한스크롤 수정** (observer 훅 + 더보기 버튼) (2026-02-11)
+- [x] **Favicon 추가** (.ico + .svg, 빨간 배경 R 로고) (2026-02-11)
+- [x] **헤더 로고 아이콘** (R 아이콘 + "ecflix" 조합) (2026-02-11)
+- [x] **날씨 한글 도시명** (Reverse Geocoding + 매핑) (2026-02-11)
+- [x] **FeaturedBanner 개선** (여백 축소 + 제목 전체 표시) (2026-02-11)
 
 ### 향후 개선사항
 - [ ] 소셜 로그인 (Google, Kakao)
@@ -405,3 +421,6 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 13. **GitGuardian DB 비밀번호 노출**: Railway DB 교체 + .gitignore 보호 (2026-02-11)
 14. **Vercel 포스터 미표시**: Image Optimization 할당량 초과 → unoptimized 설정 (2026-02-11)
 15. **uvicorn --reload 불완전 리로드**: 파일 변경 감지되나 모듈 미갱신 → 수동 재시작 필요 (2026-02-11)
+16. **favicon.ico 404**: Next.js `app/icon.tsx` (ImageResponse)는 Windows에서 경로 버그 → `public/favicon.ico` + SVG 정적 파일로 해결 (2026-02-11)
+17. **날씨 "dong" 영어 표시**: OpenWeatherMap `name` 필드는 `lang` 파라미터 무관 → Reverse Geocoding API `local_names.ko`로 한글 도시명 추출 (2026-02-11)
+18. **날씨 캐시 이전 데이터 잔존**: Redis + localStorage 캐시 키 버전업 (`v2`→`v3`)으로 무효화 (2026-02-11)

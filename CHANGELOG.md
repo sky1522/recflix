@@ -21,6 +21,14 @@ All notable changes to RecFlix will be documented in this file.
   - `getPopularityScore()` 유틸리티 함수 (`frontend/lib/utils.ts`)
 - **무한스크롤 "더 보기" 버튼**: observer 미작동 시 수동 로드 fallback
   - 현재 페이지 / 전체 페이지 표시
+- **Favicon 추가**: Pillow로 생성한 .ico (16x16/32x32) + SVG (빨간 배경 흰색 R 로고)
+  - `public/favicon.ico`, `public/favicon.svg`
+  - `layout.tsx` metadata icons 설정
+- **헤더 로고 아이콘**: RecFlix 텍스트 좌측에 R 아이콘 추가 (아이콘 + "ecflix" 조합)
+- **날씨 한글 도시명 표시**: OpenWeatherMap Reverse Geocoding API 병렬 호출
+  - `local_names.ko`에서 한글 도시명 추출 (예: "수원시")
+  - 70개+ 한글 도시명 매핑 딕셔너리 (fallback용)
+  - 헤더 WeatherIndicator에 도시명 표시 (데스크톱만, 모바일 생략)
 
 ### Changed
 - **높은 평점 정렬 기준 변경**: `vote_average` → `weighted_score` (투표수+평점 가중)
@@ -32,10 +40,15 @@ All notable changes to RecFlix will be documented in this file.
   - TMDB CDN에서 직접 로드 (성능 차이 미미)
 - **제작 국가 한국어 표시**: `production_countries_ko` 우선 표시 (없으면 영어 fallback)
 - **무한스크롤 훅 개선**: `enabled`를 콜백 ref dependency에서 제거, ref로 체크하도록 변경
+- **OpenWeatherMap lang 파라미터**: `kr` → `ko` (표준 언어 코드)
+- **FeaturedBanner 하단 여백 축소**: 배너 높이 5vh 감소, 마진 `mb-16/mb-20` → `mb-4/mb-6`
+- **FeaturedBanner 제목 전체 표시**: `truncate` 제거, 긴 제목도 줄바꿈으로 전체 표시
 
 ### Fixed
 - **Vercel 포스터 미표시**: Image Optimization 할당량 초과 (402 에러) → unoptimized 설정으로 해결
 - **무한스크롤 미작동**: IntersectionObserver 콜백 ref 타이밍 이슈 수정 + 수동 버튼 fallback
+- **날씨 도시명 "dong" 표시 문제**: 좌표 기반 조회 시 동(洞) 단위 영어 이름 반환 → 역지오코딩으로 한글 도시명 해결
+- **날씨 캐시 무효화**: Redis 캐시 키 + localStorage 캐시 키 버전업으로 이전 데이터 완전 무효화
 
 ---
 
