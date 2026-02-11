@@ -188,6 +188,22 @@
 | 프로덕션 검증 | ✅ | 42,917편, 점수 100%, API 정상 |
 | .gitignore CSV 제외 | ✅ | `*.csv` 패턴 추가 |
 
+### Phase 14: 알고리즘 튜닝 & 연령등급 필터링 (2026-02-10)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| LLM emotion_tags 재분석 | ✅ | 1,711편, 새 프롬프트 (세밀 점수 분포) |
+| 품질 필터 통합 | ✅ | vote_count+vote_average → weighted_score >= 6.0 |
+| 연령등급 필터링 | ✅ | age_rating 파라미터 (all/family/teen/adult) |
+| AGE_RATING_MAP | ✅ | family: ALL/G/PG/12, teen: +PG-13/15 |
+| 등급 배지 UI | ✅ | MovieCard 등급별 색상 배지 |
+| 검색 등급 필터 | ✅ | 영화 검색 페이지 드롭다운 |
+| Hybrid 가중치 v2 | ✅ | Mood 0.30, MBTI 0.25, Weather 0.20, Personal 0.25 |
+| 품질 보정 연속화 | ✅ | binary bonus → ×0.85~1.0 연속 보정 |
+| #명작 태그 개선 | ✅ | ws >= 7.5 (태그만, 점수 가산 없음) |
+| 분석 스크립트 | ✅ | analyze_hybrid_scores.py |
+| DB 덤프 공유 | ✅ | data/recflix_db.dump + 복원 가이드 |
+
 ---
 
 ## 프로젝트 구조
@@ -339,6 +355,12 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 - [x] **Movie 모델 6컬럼 추가** (director, cast_ko, release_season 등) (2026-02-10)
 - [x] **점수 데이터 100% 재생성** (emotion/mbti/weather) (2026-02-10)
 - [x] **프로덕션 DB 복원** (pg_dump → pg_restore) (2026-02-10)
+- [x] **LLM emotion_tags 재분석** (1,711편, 새 프롬프트) (2026-02-10)
+- [x] **품질 필터 통합** (weighted_score >= 6.0) (2026-02-10)
+- [x] **연령등급 필터링** (age_rating: all/family/teen/adult) (2026-02-10)
+- [x] **Hybrid 가중치 v2 튜닝** (Mood 0.30 강화) (2026-02-10)
+- [x] **품질 보정 연속화** (×0.85~1.0) (2026-02-10)
+- [x] **DB 덤프 공유** (data/recflix_db.dump) (2026-02-10)
 
 ### 향후 개선사항
 - [ ] 소셜 로그인 (Google, Kakao)

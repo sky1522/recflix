@@ -1,27 +1,29 @@
 # RecFlix 추천 시스템 로직
 
-> 마지막 업데이트: 2026-02-09
+> 마지막 업데이트: 2026-02-10
 
 ---
 
 ## 0. 품질 필터 (Quality Filter)
 
-모든 추천 섹션에 최소 품질 필터가 적용됩니다:
+모든 추천 섹션에 `weighted_score` 기반 통합 품질 필터가 적용됩니다:
 
 ```python
-# 기본 품질 필터
-vote_count >= 30      # 최소 30표 이상
-vote_average >= 5.0   # 평점 5.0 이상
+# 통합 품질 필터 (v2, 2026-02-10~)
+weighted_score >= 6.0   # vote_count, vote_average, popularity를 종합한 가중 점수
 ```
 
-| 섹션 | vote_count | vote_average |
-|------|------------|--------------|
-| 기분별 추천 | >= 30 | >= 5.0 |
-| 인기 영화 | >= 30 | >= 5.0 |
-| 날씨별 추천 | >= 30 | >= 5.0 |
-| MBTI 추천 | >= 30 | >= 5.0 |
-| 높은 평점 | >= 100 | >= 5.0 |
-| Hybrid 맞춤 | >= 30 | >= 5.0 |
+> **변경 이유**: 기존 `vote_count >= 30 AND vote_average >= 5.0` 2중 필터 대비,
+> `weighted_score`는 투표 수·평균 평점·인기도를 종합한 단일 지표로 더 정밀한 품질 판별이 가능합니다.
+
+| 섹션 | 품질 필터 | 정렬 기준 |
+|------|----------|----------|
+| 기분별 추천 | weighted_score >= 6.0 | emotion_score DESC, weighted_score DESC |
+| 인기 영화 | weighted_score >= 6.0 | popularity DESC, weighted_score DESC |
+| 날씨별 추천 | weighted_score >= 6.0 | weather_score DESC, weighted_score DESC |
+| MBTI 추천 | weighted_score >= 6.0 | mbti_score DESC, weighted_score DESC |
+| 높은 평점 | weighted_score >= 6.0 | vote_average DESC, weighted_score DESC |
+| Hybrid 맞춤 | weighted_score >= 6.0 | hybrid_score DESC |
 
 ---
 
@@ -55,29 +57,33 @@ emotion_tags는 두 가지 방식으로 생성됩니다:
 
 | 방식 | 대상 | 영화 수 | 최대 점수 |
 |------|------|--------|----------|
-| **LLM 분석** | 인기 상위 1,000편 | 1,000 | 1.0 |
-| **키워드 기반** | 나머지 영화 | 31,625 | **0.7** (상한) |
+| **LLM 분석** | 인기 상위 영화 | ~1,711 | 1.0 |
+| **키워드 기반** | 나머지 영화 | ~41,206 | **0.7** (상한) |
 
 ### 2.2 LLM 분석 (Claude API)
 
-인기 상위 1,000편 (vote_count >= 50, popularity DESC)에 대해 Claude API로 정밀 분석:
+인기 상위 영화에 대해 Claude API로 정밀 분석:
 
 ```python
-# 스크립트: backend/scripts/llm_emotion_tags.py
+# 스크립트: backend/scripts/llm_emotion_tags.py (초기 분석)
+#           backend/scripts/llm_reanalyze_all.py (재분석, 배치 저장 + resume 지원)
 # 모델: claude-sonnet-4-20250514
 # 배치: 10편씩 묶어서 API 호출
 
-# 입력: 영화 제목, 장르, 줄거리 (overview_ko)
-# 출력: 7개 클러스터별 점수 (0.0 ~ 1.0)
+# 입력: 영화 제목, 장르, 줄거리 (overview)
+# 출력: 7개 클러스터별 점수 (0.0 ~ 1.0, 세밀한 분포: 0.35, 0.72 등)
 ```
+
+> **v2 프롬프트 (2026-02-10)**: 기존 대비 더 세밀한 점수 분포를 생성하도록 프롬프트 개선.
+> 0.0/0.5/1.0 같은 단순 점수 대신 0.35, 0.72 같은 연속적인 점수 분포를 생성합니다.
 
 **LLM 분석 결과 예시:**
 | 영화 | 1위 | 2위 | 3위 |
 |------|-----|-----|-----|
-| 인셉션 | tension: 0.90 | fantasy: 0.90 | deep: 0.80 |
-| 다크 나이트 | tension: 0.80 | energy: 0.70 | deep: 0.70 |
-| 인터스텔라 | deep: 0.80 | fantasy: 0.80 | tension: 0.50 |
-| 어벤저스 | energy: 1.00 | fantasy: 0.80 | tension: 0.50 |
+| 인셉션 | tension: 0.88 | fantasy: 0.85 | deep: 0.78 |
+| 다크 나이트 | tension: 0.82 | energy: 0.72 | deep: 0.68 |
+| 인터스텔라 | deep: 0.85 | fantasy: 0.82 | tension: 0.52 |
+| 어벤저스 | energy: 0.95 | fantasy: 0.78 | tension: 0.55 |
 
 ### 2.3 키워드 기반 점수 (나머지 영화)
 
@@ -128,15 +134,15 @@ penalty = (neg_keyword_count × 0.1) + (bad_genre_count × 0.15)
 
 ### 2.6 클러스터별 영화 수 (score > 0.3)
 
-| 클러스터 | LLM (1,000편) | 키워드 (31,625편) |
-|---------|--------------|-----------------|
-| healing | 254 | 4,813 |
-| tension | 700 | 3,802 |
-| energy | 668 | 2,847 |
-| romance | 179 | 2,336 |
-| deep | 414 | 4,114 |
-| fantasy | 414 | 1,945 |
-| light | 289 | 2,728 |
+| 클러스터 | LLM (~1,711편) | 키워드 (~41,206편) |
+|---------|---------------|------------------|
+| healing | ~350 | ~5,200 |
+| tension | ~900 | ~4,100 |
+| energy | ~850 | ~3,000 |
+| romance | ~250 | ~2,500 |
+| deep | ~550 | ~4,500 |
+| fantasy | ~550 | ~2,100 |
+| light | ~380 | ~2,900 |
 
 ---
 
@@ -199,7 +205,7 @@ def get_movies_by_score(..., llm_min_ratio=0.3):
 ### 4.2 Hybrid 스코어링에서의 MBTI
 
 ```python
-# 가중치: 30% (mood 있을 때) / 35% (mood 없을 때)
+# 가중치: 25% (mood 있을 때) / 35% (mood 없을 때)
 mbti_score = movie.mbti_scores.get(mbti, 0.0)
 
 # 태그 표시 조건: score > 0.5
@@ -267,7 +273,7 @@ MOOD_EMOTION_MAPPING = {
 ### 6.3 Hybrid 스코어링에서의 Mood
 
 ```python
-# 가중치: 20% (mood 있을 때만)
+# 가중치: 30% (mood 있을 때만)
 # 여러 emotion key가 있을 경우 평균 계산
 emotion_keys = MOOD_EMOTION_MAPPING.get(mood, [])
 emotion_values = [movie.emotion_tags.get(key) for key in emotion_keys]
@@ -282,17 +288,20 @@ if mood_score > 0.5:
 
 ## 7. Hybrid (종합) 추천 로직
 
-### 7.1 가중치 구성
+### 7.1 가중치 구성 (v2 튜닝, 2026-02-10~)
 
 **Mood 있을 때:**
 ```
-Hybrid Score = (0.30 × MBTI) + (0.20 × Weather) + (0.20 × Mood) + (0.30 × Personal)
+Hybrid Score = (0.25 × MBTI) + (0.20 × Weather) + (0.30 × Mood) + (0.25 × Personal)
 ```
 
 **Mood 없을 때:**
 ```
 Hybrid Score = (0.35 × MBTI) + (0.25 × Weather) + (0.40 × Personal)
 ```
+
+> **v2 변경점**: Mood 가중치를 0.20 → 0.30으로 강화하여 기분 맞춤 추천을 강화하고,
+> MBTI(0.30→0.25)와 Personal(0.30→0.25)을 완화하여 과잉 지배를 방지합니다.
 
 ### 7.2 Personal Score 구성요소
 
@@ -307,20 +316,84 @@ personal_score += min(len(matching_genres) * 0.3, 0.9)
 if movie.id in similar_to_user_favorites:
     personal_score += 0.4
 
-# 3. 고평점 영화 보너스
-if movie.vote_average >= 8.0 and movie.vote_count >= 100:
-    personal_score += 0.2  # #명작 태그
+# 3. #명작 태그 (weighted_score 기반)
+if weighted_score >= 7.5:
+    tags.append("#명작")   # 태그만 표시, 점수 가산 없음
 
 # 4. 인기도 보너스 (+0.05)
 if movie.popularity > 100:
     hybrid_score += 0.05
 ```
 
+### 7.3 품질 보정 (Quality Correction)
+
+Hybrid Score 계산 후, `weighted_score`에 기반한 연속 품질 보정이 적용됩니다:
+
+```python
+# weighted_score 기반 연속 보정 (binary bonus 대체)
+# ws=6.0 이하 → ×0.85 (감점), ws=9.0 → ×1.00 (만점)
+max_ws = 9.0
+quality_ratio = clamp((ws - 6.0) / (max_ws - 6.0), 0.0, 1.0)
+quality_factor = 0.85 + 0.15 × quality_ratio
+hybrid_score *= quality_factor
+```
+
+> **변경 이유**: 기존 binary bonus(+0.1/+0.2)는 7.0/8.0 기준으로 점수가 급변했지만,
+> 연속 보정은 6.0~9.0 구간에서 0.85~1.0으로 부드럽게 품질을 반영합니다.
+
 ---
 
-## 8. 홈 화면 섹션 순서
+## 8. 연령등급 필터링 (Age Rating Filter)
 
-### 8.1 로그인 상태별 순서
+### 8.1 개요
+
+모든 추천/검색 API에 `age_rating` 파라미터로 연령등급 필터를 적용할 수 있습니다.
+
+```python
+# 파라미터: age_rating (all | family | teen | adult)
+# NULL 등급(전체의 ~55.6%)은 모든 그룹에 포함
+```
+
+### 8.2 등급 그룹 매핑
+
+```python
+AGE_RATING_MAP = {
+    "family": ["ALL", "G", "PG", "12"],
+    "teen":   ["ALL", "G", "PG", "PG-13", "12", "15"],
+}
+# "all" / "adult": 필터 미적용 (모든 등급 포함)
+```
+
+| 그룹 | 포함 등급 | 설명 |
+|------|----------|------|
+| family | ALL, G, PG, 12 + NULL | 가족 관람가 |
+| teen | ALL, G, PG, PG-13, 12, 15 + NULL | 청소년 관람가 |
+| adult | 전체 | 성인 포함 전체 |
+| all | 전체 | 필터 없음 |
+
+### 8.3 적용 범위
+
+| API | age_rating 지원 |
+|-----|:---:|
+| `GET /recommendations` | ✅ |
+| `GET /recommendations/hybrid` | ✅ |
+| `GET /recommendations/mbti` | ✅ |
+| `GET /recommendations/weather` | ✅ |
+| `GET /recommendations/emotion` | ✅ |
+| `GET /recommendations/popular` | ✅ |
+| `GET /recommendations/top-rated` | ✅ |
+| `GET /movies` (검색) | ✅ |
+
+### 8.4 Frontend UI
+
+- **MovieCard**: certification 값에 따라 색상 배지 표시 (ALL=초록, PG-13=노랑, R=빨강 등)
+- **검색 페이지**: 등급 필터 드롭다운 (전체/가족/청소년/성인)
+
+---
+
+## 9. 홈 화면 섹션 순서
+
+### 9.1 로그인 상태별 순서
 
 **로그인 시:** 개인화 → 범용
 | 순서 | 섹션 | 데이터 소스 |
@@ -340,7 +413,7 @@ if movie.popularity > 100:
 | 3 | 날씨별 추천 | weather_scores 상위 50개 → 20개 표시 |
 | 4 | 기분별 추천 | emotion_tags 상위 50개 → 20개 표시 |
 
-### 8.2 🔄 새로고침 버튼
+### 9.2 🔄 새로고침 버튼
 
 모든 섹션 제목 우측에 새로고침 버튼이 있습니다:
 - **동작**: 풀(40~50개) 내에서 20개 재셔플
@@ -357,31 +430,38 @@ const displayedMovies = useMemo(() => {
 
 ---
 
-## 9. API 엔드포인트 요약
+## 10. API 엔드포인트 요약
 
 | 엔드포인트 | 메서드 | 파라미터 | 설명 |
 |-----------|--------|----------|------|
-| `/recommendations` | GET | weather, mood | 홈 화면 전체 추천 |
-| `/recommendations/hybrid` | GET | weather, limit | 로그인 필수, 종합 추천 |
-| `/recommendations/mbti` | GET | mbti, limit | MBTI별 추천 |
-| `/recommendations/weather` | GET | weather, limit | 날씨별 추천 |
-| `/recommendations/emotion` | GET | emotion, limit | 감정별 추천 |
-| `/recommendations/popular` | GET | limit | 인기 영화 |
-| `/recommendations/top-rated` | GET | limit, min_votes | 높은 평점 |
+| `/recommendations` | GET | weather, mood, age_rating | 홈 화면 전체 추천 |
+| `/recommendations/hybrid` | GET | weather, limit, age_rating | 로그인 필수, 종합 추천 |
+| `/recommendations/mbti` | GET | mbti, limit, age_rating | MBTI별 추천 |
+| `/recommendations/weather` | GET | weather, limit, age_rating | 날씨별 추천 |
+| `/recommendations/emotion` | GET | emotion, limit, age_rating | 감정별 추천 |
+| `/recommendations/popular` | GET | limit, age_rating | 인기 영화 |
+| `/recommendations/top-rated` | GET | limit, min_votes, age_rating | 높은 평점 |
 | `/recommendations/for-you` | GET | limit | 로그인 필수, 찜 기반 |
+| `/movies` | GET | genre, query, age_rating, ... | 영화 검색 |
 
 ---
 
-## 10. 관련 파일
+## 11. 관련 파일
 
 | 파일 | 설명 |
 |------|------|
-| `backend/app/api/v1/recommendations.py` | 추천 API 엔드포인트 |
+| `backend/app/api/v1/recommendations.py` | 추천 API 엔드포인트 (Hybrid 스코어링, 품질 필터, 연령등급) |
+| `backend/app/api/v1/movies.py` | 영화 검색 API (연령등급 필터 포함) |
 | `backend/app/models/movie.py` | Movie 모델 (JSONB 컬럼) |
 | `backend/scripts/regenerate_emotion_tags.py` | 키워드 기반 emotion_tags 생성 |
-| `backend/scripts/llm_emotion_tags.py` | LLM 기반 emotion_tags 생성 |
+| `backend/scripts/llm_emotion_tags.py` | LLM 기반 emotion_tags 초기 생성 |
+| `backend/scripts/llm_reanalyze_all.py` | LLM 재분석 (배치 저장 + resume) |
+| `backend/scripts/test_llm_prompt.py` | LLM 프롬프트 테스트 |
+| `backend/scripts/analyze_hybrid_scores.py` | Hybrid 점수 분석 스크립트 |
 | `frontend/app/page.tsx` | 홈 화면 (섹션 렌더링) |
+| `frontend/app/movies/page.tsx` | 영화 검색 (연령등급 필터 드롭다운) |
 | `frontend/components/movie/FeaturedBanner.tsx` | 날씨/기분 선택 UI |
+| `frontend/components/movie/MovieCard.tsx` | 영화 카드 (등급 배지 포함) |
 | `frontend/hooks/useWeather.ts` | 날씨 상태 관리 |
 | `frontend/lib/api.ts` | API 호출 함수 |
 
@@ -391,6 +471,13 @@ const displayedMovies = useMemo(() => {
 
 | 날짜 | 변경 내용 |
 |------|----------|
+| 2026-02-10 | 품질 보정: binary bonus → 연속 보정 (×0.85~1.0, weighted_score 기반) |
+| 2026-02-10 | Hybrid 가중치 v2 튜닝: Mood 0.20→0.30, MBTI 0.30→0.25, Personal 0.30→0.25 |
+| 2026-02-10 | 연령등급 필터링 추가: age_rating 파라미터 (all/family/teen/adult) 전 API 적용 |
+| 2026-02-10 | 품질 필터 통합: vote_count+vote_average → weighted_score >= 6.0 단일 기준 |
+| 2026-02-10 | LLM emotion_tags 재분석: 1,000편 → 1,711편 (새 프롬프트, 세밀 분포) |
+| 2026-02-10 | #명작 태그 기준 변경: weighted_score >= 7.5 (점수 가산 없이 태그만 표시) |
+| 2026-02-10 | 정렬 기준 개선: 2차 정렬에 weighted_score DESC 추가 |
 | 2026-02-09 | 🔄 새로고침 버튼 추가 (풀 내 재셔플, API 호출 없음) |
 | 2026-02-09 | 맞춤 추천 영화 수 증가: 10개 → 20개 (풀 40개) |
 | 2026-02-09 | 섹션별 표시 영화 수: 20개 (풀 50개에서 셔플) |
