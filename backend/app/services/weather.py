@@ -115,6 +115,81 @@ class WeatherData:
         }
 
 
+# 한글 도시명 매핑 (OpenWeatherMap name → 한글)
+CITY_NAME_KO = {
+    "Seoul": "서울",
+    "Busan": "부산",
+    "Incheon": "인천",
+    "Daegu": "대구",
+    "Daejeon": "대전",
+    "Gwangju": "광주",
+    "Ulsan": "울산",
+    "Sejong": "세종",
+    "Suwon": "수원",
+    "Suwon-si": "수원시",
+    "Seongnam-si": "성남시",
+    "Goyang-si": "고양시",
+    "Yongin": "용인",
+    "Yongin-si": "용인시",
+    "Changwon": "창원",
+    "Changwon-si": "창원시",
+    "Hwaseong-si": "화성시",
+    "Cheongju-si": "청주시",
+    "Bucheon-si": "부천시",
+    "Ansan-si": "안산시",
+    "Anyang-si": "안양시",
+    "Namyangju": "남양주",
+    "Jeonju": "전주",
+    "Cheonan": "천안",
+    "Gimhae": "김해",
+    "Jeju City": "제주시",
+    "Jeju": "제주",
+    "Pohang": "포항",
+    "Gimpo-si": "김포시",
+    "Pyeongtaek": "평택",
+    "Gwangmyeong": "광명",
+    "Wonju": "원주",
+    "Iksan": "익산",
+    "Gunpo-si": "군포시",
+    "Uijeongbu-si": "의정부시",
+    "Paju": "파주",
+    "Yangsan": "양산",
+    "Gumi": "구미",
+    "Chuncheon": "춘천",
+    "Gangneung": "강릉",
+    "Asan": "아산",
+    "Mokpo": "목포",
+    "Yeosu": "여수",
+    "Suncheon": "순천",
+    "Gyeongju": "경주",
+    "Andong": "안동",
+    "Tongyeong": "통영",
+    "Sokcho": "속초",
+    "Siheung-si": "시흥시",
+    "Hanam": "하남",
+    "Osan": "오산",
+    "Icheon-si": "이천시",
+    "Gwacheon-si": "과천시",
+    "Gunsan": "군산",
+    "Jinju": "진주",
+    "Sacheon-si": "사천시",
+    "Gimcheon-si": "김천시",
+    "Chungju": "충주",
+    "Jecheon-si": "제천시",
+    "Donghae-si": "동해시",
+    "Samcheok-si": "삼척시",
+    "Taebaek-si": "태백시",
+    "Nonsan": "논산",
+    "Seosan": "서산",
+    "Dangjin-si": "당진시",
+    "Boryeong": "보령",
+    "Naju-si": "나주시",
+    "Gwangyang": "광양",
+    "Miryang": "밀양",
+    "Geoje-si": "거제시",
+}
+
+
 # 한글 날씨 설명 매핑
 WEATHER_DESCRIPTIONS_KO = {
     "sunny": "맑음",
@@ -167,7 +242,7 @@ async def get_weather_by_coords(
                     "lon": lon,
                     "appid": settings.WEATHER_API_KEY,
                     "units": "metric",
-                    "lang": "kr",
+                    "lang": "ko",
                 },
                 timeout=10.0,
             )
@@ -181,6 +256,9 @@ async def get_weather_by_coords(
     weather_code = data["weather"][0]["id"]
     condition = WeatherCondition.from_code(weather_code)
 
+    city_name = data.get("name", "")
+    city_ko = CITY_NAME_KO.get(city_name, city_name)
+
     weather_data = WeatherData(
         condition=condition,
         temperature=round(data["main"]["temp"], 1),
@@ -189,7 +267,7 @@ async def get_weather_by_coords(
         description=data["weather"][0]["description"],
         description_ko=WEATHER_DESCRIPTIONS_KO.get(condition, condition),
         icon=data["weather"][0]["icon"],
-        city=data.get("name", ""),
+        city=city_ko,
         country=data.get("sys", {}).get("country", ""),
     )
 
@@ -249,7 +327,7 @@ async def get_weather_by_city(
                     "q": f"{city},{country_code}",
                     "appid": settings.WEATHER_API_KEY,
                     "units": "metric",
-                    "lang": "kr",
+                    "lang": "ko",
                 },
                 timeout=10.0,
             )
@@ -262,6 +340,9 @@ async def get_weather_by_city(
     weather_code = data["weather"][0]["id"]
     condition = WeatherCondition.from_code(weather_code)
 
+    city_name = data.get("name", "")
+    city_ko = CITY_NAME_KO.get(city_name, city_name)
+
     weather_data = WeatherData(
         condition=condition,
         temperature=round(data["main"]["temp"], 1),
@@ -270,7 +351,7 @@ async def get_weather_by_city(
         description=data["weather"][0]["description"],
         description_ko=WEATHER_DESCRIPTIONS_KO.get(condition, condition),
         icon=data["weather"][0]["icon"],
-        city=data.get("name", ""),
+        city=city_ko,
         country=data.get("sys", {}).get("country", ""),
     )
 
@@ -306,6 +387,6 @@ def _get_default_weather() -> WeatherData:
         description="Default weather",
         description_ko=WEATHER_DESCRIPTIONS_KO.get(condition, "맑음"),
         icon="01d" if condition == "sunny" else "03d",
-        city="Seoul",
+        city="서울",
         country="KR",
     )
