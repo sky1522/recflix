@@ -20,7 +20,7 @@ interface UseWeatherReturn {
   resetToRealWeather: () => Promise<void>;
 }
 
-const WEATHER_CACHE_KEY = "recflix_weather";
+const WEATHER_CACHE_KEY = "recflix_weather_v3";
 const WEATHER_CACHE_DURATION = 30 * 60 * 1000; // 30분
 
 interface CachedWeather {

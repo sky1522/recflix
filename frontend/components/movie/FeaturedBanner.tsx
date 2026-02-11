@@ -157,13 +157,13 @@ export default function FeaturedBanner({
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            {/* Title - 한국어 + 영어 한 줄 */}
-            <div className="flex items-baseline gap-2 md:gap-3 min-w-0">
-              <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold text-white leading-tight shrink-0 max-w-[70%] truncate">
+            {/* Title - 한국어 + 영어 */}
+            <div className="flex flex-col gap-1 min-w-0">
+              <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold text-white leading-tight">
                 {movie.title_ko || movie.title}
               </h1>
               {movie.title_ko && movie.title && movie.title !== movie.title_ko && (
-                <span className="text-sm md:text-lg lg:text-xl text-white/40 truncate">
+                <span className="text-sm md:text-lg lg:text-xl text-white/40">
                   {movie.title}
                 </span>
               )}

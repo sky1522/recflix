@@ -7,6 +7,12 @@ export const metadata: Metadata = {
   title: "RecFlix - Personalized Movie Recommendations",
   description: "Context-aware personalized movie recommendation platform",
   manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
+  },
   other: {
     "mobile-web-app-capable": "yes",
   },
