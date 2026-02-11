@@ -42,12 +42,15 @@ function MoviesPageContent() {
   const selectedGenre = searchParams.get("genre") || "";
   const selectedAgeRating = searchParams.get("age_rating") || "";
   const sortBy = searchParams.get("sort") || "popularity";
-  const [currentPage, setCurrentPage] = useState(1);
+  const currentPage = Number(searchParams.get("page")) || 1;
 
   // Infinite scroll mode
   const [useInfiniteMode, setUseInfiniteMode] = useState(false);
+  const [infinitePage, setInfinitePage] = useState(1);
 
-  const hasMore = currentPage < totalPages;
+  const hasMore = useInfiniteMode
+    ? infinitePage < totalPages
+    : currentPage < totalPages;
 
   const updateParams = useCallback(
     (updates: Record<string, string | number | null>) => {
@@ -79,17 +82,17 @@ function MoviesPageContent() {
     fetchGenres();
   }, []);
 
-  // Fetch movies
+  // Fetch movies (reacts to URL params including page)
   useEffect(() => {
     const fetchMovies = async () => {
       setLoading(true);
-      setCurrentPage(1);
+      setInfinitePage(currentPage);
       try {
         const data = await getMovies({
           query: query || undefined,
           genres: selectedGenre || undefined,
           age_rating: selectedAgeRating || undefined,
-          page: 1,
+          page: currentPage,
           page_size: 24,
           sort_by: sortBy,
         });
@@ -110,15 +113,16 @@ function MoviesPageContent() {
       }
     };
     fetchMovies();
-  }, [query, selectedGenre, selectedAgeRating, sortBy]);
+    window.scrollTo(0, 0);
+  }, [query, selectedGenre, selectedAgeRating, sortBy, currentPage]);
 
-  // Load more function for infinite scroll
+  // Load more function for infinite scroll (uses internal infinitePage state)
   const loadMore = useCallback(async () => {
-    if (loadingMore || !hasMore) return;
+    if (loadingMore || infinitePage >= totalPages) return;
 
     setLoadingMore(true);
     try {
-      const nextPage = currentPage + 1;
+      const nextPage = infinitePage + 1;
       const data = await getMovies({
         query: query || undefined,
         genres: selectedGenre || undefined,
@@ -128,13 +132,13 @@ function MoviesPageContent() {
         sort_by: sortBy,
       });
       setMovies((prev) => [...prev, ...data.items]);
-      setCurrentPage(nextPage);
+      setInfinitePage(nextPage);
     } catch (error) {
       console.error("Failed to load more movies:", error);
     } finally {
       setLoadingMore(false);
     }
-  }, [currentPage, hasMore, loadingMore, query, selectedGenre, selectedAgeRating, sortBy]);
+  }, [infinitePage, totalPages, loadingMore, query, selectedGenre, selectedAgeRating, sortBy]);
 
   const { loadMoreRef } = useInfiniteScroll({
     onLoadMore: loadMore,
@@ -170,7 +174,7 @@ function MoviesPageContent() {
             {/* Genre Filter */}
             <select
               value={selectedGenre}
-              onChange={(e) => updateParams({ genre: e.target.value })}
+              onChange={(e) => updateParams({ genre: e.target.value, page: null })}
               className="px-4 py-2.5 bg-dark-100 border border-white/10 rounded-lg text-white focus:outline-none focus:border-primary-500 transition"
             >
               <option value="">모든 장르</option>
@@ -184,7 +188,7 @@ function MoviesPageContent() {
             {/* Age Rating Filter */}
             <select
               value={selectedAgeRating}
-              onChange={(e) => updateParams({ age_rating: e.target.value })}
+              onChange={(e) => updateParams({ age_rating: e.target.value, page: null })}
               className="px-4 py-2.5 bg-dark-100 border border-white/10 rounded-lg text-white focus:outline-none focus:border-primary-500 transition"
             >
               {AGE_RATING_OPTIONS.map((option) => (
@@ -197,7 +201,7 @@ function MoviesPageContent() {
             {/* Sort */}
             <select
               value={sortBy}
-              onChange={(e) => updateParams({ sort: e.target.value })}
+              onChange={(e) => updateParams({ sort: e.target.value, page: null })}
               className="px-4 py-2.5 bg-dark-100 border border-white/10 rounded-lg text-white focus:outline-none focus:border-primary-500 transition"
             >
               {SORT_OPTIONS.map((option) => (
@@ -209,7 +213,12 @@ function MoviesPageContent() {
 
             {/* Infinite scroll toggle */}
             <button
-              onClick={() => setUseInfiniteMode(!useInfiniteMode)}
+              onClick={() => {
+                if (!useInfiniteMode) {
+                  setInfinitePage(currentPage);
+                }
+                setUseInfiniteMode(!useInfiniteMode);
+              }}
               className={`px-4 py-2.5 rounded-lg transition flex items-center space-x-2 ${
                 useInfiniteMode
                   ? "bg-primary-600 text-white"
@@ -324,7 +333,7 @@ function MoviesPageContent() {
                         onClick={loadMore}
                         className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg transition"
                       >
-                        더 보기 ({currentPage} / {totalPages} 페이지)
+                        더 보기 ({infinitePage} / {totalPages} 페이지)
                       </button>
                     </div>
                   )}
@@ -341,24 +350,7 @@ function MoviesPageContent() {
                 totalPages > 1 && (
                   <div className="flex justify-center items-center space-x-2 mt-12">
                     <button
-                      onClick={() => {
-                        setCurrentPage(Math.max(1, currentPage - 1));
-                        // Refetch with new page
-                        const fetchPage = async () => {
-                          setLoading(true);
-                          const data = await getMovies({
-                            query: query || undefined,
-                            genres: selectedGenre || undefined,
-                            age_rating: selectedAgeRating || undefined,
-                            page: Math.max(1, currentPage - 1),
-                            page_size: 24,
-                            sort_by: sortBy,
-                          });
-                          setMovies(data.items);
-                          setLoading(false);
-                        };
-                        fetchPage();
-                      }}
+                      onClick={() => updateParams({ page: Math.max(1, currentPage - 1) })}
                       disabled={currentPage === 1}
                       className="px-4 py-2 bg-dark-100 hover:bg-dark-100/70 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition"
                     >
@@ -380,23 +372,7 @@ function MoviesPageContent() {
                         return (
                           <button
                             key={pageNum}
-                            onClick={() => {
-                              setCurrentPage(pageNum);
-                              const fetchPage = async () => {
-                                setLoading(true);
-                                const data = await getMovies({
-                                  query: query || undefined,
-                                  genres: selectedGenre || undefined,
-                                  age_rating: selectedAgeRating || undefined,
-                                  page: pageNum,
-                                  page_size: 24,
-                                  sort_by: sortBy,
-                                });
-                                setMovies(data.items);
-                                setLoading(false);
-                              };
-                              fetchPage();
-                            }}
+                            onClick={() => updateParams({ page: pageNum })}
                             className={`w-10 h-10 rounded-lg transition ${
                               currentPage === pageNum
                                 ? "bg-primary-600 text-white"
@@ -410,23 +386,7 @@ function MoviesPageContent() {
                     </div>
 
                     <button
-                      onClick={() => {
-                        setCurrentPage(Math.min(totalPages, currentPage + 1));
-                        const fetchPage = async () => {
-                          setLoading(true);
-                          const data = await getMovies({
-                            query: query || undefined,
-                            genres: selectedGenre || undefined,
-                            age_rating: selectedAgeRating || undefined,
-                            page: Math.min(totalPages, currentPage + 1),
-                            page_size: 24,
-                            sort_by: sortBy,
-                          });
-                          setMovies(data.items);
-                          setLoading(false);
-                        };
-                        fetchPage();
-                      }}
+                      onClick={() => updateParams({ page: Math.min(totalPages, currentPage + 1) })}
                       disabled={currentPage === totalPages}
                       className="px-4 py-2 bg-dark-100 hover:bg-dark-100/70 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition"
                     >
