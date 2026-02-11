@@ -6,7 +6,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Cloud, Plus, Check, Sun, CloudRain, CloudSnow, RotateCcw } from "lucide-react";
-import { getImageUrl } from "@/lib/utils";
+import { getImageUrl, formatRuntime } from "@/lib/utils";
+import { getCatchphrase } from "@/lib/api";
 import { useAuthStore } from "@/stores/authStore";
 import { useInteractionStore } from "@/stores/interactionStore";
 import type { Movie, Weather, WeatherType, MoodType } from "@/types";
@@ -82,6 +83,7 @@ export default function FeaturedBanner({
 
   const interaction = interactions[movie.id];
   const isFavorited = interaction?.is_favorited ?? false;
+  const [catchphrase, setCatchphrase] = useState<string | null>(null);
 
   // Fetch interaction when authenticated
   useEffect(() => {
@@ -89,6 +91,14 @@ export default function FeaturedBanner({
       fetchInteraction(movie.id);
     }
   }, [isAuthenticated, movie.id, fetchInteraction]);
+
+  // Fetch LLM catchphrase
+  useEffect(() => {
+    setCatchphrase(null);
+    getCatchphrase(movie.id)
+      .then((data) => setCatchphrase(data.catchphrase))
+      .catch(() => {});
+  }, [movie.id]);
 
   // 랜덤 메시지 선택 (컴포넌트 마운트 시 한 번만)
   const randomMessage = useMemo(() => {
@@ -122,7 +132,7 @@ export default function FeaturedBanner({
 
   return (
     <>
-      <div className="relative h-[55vh] md:h-[60vh] lg:h-[65vh] w-full mb-16 md:mb-20">
+      <div className="relative h-[50vh] md:h-[55vh] lg:h-[60vh] w-full mb-4 md:mb-6">
         {/* Background Image */}
         <div className="absolute inset-0">
           <Image
@@ -142,33 +152,81 @@ export default function FeaturedBanner({
         <div className="absolute inset-0 flex flex-col justify-end p-6 md:p-10 lg:p-12">
           {/* 하단 좌측: 영화 정보 */}
           <motion.div
-            className="max-w-xl flex flex-col gap-3 pb-4 md:pb-6"
+            className="max-w-[85vw] md:max-w-xl lg:max-w-2xl flex flex-col gap-2 md:gap-3 pb-4 md:pb-6"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            {/* Movie Title */}
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-tight">
-              {movie.title_ko || movie.title}
-            </h1>
+            {/* Title - 한국어 + 영어 한 줄 */}
+            <div className="flex items-baseline gap-2 md:gap-3 min-w-0">
+              <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold text-white leading-tight shrink-0 max-w-[70%] truncate">
+                {movie.title_ko || movie.title}
+              </h1>
+              {movie.title_ko && movie.title && movie.title !== movie.title_ko && (
+                <span className="text-sm md:text-lg lg:text-xl text-white/40 truncate">
+                  {movie.title}
+                </span>
+              )}
+            </div>
 
-            {/* Meta Info */}
-            <div className="flex flex-wrap items-center gap-2 md:gap-4 text-sm md:text-base text-white/80">
+            {/* LLM Catchphrase */}
+            {catchphrase && (
+              <p className="text-sm md:text-base text-white/70 italic truncate">
+                &ldquo;{catchphrase}&rdquo;
+              </p>
+            )}
+
+            {/* Meta Info - 평점, 년도, 러닝타임, 등급 한 줄 */}
+            <div className="flex flex-wrap items-center gap-2 md:gap-3 text-sm md:text-base text-white/80">
               <div className="flex items-center space-x-1">
                 <svg className="w-4 h-4 md:w-5 md:h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                 </svg>
                 <span className="font-medium">{movie.vote_average.toFixed(1)}</span>
+                <span className="text-white/40 text-xs">({movie.vote_count.toLocaleString()})</span>
               </div>
               {movie.release_date && (
-                <span>{new Date(movie.release_date).getFullYear()}</span>
+                <>
+                  <span className="text-white/30">|</span>
+                  <span>{new Date(movie.release_date).getFullYear()}</span>
+                </>
               )}
-              {movie.genres.length > 0 && (
-                <span className="hidden sm:inline">
-                  {movie.genres.slice(0, 3).map(g => typeof g === 'string' ? g : (g as any)?.name_ko || (g as any)?.name).join(" • ")}
+              {movie.runtime && (
+                <>
+                  <span className="text-white/30">|</span>
+                  <span>{formatRuntime(movie.runtime)}</span>
+                </>
+              )}
+              {movie.certification && (
+                <span className={`px-1.5 py-0.5 rounded text-xs font-medium border ${
+                  ["ALL", "G"].includes(movie.certification.toUpperCase())
+                    ? "border-green-500/50 text-green-400"
+                    : ["PG", "12", "12+"].includes(movie.certification.toUpperCase())
+                    ? "border-blue-500/50 text-blue-400"
+                    : ["PG-13", "15", "15+"].includes(movie.certification.toUpperCase())
+                    ? "border-yellow-500/50 text-yellow-400"
+                    : ["R", "18", "18+", "19", "19+", "NC-17"].includes(movie.certification.toUpperCase())
+                    ? "border-red-500/50 text-red-400"
+                    : "border-white/30 text-white/60"
+                }`}>
+                  {movie.certification}
                 </span>
               )}
             </div>
+
+            {/* Genre Tags */}
+            {movie.genres.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 md:gap-2">
+                {movie.genres.slice(0, 5).map((genre, i) => (
+                  <span
+                    key={i}
+                    className="px-2 md:px-2.5 py-0.5 md:py-1 bg-white/10 backdrop-blur-sm rounded-full text-xs md:text-sm text-white/80"
+                  >
+                    {typeof genre === "string" ? genre : (genre as any)?.name_ko || (genre as any)?.name}
+                  </span>
+                ))}
+              </div>
+            )}
 
             {/* Buttons */}
             <div className="flex space-x-3 mt-1">

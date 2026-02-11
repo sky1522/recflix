@@ -184,6 +184,11 @@ function SunAnimation() {
 export function WeatherIndicator({ weather }: { weather: Weather }) {
   return (
     <div className="flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 backdrop-blur-sm">
+      {weather.city && (
+        <span className="hidden lg:inline text-sm text-white/80">
+          {weather.city}
+        </span>
+      )}
       <span className="text-lg">{weatherEmojis[weather.condition]}</span>
       <span className="text-sm font-medium text-white">
         {weather.temperature}°C
