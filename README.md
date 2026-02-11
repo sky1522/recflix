@@ -108,7 +108,7 @@ recflix/
 
 **Mood 선택 시:**
 ```
-Score = (0.30 × MBTI) + (0.20 × Weather) + (0.20 × Mood) + (0.30 × Personal)
+Score = (0.25 × MBTI) + (0.20 × Weather) + (0.30 × Mood) + (0.25 × Personal)
 ```
 
 **Mood 미선택 시:**
@@ -118,8 +118,10 @@ Score = (0.35 × MBTI) + (0.25 × Weather) + (0.40 × Personal)
 
 - **MBTI**: 16개 유형별 장르 선호도 매칭
 - **Weather**: 날씨 조건별 영화 분위기 매칭
-- **Mood**: 6가지 기분 → 7대 감성 클러스터 매핑
+- **Mood**: 6가지 기분 → 7대 감성 클러스터 매핑 (v2: 가중치 강화)
 - **Personal**: 찜한 영화 장르 기반 개인화
+- **Quality**: weighted_score 기반 연속 품질 보정 (×0.85~1.0)
+- **Age Rating**: 연령등급 필터링 지원 (all/family/teen/adult)
 
 자세한 추천 로직은 [docs/RECOMMENDATION_LOGIC.md](docs/RECOMMENDATION_LOGIC.md) 참조
 

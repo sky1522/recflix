@@ -19,6 +19,16 @@ All notable changes to RecFlix will be documented in this file.
 - **LLM emotion_tags 복원**: 백업 JSON에서 996편 복원
 - **키워드 기반 emotion_tags**: 18,587편 신규 생성 (overview 컬럼 사용으로 변경)
 - **프로덕션 DB 복원**: `pg_dump` → `pg_restore`로 Railway PostgreSQL에 전체 데이터 적용
+- **LLM emotion_tags 재분석 (1,711편)**: 새 프롬프트 적용으로 세밀한 점수 분포 (0.35, 0.72 등)
+  - 새 스크립트: `backend/scripts/llm_reanalyze_all.py` (배치별 즉시 저장 + resume 지원)
+  - 새 스크립트: `backend/scripts/test_llm_prompt.py` (프롬프트 테스트)
+- **연령등급 필터링**: `age_rating` 파라미터 (all/family/teen/adult)
+  - `AGE_RATING_MAP`: family (ALL/G/PG/12), teen (+PG-13/15)
+  - `apply_age_rating_filter()` 함수로 모든 추천/검색 API에 적용
+  - NULL 등급(전체의 ~55.6%)은 모든 그룹에 포함
+  - Frontend: MovieCard에 등급별 색상 배지, 검색 페이지에 등급 필터 드롭다운
+- **Hybrid 점수 분석 스크립트**: `backend/scripts/analyze_hybrid_scores.py`
+- **DB 덤프 공유**: `data/recflix_db.dump` (42,917편) + `data/DB_RESTORE_GUIDE.md`
 
 ### Changed
 - **Vercel 프로젝트 이름 변경**: `frontend` → `jnsquery-reflix`
@@ -29,13 +39,31 @@ All notable changes to RecFlix will be documented in this file.
 - **regenerate_emotion_tags.py**: `overview_ko` → `overview` 사용, LLM 식별을 기존 태그 존재 여부로 변경
 - **Pydantic MovieDetail 스키마**: 신규 6개 필드 추가 및 `from_orm_with_relations` 매핑
 - **.gitignore**: `*.csv` 패턴 추가 (대용량 CSV 제외)
+- **품질 필터 통합**: `vote_count >= 30 AND vote_average >= 5.0` → `weighted_score >= 6.0`
+  - 모든 추천 섹션에 통일 적용 (인기, 평점, MBTI, 날씨, 기분, Hybrid)
+  - 2차 정렬에 `weighted_score DESC` 추가
+- **Hybrid 가중치 v2 튜닝**:
+  - Mood: 0.20 → **0.30** (기분 맞춤 추천 강화)
+  - MBTI: 0.30 → **0.25** (과잉 지배 완화)
+  - Personal: 0.30 → **0.25** (과잉 지배 완화)
+- **품질 보정 방식 변경**: binary bonus(+0.1/+0.2) → 연속 보정(×0.85~1.0)
+  - `weighted_score` 6.0~9.0 구간에서 0.85~1.0 연속 곱셈
+- **#명작 태그 기준**: `weighted_score >= 7.0` → `>= 7.5`, personal_score 가산 제거 (태그만 표시)
 
 ### Data Statistics
 - 영화: 42,917편
-- emotion_tags: 42,917 (100%)
+- emotion_tags: 42,917 (100%) — LLM 분석 ~1,711편, 키워드 기반 ~41,206편
 - mbti_scores: 42,917 (100%)
 - weather_scores: 42,917 (100%)
 - 관계: movie_genres 98,767 / movie_cast 252,662 / movie_keywords 77,660 / movie_countries 55,265 / similar_movies 101,386
+
+### Technical Details
+- `backend/scripts/llm_reanalyze_all.py` - LLM 재분석 (배치 저장, resume 지원)
+- `backend/scripts/analyze_hybrid_scores.py` - Hybrid 점수 분포 분석
+- `backend/app/api/v1/recommendations.py` - 품질 필터, 가중치 튜닝, 연속 보정, 연령등급 필터
+- `backend/app/api/v1/movies.py` - 영화 검색 연령등급 필터
+- `frontend/components/movie/MovieCard.tsx` - 등급 배지 UI
+- `frontend/app/movies/page.tsx` - 등급 필터 드롭다운
 
 ---
 

@@ -12,6 +12,11 @@
 secrets/
 
 # ----------------------------------------------
+# Claude Code (may contain tool permission with secrets)
+# ----------------------------------------------
+.claude/settings.local.json
+
+# ----------------------------------------------
 # Python
 # ----------------------------------------------
 __pycache__/
@@ -104,6 +109,7 @@ desktop.ini
 *.log
 logs/
 *.csv
+*.dump
 data/processed/*
 !data/processed/.gitkeep
 
