@@ -536,10 +536,11 @@ def get_home_recommendations(
 
     # Top rated (shuffle from top 100)
     top_rated_q = db.query(Movie).filter(
-        Movie.weighted_score >= 6.0
+        Movie.weighted_score >= 6.0,
+        Movie.vote_count >= 100
     )
     top_rated_q = apply_age_rating_filter(top_rated_q, age_rating)
-    top_rated_pool = top_rated_q.order_by(Movie.vote_average.desc(), Movie.weighted_score.desc()).limit(100).all()
+    top_rated_pool = top_rated_q.order_by(Movie.weighted_score.desc(), Movie.vote_average.desc()).limit(100).all()
     top_rated = random.sample(top_rated_pool, min(50, len(top_rated_pool))) if top_rated_pool else []
     random.shuffle(top_rated)
     top_rated_row = RecommendationRow(
@@ -685,7 +686,7 @@ def get_top_rated_movies(
         Movie.vote_count >= min_votes
     )
     q = apply_age_rating_filter(q, age_rating)
-    movies = q.order_by(Movie.vote_average.desc(), Movie.weighted_score.desc()).limit(limit).all()
+    movies = q.order_by(Movie.weighted_score.desc(), Movie.vote_average.desc()).limit(limit).all()
     return [MovieListItem.from_orm_with_genres(m) for m in movies]
 
 

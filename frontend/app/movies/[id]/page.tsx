@@ -17,7 +17,7 @@ import {
   Globe,
 } from "lucide-react";
 import { getMovie, getSimilarMovies, getCatchphrase } from "@/lib/api";
-import { getImageUrl, formatRuntime, formatDate } from "@/lib/utils";
+import { getImageUrl, formatRuntime, formatDate, getPopularityScore } from "@/lib/utils";
 import { useInteractionStore } from "@/stores/interactionStore";
 import { useAuthStore } from "@/stores/authStore";
 import MovieCard from "@/components/movie/MovieCard";
@@ -430,13 +430,13 @@ export default function MovieDetailPage() {
               <h3 className="text-lg font-semibold text-white">영화 정보</h3>
 
               {/* Countries */}
-              {movie.countries && movie.countries.length > 0 && (
+              {(movie.production_countries_ko || (movie.countries && movie.countries.length > 0)) && (
                 <div>
                   <div className="flex items-center space-x-2 text-white/50 text-sm mb-1">
                     <Globe className="w-4 h-4" />
                     <span>제작 국가</span>
                   </div>
-                  <p className="text-white/80">{movie.countries.join(", ")}</p>
+                  <p className="text-white/80">{movie.production_countries_ko || movie.countries.join(", ")}</p>
                 </div>
               )}
 
@@ -461,10 +461,19 @@ export default function MovieDetailPage() {
               )}
 
               {/* Popularity */}
-              <div>
-                <p className="text-white/50 text-sm mb-1">인기도</p>
-                <p className="text-white/80">{movie.popularity.toFixed(1)}</p>
-              </div>
+              {(() => {
+                const pop = getPopularityScore(movie.popularity);
+                return (
+                  <div>
+                    <p className="text-white/50 text-sm mb-1">인기도</p>
+                    <p className="text-white/80">
+                      {pop.emoji}{pop.emoji && " "}
+                      {pop.score.toFixed(1)} / 10
+                      {pop.label && <span className="text-white/50"> · {pop.label}</span>}
+                    </p>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* MBTI Scores (if available) */}

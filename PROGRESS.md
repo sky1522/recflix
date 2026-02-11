@@ -1,6 +1,6 @@
 # RecFlix 개발 진행 상황
 
-**최종 업데이트**: 2026-02-10
+**최종 업데이트**: 2026-02-11
 
 ---
 
@@ -204,6 +204,18 @@
 | 분석 스크립트 | ✅ | analyze_hybrid_scores.py |
 | DB 덤프 공유 | ✅ | data/recflix_db.dump + 복원 가이드 |
 
+### Phase 15: 보안 대응 & UI/UX 개선 (2026-02-11)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| DB 비밀번호 노출 대응 | ✅ | Railway DB 교체 (shinkansen), .gitignore 보호 |
+| Vercel 포스터 미표시 수정 | ✅ | Image Optimization 비활성화 (unoptimized: true) |
+| 제작 국가 한국어 표시 | ✅ | production_countries_ko 우선 사용 |
+| 높은 평점 정렬 개선 | ✅ | vote_average → weighted_score 전체 통일 |
+| 검색 평점순 정렬 개선 | ✅ | sort_by=weighted_score로 변경 |
+| 인기도 로그 스케일 표시 | ✅ | 10점 만점 변환 + 라벨 (초화제작/인기작/주목작) |
+| 무한스크롤 수정 | ✅ | observer 훅 개선 + "더 보기" 버튼 fallback |
+
 ---
 
 ## 프로젝트 구조
@@ -361,6 +373,12 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 - [x] **Hybrid 가중치 v2 튜닝** (Mood 0.30 강화) (2026-02-10)
 - [x] **품질 보정 연속화** (×0.85~1.0) (2026-02-10)
 - [x] **DB 덤프 공유** (data/recflix_db.dump) (2026-02-10)
+- [x] **보안: DB 비밀번호 노출 대응** (Railway DB 교체) (2026-02-11)
+- [x] **Vercel 포스터 미표시 수정** (Image Optimization off) (2026-02-11)
+- [x] **제작 국가 한국어 표시** (production_countries_ko) (2026-02-11)
+- [x] **평점 정렬 weighted_score 통일** (홈/검색/API) (2026-02-11)
+- [x] **인기도 로그 스케일 변환** (10점 만점 + 라벨) (2026-02-11)
+- [x] **무한스크롤 수정** (observer 훅 + 더보기 버튼) (2026-02-11)
 
 ### 향후 개선사항
 - [ ] 소셜 로그인 (Google, Kakao)
@@ -384,3 +402,6 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 10. **Windows nul 파일 충돌**: 예약된 파일명 삭제 후 Railway 배포 진행
 11. **Redis 프로덕션 연결**: `REDIS_URL` 환경변수 사용 → `aioredis.from_url()` (2026-02-04)
 12. **무한스크롤 중단**: callback ref 패턴 + refs로 stale closure 방지 (2026-02-04)
+13. **GitGuardian DB 비밀번호 노출**: Railway DB 교체 + .gitignore 보호 (2026-02-11)
+14. **Vercel 포스터 미표시**: Image Optimization 할당량 초과 → unoptimized 설정 (2026-02-11)
+15. **uvicorn --reload 불완전 리로드**: 파일 변경 감지되나 모듈 미갱신 → 수동 재시작 필요 (2026-02-11)

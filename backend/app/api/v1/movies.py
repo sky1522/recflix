@@ -76,7 +76,7 @@ def get_movies(
     year_from: Optional[int] = None,
     year_to: Optional[int] = None,
     age_rating: Optional[str] = Query(None, regex="^(all|family|teen|adult)$"),
-    sort_by: str = Query("popularity", regex="^(popularity|vote_average|release_date)$"),
+    sort_by: str = Query("popularity", regex="^(popularity|weighted_score|release_date)$"),
     sort_order: str = Query("desc", regex="^(asc|desc)$"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
