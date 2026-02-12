@@ -1,6 +1,6 @@
 """
 Regenerate emotion_tags with 7 emotion clusters
-Based on keywords (English) and overview_ko (Korean)
+Based on keywords (English) and overview (Korean)
 
 Clusters:
 - healing: 가족애/우정/성장/힐링
@@ -227,13 +227,13 @@ GENRE_PENALTY = {
 }
 
 
-def calculate_cluster_scores(keywords: List[str], overview_ko: str, genres: List[str]) -> Dict[str, float]:
+def calculate_cluster_scores(keywords: List[str], overview: str, genres: List[str]) -> Dict[str, float]:
     """Calculate scores for each emotion cluster"""
     scores = {}
 
     # Normalize inputs
     keywords_set = set(k.lower() for k in keywords) if keywords else set()
-    overview_lower = overview_ko.lower() if overview_ko else ""
+    overview_lower = overview.lower() if overview else ""
     genres_set = set(genres) if genres else set()
 
     for cluster, cluster_keywords in CLUSTER_KEYWORDS.items():
@@ -310,7 +310,7 @@ def main():
     existing_count = cur.fetchone()[0]
     print(f"\nMovies with existing emotion_tags (skip): {existing_count}")
 
-    # Get movies WITHOUT emotion_tags - use overview (not overview_ko)
+    # Get movies WITHOUT emotion_tags
     print("Fetching movies without emotion_tags...")
     cur.execute("""
         SELECT m.id, m.overview,

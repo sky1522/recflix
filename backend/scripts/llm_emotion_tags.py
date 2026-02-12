@@ -73,7 +73,7 @@ def analyze_movies_batch(movies: List[Dict]) -> Dict[int, Dict[str, float]]:
     movies_text = []
     for m in movies:
         genres_str = ", ".join(m['genres']) if m['genres'] else "Unknown"
-        overview = m['overview_ko'] or m['overview'] or "No description available"
+        overview = m['overview'] or "No description available"
         # Truncate long overviews
         if len(overview) > 500:
             overview = overview[:500] + "..."
@@ -134,14 +134,14 @@ def main():
         # Test mode: include specific movies
         print("\nTest mode: Including specific movies...")
         cur.execute('''
-            SELECT m.id, m.title, m.overview, m.overview_ko,
+            SELECT m.id, m.title, m.overview,
                    ARRAY_AGG(DISTINCT g.name) FILTER (WHERE g.name IS NOT NULL) as genres
             FROM movies m
             LEFT JOIN movie_genres mg ON m.id = mg.movie_id
             LEFT JOIN genres g ON mg.genre_id = g.id
             WHERE m.id IN (27205, 155, 157336, 24428)  -- Inception, Dark Knight, Interstellar, Avengers
                OR (m.vote_count >= 50 AND m.popularity > 0)
-            GROUP BY m.id, m.title, m.overview, m.overview_ko
+            GROUP BY m.id, m.title, m.overview
             ORDER BY
                 CASE WHEN m.id IN (27205, 155, 157336, 24428) THEN 0 ELSE 1 END,
                 m.popularity DESC
@@ -150,20 +150,20 @@ def main():
     else:
         print(f"\nFetching top {args.limit} popular movies...")
         cur.execute('''
-            SELECT m.id, m.title, m.overview, m.overview_ko,
+            SELECT m.id, m.title, m.overview,
                    ARRAY_AGG(DISTINCT g.name) FILTER (WHERE g.name IS NOT NULL) as genres
             FROM movies m
             LEFT JOIN movie_genres mg ON m.id = mg.movie_id
             LEFT JOIN genres g ON mg.genre_id = g.id
             WHERE m.vote_count >= 50
-            GROUP BY m.id, m.title, m.overview, m.overview_ko
+            GROUP BY m.id, m.title, m.overview
             ORDER BY m.popularity DESC
             LIMIT %s
         ''', (args.limit,))
 
     rows = cur.fetchall()
     movies = [
-        {'id': r[0], 'title': r[1], 'overview': r[2], 'overview_ko': r[3], 'genres': r[4]}
+        {'id': r[0], 'title': r[1], 'overview': r[2], 'genres': r[3]}
         for r in rows
     ]
 

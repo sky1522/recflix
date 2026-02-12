@@ -34,7 +34,7 @@ async def get_catchphrase(movie_id: int, db: Session = Depends(get_db)):
     catchphrase, cached = await generate_catchphrase(
         movie_id=movie.id,
         title=movie.title_ko or movie.title,
-        overview=movie.overview_ko or movie.overview or "",
+        overview=movie.overview or "",
         genres=genre_names,
         fallback_tagline=movie.tagline,
     )
