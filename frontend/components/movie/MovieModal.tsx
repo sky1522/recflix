@@ -184,11 +184,11 @@ export default function MovieModal({ movie, onClose }: MovieModalProps) {
             )}
 
             {/* Cast */}
-            {detail?.cast_members && detail.cast_members.length > 0 && (
+            {detail?.cast_ko && (
               <div className="mb-6">
                 <h3 className="text-lg font-semibold text-white mb-2">출연</h3>
                 <p className="text-white/70">
-                  {detail.cast_members.map((p) => p.name).join(", ")}
+                  {detail.cast_ko}
                 </p>
               </div>
             )}

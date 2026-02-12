@@ -17,6 +17,7 @@ export interface Movie {
 export interface MovieDetail extends Movie {
   overview: string | null;
   tagline: string | null;
+  cast_ko: string | null;
   cast_members: Person[];
   keywords: string[];
   countries: string[];
