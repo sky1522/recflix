@@ -372,7 +372,7 @@ export default function MovieDetailPage() {
             </motion.section>
 
             {/* Cast */}
-            {movie.cast_members && movie.cast_members.length > 0 && (
+            {movie.cast_ko && (
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -380,16 +380,16 @@ export default function MovieDetailPage() {
               >
                 <h2 className="text-xl font-semibold text-white mb-4">출연진</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                  {movie.cast_members.slice(0, 8).map((person) => (
+                  {movie.cast_ko.split(", ").slice(0, 8).map((name) => (
                     <Link
-                      key={person.id}
-                      href={`/movies?query=${encodeURIComponent(person.name)}`}
+                      key={name}
+                      href={`/movies?query=${encodeURIComponent(name)}`}
                       className="flex items-center space-x-3 p-3 bg-dark-100 hover:bg-dark-100/70 rounded-lg transition"
                     >
                       <div className="w-10 h-10 bg-dark-200 rounded-full flex items-center justify-center flex-shrink-0">
                         <Users className="w-5 h-5 text-white/30" />
                       </div>
-                      <span className="text-white/80 text-sm truncate">{person.name}</span>
+                      <span className="text-white/80 text-sm truncate">{name}</span>
                     </Link>
                   ))}
                 </div>
