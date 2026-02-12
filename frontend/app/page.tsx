@@ -10,19 +10,26 @@ import { useWeather } from "@/hooks/useWeather";
 import { useAuthStore } from "@/stores/authStore";
 import type { HomeRecommendations, WeatherType, Movie, Weather, MoodType } from "@/types";
 
+// Module-level cache: survives component remounts (back navigation)
+let cachedRecommendations: HomeRecommendations | null = null;
+let cachedKey = "";
+let cachedMood: MoodType | null = null;
+
 export default function HomePage() {
-  const [recommendations, setRecommendations] = useState<HomeRecommendations | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [recommendations, setRecommendations] = useState<HomeRecommendations | null>(cachedRecommendations);
+  const [loading, setLoading] = useState(!cachedRecommendations);
   const [error, setError] = useState<string | null>(null);
-  const [mood, setMood] = useState<MoodType | null>(null);
+  const [mood, setMood] = useState<MoodType | null>(cachedMood);
 
   const { isAuthenticated, user } = useAuthStore();
   const prevAuthRef = useRef(isAuthenticated);
 
-  // 로그아웃 감지 시 즉시 추천 데이터 초기화
+  // 로그아웃 감지 시 즉시 추천 데이터 초기화 (캐시 포함)
   useEffect(() => {
     if (prevAuthRef.current && !isAuthenticated) {
       // 로그아웃됨: 이전에 인증됨 -> 현재 미인증
+      cachedRecommendations = null;
+      cachedKey = "";
       setRecommendations(null);
       setLoading(true);
     }
@@ -66,11 +73,24 @@ export default function HomePage() {
     const fetchRecommendations = async () => {
       if (!weather) return;
 
+      const key = `${weather.condition}-${mood}-${isAuthenticated}`;
+
+      // Use cache if params haven't changed (e.g. back navigation)
+      if (cachedRecommendations && cachedKey === key) {
+        setRecommendations(cachedRecommendations);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       try {
         const data = await getHomeRecommendations(weather.condition, mood);
         setRecommendations(data);
         setError(null);
+        // Update module-level cache
+        cachedRecommendations = data;
+        cachedKey = key;
+        cachedMood = mood;
       } catch (err) {
         setError("Failed to load recommendations");
         console.error(err);

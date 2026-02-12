@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { X } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import type { MBTIType } from "@/types";
 
@@ -68,7 +69,13 @@ export default function SignupPage() {
         </div>
 
         {/* Signup Form */}
-        <div className="bg-dark-100 rounded-lg p-8">
+        <div className="relative bg-dark-100 rounded-lg p-8">
+          <button
+            onClick={() => router.back()}
+            className="absolute top-4 right-4 p-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded-full transition"
+          >
+            <X className="w-5 h-5" />
+          </button>
           <h1 className="text-2xl font-bold text-white mb-6">회원가입</h1>
 
           {error && (
