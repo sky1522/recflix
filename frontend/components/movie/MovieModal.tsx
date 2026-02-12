@@ -179,7 +179,7 @@ export default function MovieModal({ movie, onClose }: MovieModalProps) {
               </div>
             ) : (
               <p className="text-white/80 leading-relaxed mb-6">
-                {detail?.overview_ko || detail?.overview || "줄거리 정보가 없습니다."}
+                {detail?.overview || "줄거리 정보가 없습니다."}
               </p>
             )}
 

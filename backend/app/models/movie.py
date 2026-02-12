@@ -62,12 +62,10 @@ class Movie(Base):
     vote_average = Column(Float, default=0.0)
     vote_count = Column(Integer, default=0)
     overview = Column(Text)
-    overview_ko = Column(Text)
     tagline = Column(String(500))
     release_date = Column(Date, index=True)
     popularity = Column(Float, default=0.0, index=True)
     poster_path = Column(String(200))
-    overview_lang = Column(String(10))
     is_adult = Column(Boolean, default=False)
 
     # New columns from CSV update

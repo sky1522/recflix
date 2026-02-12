@@ -130,7 +130,7 @@ export default function MovieDetailPage() {
   }
 
   const displayTitle = movie.title_ko || movie.title;
-  const overview = movie.overview_ko || movie.overview;
+  const overview = movie.overview;
 
   return (
     <div className="min-h-screen bg-dark-200">

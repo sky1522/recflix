@@ -68,9 +68,7 @@ class MovieListItem(MovieBase):
 class MovieDetail(MovieBase):
     """Schema for movie detail"""
     overview: Optional[str]
-    overview_ko: Optional[str]
     tagline: Optional[str]
-    overview_lang: Optional[str]
     director: Optional[str] = None
     director_ko: Optional[str] = None
     cast_ko: Optional[str] = None
@@ -103,9 +101,7 @@ class MovieDetail(MovieBase):
             release_date=movie.release_date,
             is_adult=movie.is_adult,
             overview=movie.overview,
-            overview_ko=movie.overview_ko,
             tagline=movie.tagline,
-            overview_lang=movie.overview_lang,
             director=movie.director,
             director_ko=movie.director_ko,
             cast_ko=movie.cast_ko,
