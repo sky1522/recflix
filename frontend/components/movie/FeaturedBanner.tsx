@@ -152,22 +152,22 @@ export default function FeaturedBanner({
         <div className="absolute inset-0 flex flex-col justify-end p-6 md:p-10 lg:p-12">
           {/* 하단 좌측: 영화 정보 */}
           <motion.div
-            className="max-w-[85vw] md:max-w-xl lg:max-w-2xl flex flex-col gap-2 md:gap-3 pb-4 md:pb-6"
+            className="max-w-[85vw] md:max-w-[calc(100vw-22rem)] flex flex-col gap-2 md:gap-3 pb-4 md:pb-6"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            {/* Title - 한국어 + 영어 */}
-            <div className="flex flex-col gap-1 min-w-0">
-              <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold text-white leading-tight">
+            {/* Title - 한국어 + 영어 한 줄 */}
+            <h1 className="flex items-baseline gap-3 whitespace-nowrap min-w-0">
+              <span className="text-2xl md:text-3xl lg:text-4xl font-bold text-white leading-tight">
                 {movie.title_ko || movie.title}
-              </h1>
+              </span>
               {movie.title_ko && movie.title && movie.title !== movie.title_ko && (
-                <span className="text-sm md:text-lg lg:text-xl text-white/40">
+                <span className="text-sm md:text-base lg:text-lg text-white/40">
                   {movie.title}
                 </span>
               )}
-            </div>
+            </h1>
 
             {/* LLM Catchphrase */}
             {catchphrase && (
@@ -228,16 +228,26 @@ export default function FeaturedBanner({
               </div>
             )}
 
-            {/* Buttons */}
+            {/* Buttons: 상세보기(페이지) → 미리보기(모달) → 내 리스트 */}
             <div className="flex space-x-3 mt-1">
-              <button
-                onClick={() => setIsModalOpen(true)}
+              <Link
+                href={`/movies/${movie.id}`}
                 className="flex items-center space-x-2 bg-white text-black px-4 md:px-6 py-2.5 md:py-3 rounded-md font-medium hover:bg-white/90 transition text-sm md:text-base"
               >
                 <svg className="w-4 h-4 md:w-5 md:h-5" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
                 </svg>
                 <span>상세보기</span>
+              </Link>
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="flex items-center space-x-2 bg-white/20 text-white px-4 md:px-6 py-2.5 md:py-3 rounded-md font-medium hover:bg-white/30 backdrop-blur-sm transition text-sm md:text-base"
+              >
+                <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                <span>미리보기</span>
               </button>
               <button
                 onClick={handleAddToList}
