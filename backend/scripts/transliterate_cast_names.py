@@ -1,7 +1,7 @@
 """
 cast_ko 영어 배우 이름 → 한글 음역 변환 스크립트
 
-대상: 2편 이상 등장하는 순수 영어 배우 이름 (~9,714개)
+대상: 모든 순수 영어 배우 이름 (1편 포함, 총 ~33,529개)
 방식: Claude API 배치 처리 (50개/배치)
 저장: 배치별 즉시 DB 저장 + JSON 진행 파일로 중단/재개 지원
 
@@ -27,7 +27,7 @@ import anthropic
 client = anthropic.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY'))
 MODEL = "claude-sonnet-4-20250514"
 BATCH_SIZE = 50
-MIN_MOVIE_COUNT = 2
+MIN_MOVIE_COUNT = 1
 PROGRESS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cast_transliteration_progress.json")
 
 
@@ -78,9 +78,23 @@ def load_progress():
 
 
 def save_progress(progress):
-    """진행 상태 저장"""
-    with open(PROGRESS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(progress, f, ensure_ascii=False, indent=2)
+    """진행 상태 저장 (임시 파일 → rename으로 안전 쓰기)"""
+    tmp_file = PROGRESS_FILE + ".tmp"
+    try:
+        with open(tmp_file, 'w', encoding='utf-8') as f:
+            json.dump(progress, f, ensure_ascii=False, indent=2)
+        # Windows: 기존 파일 삭제 후 rename
+        if os.path.exists(PROGRESS_FILE):
+            os.remove(PROGRESS_FILE)
+        os.rename(tmp_file, PROGRESS_FILE)
+    except OSError as e:
+        print(f"    [WARN] 진행 파일 저장 실패: {e} (DB는 정상 반영됨)")
+        # tmp 파일 정리
+        if os.path.exists(tmp_file):
+            try:
+                os.remove(tmp_file)
+            except OSError:
+                pass
 
 
 # ===== 3. Claude API 음역 변환 =====
