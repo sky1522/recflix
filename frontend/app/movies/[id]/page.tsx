@@ -13,8 +13,6 @@ import {
   ArrowLeft,
   Play,
   Users,
-  Tag,
-  Globe,
 } from "lucide-react";
 import { getMovie, getSimilarMovies, getCatchphrase } from "@/lib/api";
 import { getImageUrl, formatRuntime, formatDate, getPopularityScore } from "@/lib/utils";
@@ -327,19 +325,19 @@ export default function MovieDetailPage() {
               transition={{ delay: 0.2 }}
               className="p-6 bg-dark-100 rounded-lg"
             >
-              <h2 className="text-lg font-semibold text-white mb-4">내 평점</h2>
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-1">
+              <div className="flex items-center gap-4 flex-wrap">
+                <h2 className="text-xl font-semibold text-white">내 평점</h2>
+                <div className="flex items-center gap-0.5">
                   {[1, 2, 3, 4, 5].map((score) => (
                     <button
                       key={score}
                       onClick={() => handleRatingClick(score)}
                       onMouseEnter={() => setRatingHover(score)}
                       onMouseLeave={() => setRatingHover(0)}
-                      className="p-1 transition-transform hover:scale-110"
+                      className="p-0.5 transition-transform hover:scale-110"
                     >
                       <Star
-                        className={`w-8 h-8 transition-colors ${
+                        className={`w-7 h-7 transition-colors ${
                           score <= displayRating
                             ? "text-yellow-400 fill-yellow-400"
                             : "text-white/30"
@@ -349,7 +347,7 @@ export default function MovieDetailPage() {
                   ))}
                 </div>
                 {userRating > 0 && (
-                  <span className="text-2xl font-bold text-yellow-400">
+                  <span className="text-xl font-bold text-yellow-400">
                     {userRating.toFixed(1)}
                   </span>
                 )}
@@ -380,10 +378,7 @@ export default function MovieDetailPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
               >
-                <h2 className="text-xl font-semibold text-white mb-4 flex items-center space-x-2">
-                  <Users className="w-5 h-5" />
-                  <span>출연진</span>
-                </h2>
+                <h2 className="text-xl font-semibold text-white mb-4">출연진</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                   {movie.cast_members.slice(0, 8).map((person) => (
                     <Link
@@ -426,32 +421,26 @@ export default function MovieDetailPage() {
             className="space-y-6"
           >
             {/* Movie Info Card */}
-            <div className="p-6 bg-dark-100 rounded-lg space-y-4">
+            <div className="p-6 bg-dark-100 rounded-lg space-y-5">
               <h3 className="text-lg font-semibold text-white">영화 정보</h3>
 
               {/* Countries */}
               {(movie.production_countries_ko || (movie.countries && movie.countries.length > 0)) && (
                 <div>
-                  <div className="flex items-center space-x-2 text-white/50 text-sm mb-1">
-                    <Globe className="w-4 h-4" />
-                    <span>제작 국가</span>
-                  </div>
-                  <p className="text-white/80">{movie.production_countries_ko || movie.countries.join(", ")}</p>
+                  <p className="text-white/50 text-sm mb-2">🌍 제작 국가</p>
+                  <p className="text-white/80 text-sm">{movie.production_countries_ko || movie.countries.join(", ")}</p>
                 </div>
               )}
 
               {/* Keywords */}
               {movie.keywords && movie.keywords.length > 0 && (
                 <div>
-                  <div className="flex items-center space-x-2 text-white/50 text-sm mb-2">
-                    <Tag className="w-4 h-4" />
-                    <span>키워드</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
+                  <p className="text-white/50 text-sm mb-2">🏷️ 키워드</p>
+                  <div className="flex flex-wrap gap-1.5">
                     {movie.keywords.slice(0, 10).map((keyword) => (
                       <span
                         key={keyword}
-                        className="px-2 py-1 bg-dark-200 rounded text-xs text-white/60"
+                        className="px-2 py-1 bg-dark-200 rounded text-xs text-white/70"
                       >
                         {keyword}
                       </span>
@@ -465,8 +454,8 @@ export default function MovieDetailPage() {
                 const pop = getPopularityScore(movie.popularity);
                 return (
                   <div>
-                    <p className="text-white/50 text-sm mb-1">인기도</p>
-                    <p className="text-white/80">
+                    <p className="text-white/50 text-sm mb-2">📈 인기도</p>
+                    <p className="text-white/80 text-sm">
                       {pop.emoji}{pop.emoji && " "}
                       {pop.score.toFixed(1)} / 10
                       {pop.label && <span className="text-white/50"> · {pop.label}</span>}
@@ -478,8 +467,8 @@ export default function MovieDetailPage() {
 
             {/* MBTI Scores (if available) */}
             {movie.mbti_scores && Object.keys(movie.mbti_scores).length > 0 && (
-              <div className="p-6 bg-dark-100 rounded-lg">
-                <h3 className="text-lg font-semibold text-white mb-4">MBTI 추천 점수</h3>
+              <div className="p-6 bg-dark-100 rounded-lg space-y-5">
+                <h3 className="text-lg font-semibold text-white">MBTI 추천 점수</h3>
                 <div className="grid grid-cols-2 gap-2">
                   {Object.entries(movie.mbti_scores)
                     .sort(([, a], [, b]) => b - a)
@@ -489,8 +478,8 @@ export default function MovieDetailPage() {
                         key={mbti}
                         className="flex items-center justify-between p-2 bg-dark-200 rounded"
                       >
-                        <span className="text-white/80 font-medium">{mbti}</span>
-                        <span className="text-primary-400">
+                        <span className="text-white/80 text-sm font-medium">{mbti}</span>
+                        <span className="text-primary-400 text-sm">
                           {(Number(score) * 100).toFixed(0)}%
                         </span>
                       </div>
@@ -501,8 +490,8 @@ export default function MovieDetailPage() {
 
             {/* Weather Scores (if available) */}
             {movie.weather_scores && Object.keys(movie.weather_scores).length > 0 && (
-              <div className="p-6 bg-dark-100 rounded-lg">
-                <h3 className="text-lg font-semibold text-white mb-4">날씨별 추천</h3>
+              <div className="p-6 bg-dark-100 rounded-lg space-y-5">
+                <h3 className="text-lg font-semibold text-white">날씨별 추천</h3>
                 <div className="space-y-2">
                   {Object.entries(movie.weather_scores)
                     .sort(([, a], [, b]) => b - a)
@@ -524,10 +513,10 @@ export default function MovieDetailPage() {
                           key={weather}
                           className="flex items-center justify-between p-2 bg-dark-200 rounded"
                         >
-                          <span className="text-white/80">
+                          <span className="text-white/80 text-sm">
                             {weatherEmoji[weather]} {weatherLabel[weather]}
                           </span>
-                          <span className="text-blue-400">
+                          <span className="text-blue-400 text-sm">
                             {(Number(score) * 100).toFixed(0)}%
                           </span>
                         </div>

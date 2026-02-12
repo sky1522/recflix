@@ -1,6 +1,6 @@
 # RecFlix 개발 진행 상황
 
-**최종 업데이트**: 2026-02-11
+**최종 업데이트**: 2026-02-12
 
 ---
 
@@ -228,6 +228,19 @@
 | FeaturedBanner 여백 축소 | ✅ | 배너 높이/마진 감소, 섹션 간격 개선 |
 | FeaturedBanner 제목 전체 표시 | ✅ | truncate 제거, 긴 제목 줄바꿈 표시 |
 
+### Phase 17: DB 스키마 정리 & 프로덕션 동기화 (2026-02-12)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| overview_ko 컬럼 제거 | ✅ | overview가 한글 통일 → overview_ko 불필요 |
+| overview_lang 컬럼 제거 | ✅ | 언어 구분 불필요 (전체 한글) |
+| 백엔드 모델/스키마 정리 | ✅ | Movie 모델, MovieDetail 스키마에서 필드 제거 |
+| 프론트엔드 타입/로직 정리 | ✅ | types/index.ts, MovieModal, 상세페이지 |
+| 스크립트 참조 정리 | ✅ | llm_emotion_tags, regenerate_emotion_tags, llm API |
+| 로컬 DB 마이그레이션 | ✅ | ALTER TABLE DROP COLUMN (24 → 22컬럼) |
+| 프로덕션 DB 동기화 | ✅ | pg_dump → pg_restore (Railway) |
+| Railway 백엔드 재배포 | ✅ | CORS 500 에러 해결 (코드-DB 불일치 해소) |
+
 ---
 
 ## 프로젝트 구조
@@ -395,6 +408,8 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 - [x] **헤더 로고 아이콘** (R 아이콘 + "ecflix" 조합) (2026-02-11)
 - [x] **날씨 한글 도시명** (Reverse Geocoding + 매핑) (2026-02-11)
 - [x] **FeaturedBanner 개선** (여백 축소 + 제목 전체 표시) (2026-02-11)
+- [x] **overview_ko/overview_lang 컬럼 제거** (DB 스키마 정리, 24→22컬럼) (2026-02-12)
+- [x] **프로덕션 DB 동기화 + Railway 재배포** (CORS 500 에러 해결) (2026-02-12)
 
 ### 향후 개선사항
 - [ ] 소셜 로그인 (Google, Kakao)
@@ -424,3 +439,4 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 16. **favicon.ico 404**: Next.js `app/icon.tsx` (ImageResponse)는 Windows에서 경로 버그 → `public/favicon.ico` + SVG 정적 파일로 해결 (2026-02-11)
 17. **날씨 "dong" 영어 표시**: OpenWeatherMap `name` 필드는 `lang` 파라미터 무관 → Reverse Geocoding API `local_names.ko`로 한글 도시명 추출 (2026-02-11)
 18. **날씨 캐시 이전 데이터 잔존**: Redis + localStorage 캐시 키 버전업 (`v2`→`v3`)으로 무효화 (2026-02-11)
+19. **CORS 500 에러 (overview_ko 제거 후)**: DB에서 컬럼 삭제 후 코드 미배포 → 500 에러 응답에 CORS 헤더 누락 → Railway 재배포로 해결 (2026-02-12)

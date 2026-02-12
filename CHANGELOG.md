@@ -6,6 +6,35 @@ All notable changes to RecFlix will be documented in this file.
 
 ---
 
+## [2026-02-12]
+
+### Changed
+- **DB 스키마 정리**: `overview_ko`, `overview_lang` 컬럼 제거 (24 → 22컬럼)
+  - overview가 모든 영화에 대해 한글로 통일되어 있어 불필요한 컬럼 삭제
+  - SQLAlchemy Movie 모델, Pydantic MovieDetail 스키마에서 필드 제거
+  - 프론트엔드 `MovieDetail` 타입에서 `overview_ko`, `overview_lang` 제거
+  - `movie.overview_ko || movie.overview` 로직 → `movie.overview`로 단순화
+  - 스크립트(`llm_emotion_tags.py`, `regenerate_emotion_tags.py`) 참조 정리
+  - LLM API(`llm.py`) overview 참조 단순화
+
+### Fixed
+- **프로덕션 CORS 500 에러**: DB에서 컬럼 삭제 후 이전 코드가 삭제된 컬럼 참조 → 500 에러 → CORS 헤더 누락으로 표면화. Railway 재배포로 코드-DB 일치시켜 해결
+
+### Technical Details
+- `backend/app/models/movie.py` - overview_ko, overview_lang Column 제거
+- `backend/app/schemas/movie.py` - MovieDetail 필드 및 from_orm_with_relations 매핑 제거
+- `backend/app/api/v1/llm.py` - overview_ko fallback 제거
+- `backend/scripts/llm_emotion_tags.py` - SQL SELECT/GROUP BY에서 overview_ko 제거
+- `backend/scripts/regenerate_emotion_tags.py` - 파라미터명/주석 overview_ko → overview
+- `frontend/types/index.ts` - MovieDetail 인터페이스 필드 제거
+- `frontend/app/movies/[id]/page.tsx` - overview fallback 로직 단순화
+- `frontend/components/movie/MovieModal.tsx` - overview fallback 로직 단순화
+- 로컬 DB: `ALTER TABLE movies DROP COLUMN overview_ko, overview_lang`
+- 프로덕션 DB: pg_dump → pg_restore로 Railway 동기화
+- Railway 백엔드 재배포: `railway up`
+
+---
+
 ## [2026-02-11]
 
 ### Security
