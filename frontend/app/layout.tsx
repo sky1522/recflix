@@ -4,14 +4,36 @@ import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://jnsquery-reflix.vercel.app"),
   title: "RecFlix - Personalized Movie Recommendations",
-  description: "Context-aware personalized movie recommendation platform",
+  description: "MBTI, 날씨, 기분 기반 맞춤형 영화 추천 서비스",
   manifest: "/manifest.json",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
       { url: "/favicon.svg", type: "image/svg+xml" },
     ],
+  },
+  openGraph: {
+    siteName: "RecFlix",
+    type: "website",
+    locale: "ko_KR",
+    url: "https://jnsquery-reflix.vercel.app",
+    title: "RecFlix - 맞춤형 영화 추천",
+    description: "MBTI, 날씨, 기분 기반 맞춤형 영화 추천 서비스",
+    images: [
+      {
+        url: "https://jnsquery-reflix.vercel.app/favicon.svg",
+        width: 512,
+        height: 512,
+        alt: "RecFlix",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary",
+    title: "RecFlix - 맞춤형 영화 추천",
+    description: "MBTI, 날씨, 기분 기반 맞춤형 영화 추천 서비스",
   },
   other: {
     "mobile-web-app-capable": "yes",
