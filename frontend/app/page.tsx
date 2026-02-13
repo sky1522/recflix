@@ -188,10 +188,6 @@ export default function HomePage() {
   };
 
   const getHybridSubtitle = (): string => {
-    if (mood && MOOD_SUBTITLES[mood]) return getSubtitle(MOOD_SUBTITLES[mood], subtitleIdx);
-    const mbti = user?.mbti;
-    if (mbti && MBTI_SUBTITLES[mbti]) return getSubtitle(MBTI_SUBTITLES[mbti], subtitleIdx);
-    if (weather?.condition && WEATHER_SUBTITLES[weather.condition]) return getSubtitle(WEATHER_SUBTITLES[weather.condition], subtitleIdx);
     return getSubtitle(FIXED_SUBTITLES.hybrid, subtitleIdx);
   };
 
