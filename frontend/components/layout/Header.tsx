@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Search, Heart, Star, Film, User, LogOut, Home } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { WeatherIndicator } from "@/components/weather/WeatherBanner";
+import SearchAutocomplete from "@/components/search/SearchAutocomplete";
 import type { Weather } from "@/types";
 
 export default function Header() {
@@ -15,7 +16,6 @@ export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const [weather, setWeather] = useState<Weather | null>(null);
 
   useEffect(() => {
@@ -66,15 +66,6 @@ export default function Header() {
       clearInterval(interval);
     };
   }, []);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      window.location.href = `/movies?query=${encodeURIComponent(searchQuery)}`;
-      setSearchOpen(false);
-      setMobileMenuOpen(false);
-    }
-  };
 
   const navItems = [
     { href: "/", label: "홈", icon: Home },
@@ -170,15 +161,13 @@ export default function Header() {
               </button>
 
               {/* Search - Desktop */}
-              <form onSubmit={handleSearch} className="hidden md:block relative">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+              <div className="hidden md:block w-64">
+                <SearchAutocomplete
                   placeholder="영화 검색..."
-                  className="bg-dark-100/50 border border-white/20 rounded-full px-4 py-1.5 text-sm text-white placeholder-white/50 focus:outline-none focus:border-primary-500 transition-all w-48"
+                  compact
+                  inputClassName="w-full bg-dark-100/50 border border-white/20 rounded-full pl-9 pr-8 py-1.5 text-sm text-white placeholder-white/50 focus:outline-none focus:border-primary-500 transition-all"
                 />
-              </form>
+              </div>
 
               {/* Auth - Desktop */}
               {isAuthenticated ? (
@@ -231,18 +220,12 @@ export default function Header() {
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
-                className="md:hidden overflow-hidden"
+                className="md:hidden overflow-visible pb-3"
               >
-                <form onSubmit={handleSearch} className="pb-3">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="영화 제목, 배우, 감독 검색..."
-                    className="w-full bg-dark-100 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-primary-500 transition"
-                    autoFocus
-                  />
-                </form>
+                <SearchAutocomplete
+                  placeholder="영화 제목, 배우, 감독 검색..."
+                  onClose={() => setSearchOpen(false)}
+                />
               </motion.div>
             )}
           </AnimatePresence>
