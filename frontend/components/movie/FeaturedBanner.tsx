@@ -39,19 +39,20 @@ const weatherConfig: Record<WeatherType, { icon: React.ReactNode; label: string;
 // 날씨 섹션 고정 문구
 const WEATHER_MESSAGE = "날씨에 따른 영화추천";
 
-// 기분 관련 설정 (2x3 그리드 순서)
-const moodConfig: Record<MoodType, { emoji: string; label: string; row: number }> = {
-  relaxed: { emoji: "😌", label: "편안한", row: 1 },
-  tense: { emoji: "😰", label: "긴장감", row: 1 },
-  excited: { emoji: "😆", label: "신나는", row: 1 },
-  emotional: { emoji: "💕", label: "감성적", row: 2 },
-  imaginative: { emoji: "🔮", label: "상상에빠지고싶은", row: 2 },
-  light: { emoji: "😄", label: "가볍게", row: 2 },
+// 기분 관련 설정 (2x4 그리드 순서)
+const moodConfig: Record<MoodType, { emoji: string; label: string }> = {
+  relaxed: { emoji: "😌", label: "평온한" },
+  tense: { emoji: "😰", label: "긴장된" },
+  excited: { emoji: "😆", label: "활기찬" },
+  emotional: { emoji: "💕", label: "몽글몽글한" },
+  imaginative: { emoji: "🔮", label: "상상에 빠진" },
+  light: { emoji: "😄", label: "유쾌한" },
+  gloomy: { emoji: "😢", label: "울적한" },
+  stifled: { emoji: "😤", label: "답답한" },
 };
 
-// 기분 버튼 순서 (2x3 그리드)
-const moodRow1: MoodType[] = ["relaxed", "tense", "excited"];
-const moodRow2: MoodType[] = ["emotional", "imaginative", "light"];
+// 기분 버튼 순서 (2x4 그리드)
+const moodOrder: MoodType[] = ["relaxed", "tense", "excited", "emotional", "imaginative", "light", "gloomy", "stifled"];
 
 // 기분 섹션 고정 문구
 const MOOD_MESSAGE = "지금 기분이 어떠세요?";
@@ -367,7 +368,7 @@ export default function FeaturedBanner({
           </motion.div>
         )}
 
-        {/* 기분 섹션 (2x3 그리드) */}
+        {/* 기분 섹션 (2x4 그리드) */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -377,41 +378,22 @@ export default function FeaturedBanner({
           <div className="text-xs text-white/70 text-center">
             {MOOD_MESSAGE}
           </div>
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-center gap-1">
-              {moodRow1.map((m) => (
-                <button
-                  key={m}
-                  onClick={() => onMoodChange?.(mood === m ? null : m)}
-                  className={`px-2 py-1 rounded-full text-xs transition-all whitespace-nowrap ${
-                    mood === m
-                      ? "bg-white/25 scale-105"
-                      : "hover:bg-white/15"
-                  }`}
-                  title={moodConfig[m].label}
-                >
-                  <span>{moodConfig[m].emoji}</span>
-                  <span className="ml-0.5 text-white/90 hidden sm:inline">{moodConfig[m].label}</span>
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center justify-center gap-1">
-              {moodRow2.map((m) => (
-                <button
-                  key={m}
-                  onClick={() => onMoodChange?.(mood === m ? null : m)}
-                  className={`px-2 py-1 rounded-full text-xs transition-all whitespace-nowrap ${
-                    mood === m
-                      ? "bg-white/25 scale-105"
-                      : "hover:bg-white/15"
-                  }`}
-                  title={moodConfig[m].label}
-                >
-                  <span>{moodConfig[m].emoji}</span>
-                  <span className="ml-0.5 text-white/90 hidden sm:inline">{moodConfig[m].label}</span>
-                </button>
-              ))}
-            </div>
+          <div className="grid grid-cols-4 gap-1">
+            {moodOrder.map((m) => (
+              <button
+                key={m}
+                onClick={() => onMoodChange?.(mood === m ? null : m)}
+                className={`px-1.5 py-1 rounded-full text-xs transition-all whitespace-nowrap text-center ${
+                  mood === m
+                    ? "bg-white/25 scale-105"
+                    : "hover:bg-white/15"
+                }`}
+                title={moodConfig[m].label}
+              >
+                <span>{moodConfig[m].emoji}</span>
+                <span className="ml-0.5 text-white/90 hidden sm:inline">{moodConfig[m].label}</span>
+              </button>
+            ))}
           </div>
         </motion.div>
       </div>

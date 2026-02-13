@@ -305,6 +305,30 @@
 | Header 검색창 자동완성 통합 | ✅ | 데스크톱/모바일 검색창을 SearchAutocomplete로 교체 |
 | 별점(weighted_score) 표시 | ✅ | 자동완성 드롭다운 항목에 별 아이콘 + 점수 |
 
+### Phase 23: 큐레이션 서브타이틀 시스템 (2026-02-13)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| curationMessages.ts 상수 파일 | ✅ | 날씨/기분/MBTI/고정 서브타이틀 메시지 |
+| MovieRow subtitle prop 추가 | ✅ | 제목 아래 보조 설명 텍스트 |
+| HybridMovieRow subtitle prop 추가 | ✅ | 맞춤 추천 섹션 서브타이틀 |
+| 홈 페이지 서브타이틀 매칭 로직 | ✅ | getRowSubtitle(), getHybridSubtitle() 헬퍼 |
+| 날씨 4종 서브타이틀 | ✅ | 맑음/비/흐림/눈별 큐레이션 메시지 |
+| 기분 8종 서브타이틀 | ✅ | 8개 기분별 큐레이션 메시지 |
+| MBTI 16종 서브타이틀 | ✅ | 16개 유형별 성격 기반 메시지 |
+| 고정 서브타이틀 | ✅ | 인기영화, 높은평점, 맞춤추천 기본 |
+
+### Phase 24: 기분(Mood) 8개 카테고리 확장 (2026-02-13)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| Backend gloomy/stifled 추가 | ✅ | MOOD_EMOTION_MAPPING, MOOD_LABELS, MOOD_SECTION_CONFIG |
+| emotion_tags 매핑 | ✅ | gloomy→deep+healing, stifled→tension+energy |
+| API 정규식 패턴 확장 | ✅ | 8개 mood 값 허용 |
+| Frontend MoodType 확장 | ✅ | types/index.ts에 gloomy, stifled 추가 |
+| FeaturedBanner 기분 UI 개선 | ✅ | 2x3 → 2x4 그리드, 8개 기분 버튼 |
+| 기분 라벨 개선 | ✅ | 평온한/긴장된/활기찬/몽글몽글한/상상에빠진/유쾌한/울적한/답답한 |
+
 ---
 
 ## 프로젝트 구조
@@ -485,6 +509,8 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 - [x] **자체 유사 영화 계산** (42,917편 x Top10, 429,170개 관계) (2026-02-13)
 - [x] **검색 키워드 하이라이팅** (HighlightText 컴포넌트) (2026-02-13)
 - [x] **검색 자동완성 강화** (키보드 네비게이션, Redis 캐싱, Header 통합) (2026-02-13)
+- [x] **큐레이션 서브타이틀** (날씨/기분/MBTI/고정 메시지 시스템) (2026-02-13)
+- [x] **기분 8개 카테고리 확장** (gloomy 울적한, stifled 답답한 추가) (2026-02-13)
 
 ### 향후 개선사항
 - [ ] 소셜 로그인 (Google, Kakao)

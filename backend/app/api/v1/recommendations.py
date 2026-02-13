@@ -60,6 +60,8 @@ MOOD_EMOTION_MAPPING = {
     "emotional": ["romance", "deep"], # 감성적인 → 로맨스+깊이 (첫사랑/이별 + 인생/철학)
     "imaginative": ["fantasy"],       # 상상력 → 판타지 (마법/우주/초능력/타임루프)
     "light": ["light"],               # 가벼운 → 라이트 (유머/일상/친구/패러디)
+    "gloomy": ["deep", "healing"],    # 울적한 → 깊이+힐링 (카타르시스/펑펑 울고 싶을 때)
+    "stifled": ["tension", "energy"], # 답답한 → 긴장감+에너지 (사이다/속이 뻥 뚫리는)
 }
 
 # Mood label mapping
@@ -70,6 +72,8 @@ MOOD_LABELS = {
     "emotional": "#감성적인",
     "imaginative": "#상상력",
     "light": "#가벼운",
+    "gloomy": "#울적한",
+    "stifled": "#답답한",
 }
 
 # Mood section titles and descriptions
@@ -80,6 +84,8 @@ MOOD_SECTION_CONFIG = {
     "emotional": {"title": "💕 감성적인 기분일 때", "desc": "감동이 밀려오는 영화"},
     "imaginative": {"title": "🔮 상상에 빠지고 싶을 때", "desc": "판타지 세계로 떠나는 영화"},
     "light": {"title": "😄 가볍게 보고 싶을 때", "desc": "부담 없이 즐기는 영화"},
+    "gloomy": {"title": "😢 울적한 기분일 때", "desc": "눈물로 마음을 비우는 영화"},
+    "stifled": {"title": "😤 답답할 때", "desc": "속이 뻥 뚫리는 사이다 영화"},
 }
 
 # Weather label mapping
@@ -401,7 +407,7 @@ def calculate_hybrid_scores(
 @router.get("", response_model=HomeRecommendations)
 def get_home_recommendations(
     weather: Optional[str] = Query(None, regex="^(sunny|rainy|cloudy|snowy)$"),
-    mood: Optional[str] = Query(None, regex="^(relaxed|tense|excited|emotional|imaginative|light)$"),
+    mood: Optional[str] = Query(None, regex="^(relaxed|tense|excited|emotional|imaginative|light|gloomy|stifled)$"),
     age_rating: Optional[str] = Query(None, regex="^(all|family|teen|adult)$"),
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
@@ -456,7 +462,7 @@ def get_home_recommendations(
                 weather_emoji = {"sunny": "☀️", "rainy": "🌧️", "cloudy": "☁️", "snowy": "❄️"}
                 title_parts.append(weather_emoji.get(weather, ""))
             if mood:
-                mood_emoji = {"relaxed": "😌", "tense": "😰", "excited": "😆", "emotional": "💕", "imaginative": "🔮", "light": "😄"}
+                mood_emoji = {"relaxed": "😌", "tense": "😰", "excited": "😆", "emotional": "💕", "imaginative": "🔮", "light": "😄", "gloomy": "😢", "stifled": "😤"}
                 title_parts.append(mood_emoji.get(mood, ""))
 
             hybrid_title = "🎯 " + (" + ".join(title_parts) if title_parts else "당신을 위한") + " 맞춤 추천"
