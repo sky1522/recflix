@@ -6,7 +6,34 @@ All notable changes to RecFlix will be documented in this file.
 
 ---
 
+## [2026-02-13]
+
+### Added
+- **cast_ko 외국어 이름 한글 음역 변환**: Claude API로 4,253개 이름 처리 ($1.78)
+  - 중국어 1,902개, 영어 1,902개, 일본어 139개, 악센트 라틴 187개, 키릴 64개, 그리스어 11개, 기타 48개
+  - 2,869개 실제 변환, 4,570편 영화 업데이트
+  - cast_ko 한글화율: 98.7% → **100.00%** (42,759/42,759편)
+  - 스크립트: `backend/scripts/transliterate_foreign_names.py`
+- Zero-width space 정리 (22편), Unicode NFC 정규화, 깨진 데이터(태국어+데바나가리 혼합) 14편 제거
+
+---
+
 ## [2026-02-12]
+
+### Added
+- **프로젝트 리뷰 문서**: `docs/PROJECT_REVIEW.md` 생성
+  - 초기 기획(Phase 1-8) vs 현재 구현(Phase 17) 달성도 비교
+  - 추천 알고리즘 진화 과정 (Phase 6 → 11 → 14)
+  - 고도화 제안 로드맵 (단기/중기/장기/데이터 품질)
+  - 기술 부채 정리
+- **cast_ko 영어 배우 이름 한글 음역 변환**: Claude API로 33,442개 이름 번역
+  - 1차: 2편 이상 등장 배우 9,714개 (49분, $3.33)
+  - 2차: 1편 등장 배우 23,815개 ($8.36)
+  - 총 API 비용: ~$11.69
+  - 22,451편 영화의 cast_ko 업데이트 → **92.8% 완전 한글화**
+  - 스크립트: `backend/scripts/transliterate_cast_names.py`
+- **persons 테이블 부분 한글화**: 기존 번역 매핑 적용으로 31,672명 업데이트
+  - 스크립트: `backend/scripts/transliterate_persons.py` (생성, 47,689명 잔여분은 미실행)
 
 ### Changed
 - **DB 스키마 정리**: `overview_ko`, `overview_lang` 컬럼 제거 (24 → 22컬럼)
@@ -16,22 +43,27 @@ All notable changes to RecFlix will be documented in this file.
   - `movie.overview_ko || movie.overview` 로직 → `movie.overview`로 단순화
   - 스크립트(`llm_emotion_tags.py`, `regenerate_emotion_tags.py`) 참조 정리
   - LLM API(`llm.py`) overview 참조 단순화
+- **출연진 표시 데이터 소스 변경**: `persons` 테이블(cast_members) → `movies.cast_ko` 컬럼 사용
+  - persons 테이블: 80.9% 영어 → cast_ko: 92.8% 한글화 (품질 우위)
+  - 영화 상세 페이지(`/movies/[id]`): cast_members 배열 → cast_ko.split(", ") 그리드 카드
+  - 영화 모달(`MovieModal.tsx`): cast_members.map(p.name).join → cast_ko 직접 표시
+  - TypeScript 타입: MovieDetail에 `cast_ko: string | null` 추가
 
 ### Fixed
 - **프로덕션 CORS 500 에러**: DB에서 컬럼 삭제 후 이전 코드가 삭제된 컬럼 참조 → 500 에러 → CORS 헤더 누락으로 표면화. Railway 재배포로 코드-DB 일치시켜 해결
+- **진행 파일 저장 실패 (Windows)**: 대용량 JSON 진행 파일 쓰기 시 `OSError: [Errno 22]` → 원자적 쓰기(tmp + rename) 패턴으로 해결
 
 ### Technical Details
+- `backend/scripts/transliterate_cast_names.py` - Claude API 배치 음역 변환 (50개/배치, resume 지원)
+- `backend/scripts/transliterate_persons.py` - persons 테이블 음역 변환 스크립트 (생성만)
+- `backend/scripts/cast_transliteration_progress.json` - 33,442개 번역 매핑
 - `backend/app/models/movie.py` - overview_ko, overview_lang Column 제거
 - `backend/app/schemas/movie.py` - MovieDetail 필드 및 from_orm_with_relations 매핑 제거
-- `backend/app/api/v1/llm.py` - overview_ko fallback 제거
-- `backend/scripts/llm_emotion_tags.py` - SQL SELECT/GROUP BY에서 overview_ko 제거
-- `backend/scripts/regenerate_emotion_tags.py` - 파라미터명/주석 overview_ko → overview
-- `frontend/types/index.ts` - MovieDetail 인터페이스 필드 제거
-- `frontend/app/movies/[id]/page.tsx` - overview fallback 로직 단순화
-- `frontend/components/movie/MovieModal.tsx` - overview fallback 로직 단순화
+- `frontend/types/index.ts` - MovieDetail에 cast_ko 추가, overview_ko/overview_lang 제거
+- `frontend/app/movies/[id]/page.tsx` - cast_members → cast_ko, overview fallback 단순화
+- `frontend/components/movie/MovieModal.tsx` - cast_members → cast_ko, overview 단순화
 - 로컬 DB: `ALTER TABLE movies DROP COLUMN overview_ko, overview_lang`
-- 프로덕션 DB: pg_dump → pg_restore로 Railway 동기화
-- Railway 백엔드 재배포: `railway up`
+- 프로덕션 DB: pg_dump → pg_restore (여러 차례 동기화)
 
 ---
 

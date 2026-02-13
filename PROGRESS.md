@@ -1,6 +1,6 @@
 # RecFlix 개발 진행 상황
 
-**최종 업데이트**: 2026-02-12
+**최종 업데이트**: 2026-02-13
 
 ---
 
@@ -241,6 +241,20 @@
 | 프로덕션 DB 동기화 | ✅ | pg_dump → pg_restore (Railway) |
 | Railway 백엔드 재배포 | ✅ | CORS 500 에러 해결 (코드-DB 불일치 해소) |
 
+### Phase 18: cast_ko 한글 음역 변환 & 출연진 표시 개선 (2026-02-12)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 영어 배우 이름 분석 | ✅ | 33,529개 고유 영어 이름, 22,451편 영화 |
+| Claude API 음역 변환 (1차) | ✅ | 2편+ 등장 배우 9,714개, 49분, $3.33 |
+| Claude API 음역 변환 (2차) | ✅ | 1편 등장 배우 23,815개, $8.36 |
+| 진행 파일 원자적 쓰기 수정 | ✅ | Windows OSError → tmp+rename 패턴 |
+| cast_ko 92.8% 한글화 달성 | ✅ | 33,442개 이름 번역, 22,451편 업데이트 |
+| persons 테이블 부분 업데이트 | ✅ | 기존 매핑으로 31,672명 업데이트 |
+| 프론트엔드 cast_ko 전환 | ✅ | cast_members(persons) → cast_ko(movies) 사용 |
+| 프로덕션 DB 동기화 | ✅ | pg_dump → pg_restore (여러 차례) |
+| 프로젝트 리뷰 문서 작성 | ✅ | docs/PROJECT_REVIEW.md 생성 |
+
 ---
 
 ## 프로젝트 구조
@@ -410,6 +424,9 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 - [x] **FeaturedBanner 개선** (여백 축소 + 제목 전체 표시) (2026-02-11)
 - [x] **overview_ko/overview_lang 컬럼 제거** (DB 스키마 정리, 24→22컬럼) (2026-02-12)
 - [x] **프로덕션 DB 동기화 + Railway 재배포** (CORS 500 에러 해결) (2026-02-12)
+- [x] **cast_ko 한글 음역 변환** (33,442개 이름, Claude API $11.69) (2026-02-12)
+- [x] **출연진 표시 cast_ko 전환** (persons → movies.cast_ko, 92.8% 한글) (2026-02-12)
+- [x] **프로젝트 리뷰 문서** (docs/PROJECT_REVIEW.md) (2026-02-12)
 
 ### 향후 개선사항
 - [ ] 소셜 로그인 (Google, Kakao)
