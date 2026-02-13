@@ -61,7 +61,7 @@ MOOD_EMOTION_MAPPING = {
     "imaginative": ["fantasy"],       # 상상력 → 판타지 (마법/우주/초능력/타임루프)
     "light": ["light"],               # 가벼운 → 라이트 (유머/일상/친구/패러디)
     "gloomy": ["deep", "healing"],    # 울적한 → 깊이+힐링 (카타르시스/펑펑 울고 싶을 때)
-    "stifled": ["tension", "energy"], # 답답한 → 긴장감+에너지 (사이다/속이 뻥 뚫리는)
+    "stifled": ["energy", "tension"], # 답답한 → 에너지+긴장감 (사이다/속이 뻥 뚫리는)
 }
 
 # Mood label mapping
