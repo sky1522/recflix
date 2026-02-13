@@ -155,9 +155,13 @@ export default function HomePage() {
   const getRowSubtitle = (title: string): string => {
     if (title.includes("인기 영화")) return getSubtitle(FIXED_SUBTITLES.popular, subtitleIdx);
     if (title.includes("높은 평점")) return getSubtitle(FIXED_SUBTITLES.topRated, subtitleIdx);
-    // MBTI
-    const mbti = user?.mbti;
-    if (mbti && title.includes(mbti)) return getSubtitle(MBTI_SUBTITLES[mbti], subtitleIdx);
+    // MBTI - 타이틀에서 MBTI 유형 직접 추출 (user?.mbti가 null일 수 있으므로)
+    if (title.includes("성향 추천")) {
+      const mbtiMatch = title.match(/([A-Z]{4})/);
+      if (mbtiMatch && MBTI_SUBTITLES[mbtiMatch[1]]) {
+        return getSubtitle(MBTI_SUBTITLES[mbtiMatch[1]], subtitleIdx);
+      }
+    }
     // Weather
     for (const key of Object.keys(WEATHER_SUBTITLES)) {
       if (
