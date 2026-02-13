@@ -10,17 +10,14 @@ import { useWeather } from "@/hooks/useWeather";
 import { useAuthStore } from "@/stores/authStore";
 import type { HomeRecommendations, WeatherType, Movie, Weather, MoodType } from "@/types";
 import {
-  WEATHER_SUBTITLES,
   MOOD_SUBTITLES,
   MBTI_SUBTITLES,
   FIXED_SUBTITLES,
-  TIME_SUBTITLES,
-  SEASON_SUBTITLES,
   getSubtitle,
+  getHybridContextSubtitle,
+  getWeatherContextSubtitle,
 } from "@/lib/curationMessages";
-
-type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night';
-type Season = 'spring' | 'summer' | 'autumn' | 'winter';
+import { buildUserContext, type UserContext } from "@/lib/contextCuration";
 
 // Module-level cache: survives component remounts (back navigation)
 let cachedRecommendations: HomeRecommendations | null = null;
@@ -33,31 +30,14 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [mood, setMood] = useState<MoodType | null>(cachedMood);
   const [subtitleIdx, setSubtitleIdx] = useState(0);
-  const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>('afternoon');
-  const [season, setSeason] = useState<Season>('winter');
+  const [userContext, setUserContext] = useState<UserContext | null>(null);
 
   const { isAuthenticated, user } = useAuthStore();
   const prevAuthRef = useRef(isAuthenticated);
 
-  // 페이지 로드 시 랜덤 서브타이틀 인덱스 + 시간대/계절 결정 (하이드레이션 안전)
+  // 페이지 로드 시 랜덤 서브타이틀 인덱스 결정 (하이드레이션 안전)
   useEffect(() => {
     setSubtitleIdx(Math.floor(Math.random() * 6));
-
-    const now = new Date();
-    const hour = now.getHours();
-    const month = now.getMonth() + 1;
-
-    // 시간대
-    if (hour >= 6 && hour < 12) setTimeOfDay('morning');
-    else if (hour >= 12 && hour < 18) setTimeOfDay('afternoon');
-    else if (hour >= 18 && hour < 22) setTimeOfDay('evening');
-    else setTimeOfDay('night');
-
-    // 계절 (한국 기준)
-    if (month >= 3 && month <= 5) setSeason('spring');
-    else if (month >= 6 && month <= 8) setSeason('summer');
-    else if (month >= 9 && month <= 11) setSeason('autumn');
-    else setSeason('winter');
   }, []);
 
   // 로그아웃 감지 시 즉시 추천 데이터 초기화 (캐시 포함)
@@ -102,6 +82,13 @@ export default function HomePage() {
         "theme-snowy"
       );
     };
+  }, [weather]);
+
+  // 컨텍스트 감지: weather 데이터에서 기온 활용
+  useEffect(() => {
+    const temp = weather?.temperature ?? 15;
+    const condition = weather?.condition ?? 'sunny';
+    setUserContext(buildUserContext(temp, condition));
   }, [weather]);
 
   // Fetch recommendations when weather, mood, or auth state changes
@@ -185,14 +172,17 @@ export default function HomePage() {
         return getSubtitle(MBTI_SUBTITLES[mbtiMatch[1]], subtitleIdx);
       }
     }
-    // Weather → 계절별 문구 우선
+    // Weather → 계절 + 기온 교대
     if (
       title.includes("맑은") ||
       title.includes("비 오는") ||
       title.includes("흐린") ||
       title.includes("눈 오는")
     ) {
-      return getSubtitle(SEASON_SUBTITLES[season], subtitleIdx);
+      if (userContext) {
+        return getWeatherContextSubtitle(userContext.season, userContext.tempRange, subtitleIdx);
+      }
+      return '';
     }
     // Mood
     for (const key of Object.keys(MOOD_SUBTITLES)) {
@@ -211,7 +201,10 @@ export default function HomePage() {
   };
 
   const getHybridSubtitle = (): string => {
-    return getSubtitle(TIME_SUBTITLES[timeOfDay], subtitleIdx);
+    if (userContext) {
+      return getHybridContextSubtitle(userContext.timeOfDay, subtitleIdx);
+    }
+    return '';
   };
 
   if (error && !recommendations) {
