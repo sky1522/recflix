@@ -8,6 +8,7 @@ import { Star, Eye } from "lucide-react";
 import { getImageUrl, formatDate } from "@/lib/utils";
 import type { Movie } from "@/types";
 import MovieModal from "./MovieModal";
+import HighlightText from "@/components/ui/HighlightText";
 
 const CERT_BADGE_COLORS: Record<string, string> = {
   ALL: "bg-green-600",
@@ -26,9 +27,10 @@ interface MovieCardProps {
   movie: Movie;
   index?: number;
   showQuickView?: boolean;
+  highlightQuery?: string;
 }
 
-export default function MovieCard({ movie, index = 0, showQuickView = true }: MovieCardProps) {
+export default function MovieCard({ movie, index = 0, showQuickView = true, highlightQuery = "" }: MovieCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [imageError, setImageError] = useState(false);
 
@@ -99,7 +101,11 @@ export default function MovieCard({ movie, index = 0, showQuickView = true }: Mo
           {/* Info - 중앙 정렬 */}
           <div className="mt-2 px-1 text-center">
             <h3 className="text-sm font-medium text-white truncate group-hover:text-primary-400 transition">
-              {movie.title_ko || movie.title}
+              {highlightQuery ? (
+                <HighlightText text={movie.title_ko || movie.title} query={highlightQuery} />
+              ) : (
+                movie.title_ko || movie.title
+              )}
             </h3>
             <div className="flex items-center justify-center gap-1.5 text-xs text-white/50 mt-1">
               <span>{formatDate(movie.release_date)}</span>
