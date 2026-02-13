@@ -1,6 +1,6 @@
 # RecFlix 추천 시스템 로직
 
-> 마지막 업데이트: 2026-02-10
+> 마지막 업데이트: 2026-02-13
 
 ---
 
@@ -241,32 +241,36 @@ if weather_score > 0.5:
 
 ## 6. Mood (기분) 추천 로직
 
-### 6.1 지원 기분 (6개, 2x3 그리드)
+### 6.1 지원 기분 (8개, 2x4 그리드)
 
 **1행:**
 | 코드 | 이모지 | 한국어 | emotion_tags 매핑 |
 |------|--------|--------|-------------------|
-| relaxed | 😌 | 편안한 | healing |
-| tense | 😰 | 긴장감원해 | tension |
-| excited | 😆 | 신나는 | energy |
+| relaxed | 😌 | 평온한 | healing |
+| tense | 😰 | 긴장된 | tension |
+| excited | 😆 | 활기찬 | energy |
+| emotional | 💕 | 몽글몽글한 | romance, deep |
 
 **2행:**
 | 코드 | 이모지 | 한국어 | emotion_tags 매핑 |
 |------|--------|--------|-------------------|
-| emotional | 💕 | 감성적인 | romance, deep |
-| imaginative | 🔮 | 상상에빠지고싶은 | fantasy |
-| light | 😄 | 가볍게볼래 | light |
+| imaginative | 🔮 | 상상에 빠진 | fantasy |
+| light | 😄 | 유쾌한 | light |
+| gloomy | 🌧️ | 울적한 | deep, healing |
+| stifled | 😤 | 답답한 | tension, energy |
 
 ### 6.2 기분 → emotion_tags 매핑
 
 ```python
 MOOD_EMOTION_MAPPING = {
-    "relaxed": ["healing"],           # 편안한 → 힐링
-    "tense": ["tension"],             # 긴장감 → 긴장감
-    "excited": ["energy"],            # 신나는 → 에너지
-    "emotional": ["romance", "deep"], # 감성적인 → 로맨스+깊이
-    "imaginative": ["fantasy"],       # 상상력 → 판타지
-    "light": ["light"],               # 가벼운 → 라이트
+    "relaxed": ["healing"],           # 평온한 → 힐링
+    "tense": ["tension"],             # 긴장된 → 긴장감
+    "excited": ["energy"],            # 활기찬 → 에너지
+    "emotional": ["romance", "deep"], # 몽글몽글한 → 로맨스+깊이
+    "imaginative": ["fantasy"],       # 상상에 빠진 → 판타지
+    "light": ["light"],               # 유쾌한 → 라이트
+    "gloomy": ["deep", "healing"],    # 울적한 → 깊이+힐링
+    "stifled": ["tension", "energy"], # 답답한 → 긴장감+에너지
 }
 ```
 
@@ -471,6 +475,8 @@ const displayedMovies = useMemo(() => {
 
 | 날짜 | 변경 내용 |
 |------|----------|
+| 2026-02-13 | 기분 카테고리 확장: 6개 → 8개 (gloomy 울적한, stifled 답답한 추가) |
+| 2026-02-13 | 큐레이션 서브타이틀 시스템: 날씨/기분/MBTI/고정별 보조 메시지 |
 | 2026-02-10 | 품질 보정: binary bonus → 연속 보정 (×0.85~1.0, weighted_score 기반) |
 | 2026-02-10 | Hybrid 가중치 v2 튜닝: Mood 0.20→0.30, MBTI 0.30→0.25, Personal 0.30→0.25 |
 | 2026-02-10 | 연령등급 필터링 추가: age_rating 파라미터 (all/family/teen/adult) 전 API 적용 |

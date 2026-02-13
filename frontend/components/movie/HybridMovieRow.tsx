@@ -9,6 +9,7 @@ import type { HybridMovie } from "@/types";
 interface HybridMovieRowProps {
   title: string;
   description?: string | null;
+  subtitle?: string;
   movies: HybridMovie[];
   displayCount?: number;
 }
@@ -26,6 +27,7 @@ function shuffleArray<T>(array: T[]): T[] {
 export default function HybridMovieRow({
   title,
   description,
+  subtitle,
   movies,
   displayCount = 20,
 }: HybridMovieRowProps) {
@@ -81,16 +83,13 @@ export default function HybridMovieRow({
       transition={{ duration: 0.5 }}
       className="relative group"
     >
-      {/* Header with gradient background - 한 줄 배치 */}
+      {/* Header with gradient background */}
       <div className="mb-4 p-4 rounded-lg bg-gradient-to-r from-primary-600/20 to-purple-600/20 border border-primary-500/30">
         <div className="flex items-center gap-3">
           <div className="flex items-center space-x-2">
             <Sparkles className="w-5 h-5 text-primary-400" />
             <h2 className="text-xl md:text-2xl font-bold text-white">{title}</h2>
           </div>
-          {description && (
-            <p className="text-sm text-gray-400">{description}</p>
-          )}
           {/* Refresh Button */}
           {movies.length > displayCount && (
             <button
@@ -107,6 +106,9 @@ export default function HybridMovieRow({
             </button>
           )}
         </div>
+        {subtitle && (
+          <p className="text-sm text-white/50 mt-1 truncate">{subtitle}</p>
+        )}
       </div>
 
       {/* Scroll Container */}

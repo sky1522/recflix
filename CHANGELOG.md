@@ -9,6 +9,13 @@ All notable changes to RecFlix will be documented in this file.
 ## [2026-02-13]
 
 ### Added
+- **큐레이션 서브타이틀 시스템**: 모든 추천 섹션에 상황별 보조 설명 메시지
+  - `frontend/lib/curationMessages.ts` 신규 (날씨 4종, 기분 8종, MBTI 16종, 고정 3종)
+  - MovieRow/HybridMovieRow에 `subtitle` prop 추가
+  - 홈 페이지에 `getRowSubtitle()`, `getHybridSubtitle()` 매칭 로직
+- **기분(Mood) 8개 카테고리 확장**: 기존 6개 → 8개 (울적한, 답답한 추가)
+  - Backend: `gloomy→["deep","healing"]`, `stifled→["tension","energy"]` emotion_tags 매핑
+  - Frontend: 2x3 → 2x4 그리드 UI, 기분 라벨 개선 (평온한/긴장된/활기찬/몽글몽글한/상상에빠진/유쾌한/울적한/답답한)
 - **자체 유사 영화 계산 엔진**: TMDB 데이터 대신 RecFlix 자체 유사도 기반으로 교체
   - 유사도 = 0.5×emotion_tags 코사인 + 0.3×mbti_scores 코사인 + 0.2×장르 Jaccard
   - 품질 필터: `weighted_score >= 6.0` (39,791편 후보)
