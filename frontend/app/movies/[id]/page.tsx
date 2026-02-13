@@ -429,9 +429,16 @@ export default function MovieDetailPage() {
                           </div>
                         </div>
                       </div>
-                      <p className="mt-1.5 text-sm text-white/80 group-hover:text-primary-400 transition truncate">
-                        {m.title_ko || m.title}
-                      </p>
+                      <div className="mt-1.5 text-center">
+                        <p className="text-sm font-medium text-white group-hover:text-primary-400 transition truncate">
+                          {m.title_ko || m.title}
+                        </p>
+                        {m.genres.length > 0 && (
+                          <p className="text-xs text-white/50 mt-0.5 truncate">
+                            {m.genres.slice(0, 2).join(" · ")}
+                          </p>
+                        )}
+                      </div>
                     </Link>
                   ))}
                 </div>
