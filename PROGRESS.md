@@ -293,6 +293,18 @@
 | 에러 바운더리 추가 | ✅ | 전역 error.tsx, 404 not-found.tsx, 영화 상세 error.tsx |
 | 프로덕션 DB 동기화 | ✅ | pg_dump → pg_restore (Railway) |
 
+### Phase 22: 검색 자동완성 강화 (2026-02-13)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 검색 키워드 하이라이팅 | ✅ | HighlightText 컴포넌트 (볼드+primary 색상) |
+| autocomplete Redis 캐싱 | ✅ | TTL 1시간, `autocomplete:{query}:{limit}` 캐시 키 |
+| weighted_score 반환 추가 | ✅ | autocomplete API 응답에 품질 점수 포함 |
+| 키보드 네비게이션 | ✅ | 방향키 이동, Enter 선택, ESC 닫기 |
+| HighlightText 검색어 하이라이팅 | ✅ | 영화 제목 + 영어 제목 + 배우 이름 하이라이팅 |
+| Header 검색창 자동완성 통합 | ✅ | 데스크톱/모바일 검색창을 SearchAutocomplete로 교체 |
+| 별점(weighted_score) 표시 | ✅ | 자동완성 드롭다운 항목에 별 아이콘 + 점수 |
+
 ---
 
 ## 프로젝트 구조
@@ -348,6 +360,7 @@ C:\dev\recflix\
 │   │   │   └── FeaturedBanner.tsx
 │   │   ├── weather/WeatherBanner.tsx
 │   │   ├── search/SearchAutocomplete.tsx
+│   │   ├── ui/HighlightText.tsx
 │   │   ├── ui/Skeleton.tsx
 │   │   └── movie/
 │   │       ├── HybridMovieRow.tsx
@@ -470,6 +483,8 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 - [x] **SEO 동적 OG 메타태그** (영화 상세 페이지 SNS 프리뷰) (2026-02-13)
 - [x] **에러 바운더리** (전역, 404, 영화 상세) (2026-02-13)
 - [x] **자체 유사 영화 계산** (42,917편 x Top10, 429,170개 관계) (2026-02-13)
+- [x] **검색 키워드 하이라이팅** (HighlightText 컴포넌트) (2026-02-13)
+- [x] **검색 자동완성 강화** (키보드 네비게이션, Redis 캐싱, Header 통합) (2026-02-13)
 
 ### 향후 개선사항
 - [ ] 소셜 로그인 (Google, Kakao)
