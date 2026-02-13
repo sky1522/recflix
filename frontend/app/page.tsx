@@ -34,7 +34,7 @@ export default function HomePage() {
 
   // 페이지 로드 시 랜덤 서브타이틀 인덱스 결정 (하이드레이션 안전)
   useEffect(() => {
-    setSubtitleIdx(Math.floor(Math.random() * 3));
+    setSubtitleIdx(Math.floor(Math.random() * 6));
   }, []);
 
   // 로그아웃 감지 시 즉시 추천 데이터 초기화 (캐시 포함)
@@ -176,8 +176,8 @@ export default function HomePage() {
       if (
         (key === "relaxed" && title.includes("편안한")) ||
         (key === "tense" && title.includes("긴장감")) ||
-        (key === "excited" && title.includes("신나는")) ||
-        (key === "emotional" && title.includes("감성적")) ||
+        (key === "energetic" && title.includes("신나는")) ||
+        (key === "romantic" && title.includes("감성적")) ||
         (key === "imaginative" && title.includes("상상에")) ||
         (key === "light" && title.includes("가볍게")) ||
         (key === "gloomy" && title.includes("울적한")) ||
