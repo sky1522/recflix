@@ -255,6 +255,44 @@
 | 프로덕션 DB 동기화 | ✅ | pg_dump → pg_restore (여러 차례) |
 | 프로젝트 리뷰 문서 작성 | ✅ | docs/PROJECT_REVIEW.md 생성 |
 
+### Phase 19: cast_ko 외국어 이름 완전 한글화 (2026-02-13)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 외국어 이름 분석 | ✅ | 4,253개 (중국어 1,902, 영어 1,902, 일본어 139 등) |
+| Claude API 한글 음역 변환 | ✅ | 2,869개 실제 변환, 4,570편 영화 업데이트, $1.78 |
+| Zero-width space 정리 | ✅ | 22편 데이터 정리 |
+| Unicode NFC 정규화 | ✅ | 깨진 데이터 14편 제거 |
+| cast_ko 100% 한글화 달성 | ✅ | 42,759/42,759편 (98.7% → 100.00%) |
+| 프로덕션 DB 동기화 + 배포 | ✅ | Railway + Vercel |
+
+### Phase 20: SEO 동적 OG 메타태그 최적화 (2026-02-13)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 영화 상세 페이지 동적 OG 태그 | ✅ | `movies/[id]/layout.tsx` 신규 (generateMetadata) |
+| og:title / og:description | ✅ | 한글 제목, 줄거리 160자 제한 |
+| og:image | ✅ | TMDB 포스터 (w500) |
+| og:type / og:url | ✅ | video.movie, 정규 URL |
+| twitter:card | ✅ | summary_large_image (영화), summary (홈) |
+| 루트 레이아웃 기본 OG 태그 | ✅ | metadataBase, og:site_name, locale=ko_KR |
+| API 실패 시 fallback | ✅ | 기본 "RecFlix" 타이틀 반환 |
+| 카카오톡 프리뷰 검증 | ✅ | 포스터/제목/줄거리 정상 표시 확인 |
+
+### Phase 21: 자체 유사 영화 계산 엔진 (2026-02-13)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 유사도 계산 스크립트 작성 | ✅ | `backend/scripts/compute_similar_movies.py` |
+| 유사도 공식 | ✅ | 0.5×emotion코사인 + 0.3×mbti코사인 + 0.2×장르Jaccard |
+| 장르 겹침 필터링 | ✅ | 같은 장르 1개 이상 쌍만 비교 (효율화) |
+| 품질 필터 | ✅ | weighted_score >= 6.0 후보만 (39,791편) |
+| LLM 분석 영화 우대 | ✅ | +0.05 보너스 (1,711편) |
+| 전체 계산 실행 | ✅ | 42,917편, Top 10, 429,170개 유사 관계 (~40분) |
+| similar_movies 테이블 갱신 | ✅ | 기존 TMDB 데이터 → 자체 계산 결과로 교체 |
+| 에러 바운더리 추가 | ✅ | 전역 error.tsx, 404 not-found.tsx, 영화 상세 error.tsx |
+| 프로덕션 DB 동기화 | ✅ | pg_dump → pg_restore (Railway) |
+
 ---
 
 ## 프로젝트 구조
@@ -295,6 +333,7 @@ C:\dev\recflix\
 │   │   ├── signup/page.tsx
 │   │   ├── profile/page.tsx
 │   │   ├── movies/page.tsx
+│   │   ├── movies/[id]/layout.tsx
 │   │   ├── movies/[id]/page.tsx
 │   │   ├── favorites/page.tsx
 │   │   └── ratings/page.tsx
@@ -427,6 +466,10 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 - [x] **cast_ko 한글 음역 변환** (33,442개 이름, Claude API $11.69) (2026-02-12)
 - [x] **출연진 표시 cast_ko 전환** (persons → movies.cast_ko, 92.8% 한글) (2026-02-12)
 - [x] **프로젝트 리뷰 문서** (docs/PROJECT_REVIEW.md) (2026-02-12)
+- [x] **cast_ko 외국어 이름 완전 한글화** (4,253개, 100% 달성) (2026-02-13)
+- [x] **SEO 동적 OG 메타태그** (영화 상세 페이지 SNS 프리뷰) (2026-02-13)
+- [x] **에러 바운더리** (전역, 404, 영화 상세) (2026-02-13)
+- [x] **자체 유사 영화 계산** (42,917편 x Top10, 429,170개 관계) (2026-02-13)
 
 ### 향후 개선사항
 - [ ] 소셜 로그인 (Google, Kakao)
