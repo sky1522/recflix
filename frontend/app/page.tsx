@@ -14,8 +14,13 @@ import {
   MOOD_SUBTITLES,
   MBTI_SUBTITLES,
   FIXED_SUBTITLES,
+  TIME_SUBTITLES,
+  SEASON_SUBTITLES,
   getSubtitle,
 } from "@/lib/curationMessages";
+
+type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night';
+type Season = 'spring' | 'summer' | 'autumn' | 'winter';
 
 // Module-level cache: survives component remounts (back navigation)
 let cachedRecommendations: HomeRecommendations | null = null;
@@ -28,13 +33,31 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [mood, setMood] = useState<MoodType | null>(cachedMood);
   const [subtitleIdx, setSubtitleIdx] = useState(0);
+  const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>('afternoon');
+  const [season, setSeason] = useState<Season>('winter');
 
   const { isAuthenticated, user } = useAuthStore();
   const prevAuthRef = useRef(isAuthenticated);
 
-  // 페이지 로드 시 랜덤 서브타이틀 인덱스 결정 (하이드레이션 안전)
+  // 페이지 로드 시 랜덤 서브타이틀 인덱스 + 시간대/계절 결정 (하이드레이션 안전)
   useEffect(() => {
     setSubtitleIdx(Math.floor(Math.random() * 6));
+
+    const now = new Date();
+    const hour = now.getHours();
+    const month = now.getMonth() + 1;
+
+    // 시간대
+    if (hour >= 6 && hour < 12) setTimeOfDay('morning');
+    else if (hour >= 12 && hour < 18) setTimeOfDay('afternoon');
+    else if (hour >= 18 && hour < 22) setTimeOfDay('evening');
+    else setTimeOfDay('night');
+
+    // 계절 (한국 기준)
+    if (month >= 3 && month <= 5) setSeason('spring');
+    else if (month >= 6 && month <= 8) setSeason('summer');
+    else if (month >= 9 && month <= 11) setSeason('autumn');
+    else setSeason('winter');
   }, []);
 
   // 로그아웃 감지 시 즉시 추천 데이터 초기화 (캐시 포함)
@@ -162,14 +185,14 @@ export default function HomePage() {
         return getSubtitle(MBTI_SUBTITLES[mbtiMatch[1]], subtitleIdx);
       }
     }
-    // Weather
-    for (const key of Object.keys(WEATHER_SUBTITLES)) {
-      if (
-        (key === "sunny" && title.includes("맑은")) ||
-        (key === "rainy" && title.includes("비 오는")) ||
-        (key === "cloudy" && title.includes("흐린")) ||
-        (key === "snowy" && title.includes("눈 오는"))
-      ) return getSubtitle(WEATHER_SUBTITLES[key], subtitleIdx);
+    // Weather → 계절별 문구 우선
+    if (
+      title.includes("맑은") ||
+      title.includes("비 오는") ||
+      title.includes("흐린") ||
+      title.includes("눈 오는")
+    ) {
+      return getSubtitle(SEASON_SUBTITLES[season], subtitleIdx);
     }
     // Mood
     for (const key of Object.keys(MOOD_SUBTITLES)) {
@@ -188,7 +211,7 @@ export default function HomePage() {
   };
 
   const getHybridSubtitle = (): string => {
-    return getSubtitle(FIXED_SUBTITLES.hybrid, subtitleIdx);
+    return getSubtitle(TIME_SUBTITLES[timeOfDay], subtitleIdx);
   };
 
   if (error && !recommendations) {
