@@ -468,6 +468,8 @@ const displayedMovies = useMemo(() => {
 | `frontend/components/movie/MovieCard.tsx` | 영화 카드 (등급 배지 포함) |
 | `frontend/hooks/useWeather.ts` | 날씨 상태 관리 |
 | `frontend/lib/api.ts` | API 호출 함수 |
+| `frontend/lib/curationMessages.ts` | 큐레이션 문구 258개 + 헬퍼 함수 |
+| `frontend/lib/contextCuration.ts` | 시간대/계절/기온 컨텍스트 감지 |
 
 ---
 
@@ -476,6 +478,7 @@ const displayedMovies = useMemo(() => {
 | 날짜 | 변경 내용 |
 |------|----------|
 | 2026-02-13 | 기분 카테고리 확장: 6개 → 8개 (gloomy 울적한, stifled 답답한 추가) |
+| 2026-02-13 | 컨텍스트 큐레이션 시스템: 시간대+계절+기온 감지, 258개 문구 (contextCuration.ts) |
 | 2026-02-13 | 큐레이션 서브타이틀 시스템: 날씨/기분/MBTI/고정별 보조 메시지 |
 | 2026-02-10 | 품질 보정: binary bonus → 연속 보정 (×0.85~1.0, weighted_score 기반) |
 | 2026-02-10 | Hybrid 가중치 v2 튜닝: Mood 0.20→0.30, MBTI 0.30→0.25, Personal 0.30→0.25 |

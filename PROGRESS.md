@@ -342,6 +342,21 @@
 | stifled 매핑 순서 수정 | ✅ | tension→energy 우선으로 변경 (사이다 영화 추천) |
 | gloomy/stifled 추천 품질 검증 | ✅ | gloomy: deep≥0.5 100%, stifled: 액션/모험 위주 확인 |
 
+### Phase 26: 컨텍스트 큐레이션 시스템 (2026-02-13)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 큐레이션 문구 3→6개 확장 | ✅ | 31종 × 6개 = 186개 (기존 90개 → 186개) |
+| contextCuration.ts 신규 생성 | ✅ | 시간대/계절/기온 감지 로직 분리 |
+| TIME_SUBTITLES 추가 | ✅ | 아침/오후/저녁/심야 4종 × 6개 = 24개 |
+| SEASON_SUBTITLES 추가 | ✅ | 봄/여름/가을/겨울 4종 × 6개 = 24개 |
+| TEMP_SUBTITLES 추가 | ✅ | 영하/추움/서늘/온화/따뜻/더움 6종 × 4개 = 24개 |
+| 기존 문구 중립화 | ✅ | 시간/계절/기온 종속 표현 제거 (날씨 섹션 포함) |
+| 맞춤 추천 → 시간대 적용 | ✅ | TIME_SUBTITLES[timeOfDay] |
+| 날씨 추천 → 계절+기온 교대 | ✅ | 짝수 idx=계절, 홀수 idx=기온 |
+| weather.temperature 연동 | ✅ | OpenWeatherMap 기온 → TempRange 변환 |
+| 하이드레이션 안전 | ✅ | useEffect에서만 컨텍스트 설정 |
+
 ---
 
 ## 프로젝트 구조
