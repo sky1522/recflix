@@ -9,6 +9,23 @@ All notable changes to RecFlix will be documented in this file.
 ## [2026-02-13]
 
 ### Added
+- **자체 유사 영화 계산 엔진**: TMDB 데이터 대신 RecFlix 자체 유사도 기반으로 교체
+  - 유사도 = 0.5×emotion_tags 코사인 + 0.3×mbti_scores 코사인 + 0.2×장르 Jaccard
+  - 품질 필터: `weighted_score >= 6.0` (39,791편 후보)
+  - LLM 분석 영화 우대: +0.05 보너스 (1,711편)
+  - 장르 겹침 필터링으로 계산 효율화
+  - 42,917편 × Top 10 = 429,170개 유사 관계 저장 (~40분)
+  - 스크립트: `backend/scripts/compute_similar_movies.py` (`--dry-run` 지원)
+- **SEO 동적 OG 메타태그**: 영화 상세 페이지 SNS 공유 프리뷰 최적화
+  - `frontend/app/movies/[id]/layout.tsx` 신규 (generateMetadata)
+  - og:title(한글 제목), og:description(줄거리 160자), og:image(TMDB 포스터)
+  - twitter:card=summary_large_image, API 실패 시 fallback
+  - 루트 레이아웃: metadataBase, og:site_name, locale=ko_KR
+  - 카카오톡 프리뷰 정상 확인
+- **에러 바운더리**: 전역 에러 페이지, 404 페이지, 영화 상세 전용 에러 페이지
+  - `frontend/app/error.tsx` - 전역 에러 (다시 시도 버튼)
+  - `frontend/app/not-found.tsx` - 404 (홈으로 돌아가기)
+  - `frontend/app/movies/[id]/error.tsx` - 영화 상세 에러 (다시 시도 + 홈)
 - **cast_ko 외국어 이름 한글 음역 변환**: Claude API로 4,253개 이름 처리 ($1.78)
   - 중국어 1,902개, 영어 1,902개, 일본어 139개, 악센트 라틴 187개, 키릴 64개, 그리스어 11개, 기타 48개
   - 2,869개 실제 변환, 4,570편 영화 업데이트

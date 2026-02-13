@@ -4,16 +4,16 @@
 
 ---
 
-## 0. 배포 정보 (2026-02-03)
+## 0. 배포 정보 (2026-02-13)
 
 | 서비스 | URL |
 |--------|-----|
-| Frontend (Vercel) | https://frontend-eight-gules-78.vercel.app |
+| Frontend (Vercel) | https://jnsquery-reflix.vercel.app |
 | Backend API (Railway) | https://backend-production-cff2.up.railway.app |
 | API Docs | https://backend-production-cff2.up.railway.app/docs |
 | GitHub | https://github.com/sky1522/recflix |
 
-**데이터**: 32,625편 영화 (Railway PostgreSQL에 마이그레이션 완료)
+**데이터**: 42,917편 영화 (Railway PostgreSQL에 마이그레이션 완료)
 
 ---
 
@@ -61,26 +61,37 @@ users (
     created_at TIMESTAMP DEFAULT NOW()
 )
 
--- 영화
+-- 영화 (22컬럼)
 movies (
-    id INTEGER PRIMARY KEY,
-    title VARCHAR(255) NOT NULL,
-    title_ko VARCHAR(255),
-    certification VARCHAR(10),
+    id INTEGER PRIMARY KEY,           -- TMDB ID
+    title VARCHAR(500) NOT NULL,      -- 영어/원어 제목
+    title_ko VARCHAR(500),            -- 한국어 제목
+    certification VARCHAR(20),        -- 연령등급
     runtime INTEGER,
-    vote_average DECIMAL(3,1),
+    vote_average FLOAT,
     vote_count INTEGER,
-    popularity DECIMAL(10,2),
-    overview TEXT,
-    overview_ko TEXT,
+    popularity FLOAT,
+    overview TEXT,                     -- 줄거리 (한국어 통일)
     tagline VARCHAR(500),
-    poster_path VARCHAR(255),
+    poster_path VARCHAR(200),
     release_date DATE,
     is_adult BOOLEAN DEFAULT FALSE,
-    mbti_scores JSONB,      -- {"INTJ": 0.8, "ENFP": 0.6, ...}
-    weather_scores JSONB,   -- {"sunny": 0.7, "rainy": 0.9, ...}
-    emotion_tags JSONB,     -- {"healing": 0.8, "tension": 0.3, ...}
-    created_at TIMESTAMP DEFAULT NOW()
+    director VARCHAR(500),            -- 감독 (영어)
+    director_ko VARCHAR(500),         -- 감독 (한국어)
+    cast_ko TEXT,                     -- 출연진 (한국어, 쉼표 구분, 100% 한글화)
+    production_countries_ko TEXT,     -- 제작국가 (한국어)
+    release_season VARCHAR(10),       -- 봄/여름/가을/겨울
+    weighted_score FLOAT,             -- 품질 점수 (vote_average + vote_count 가중)
+    mbti_scores JSONB,                -- {"INTJ": 0.8, "ENFP": 0.6, ...}
+    weather_scores JSONB,             -- {"sunny": 0.7, "rainy": 0.9, ...}
+    emotion_tags JSONB                -- {"healing": 0.8, "tension": 0.3, ...}
+)
+
+-- 유사 영화 (자체 계산, 영화별 Top 10)
+similar_movies (
+    movie_id INTEGER REFERENCES movies(id),
+    similar_movie_id INTEGER REFERENCES movies(id),
+    PRIMARY KEY (movie_id, similar_movie_id)
 )
 
 -- 평점
@@ -204,7 +215,10 @@ CREATE INDEX idx_movies_emotion ON movies USING GIN(emotion_tags);
 ### Hybrid Scoring
 
 ```
-Score = (0.35 × MBTI) + (0.25 × Weather) + (0.40 × Personal)
+Mood 있을 때: (0.25 × MBTI) + (0.20 × Weather) + (0.30 × Mood) + (0.25 × Personal)
+Mood 없을 때: (0.35 × MBTI) + (0.25 × Weather) + (0.40 × Personal)
+품질 보정: weighted_score 기반 ×0.85~1.0 연속 보정
+품질 필터: weighted_score >= 6.0
 ```
 
 ### MBTI 매핑 (예시)
@@ -240,7 +254,7 @@ Score = (0.35 × MBTI) + (0.25 × Weather) + (0.40 × Personal)
 | #비오는날 등 | 날씨 스코어 > 0.5 | 파랑 |
 | #취향저격 | 장르 2개↑ 매칭 | 초록 |
 | #비슷한영화 | similar_movies 포함 | 초록 |
-| #명작 | 평점 8.0↑ | 노랑 |
+| #명작 | weighted_score >= 7.5 | 노랑 |
 
 ---
 
@@ -288,15 +302,22 @@ Score = (0.35 × MBTI) + (0.25 × Weather) + (0.40 × Personal)
 ## 7. 데이터셋
 
 - **Source**: TMDB 기반
-- **Size**: 32,625편 영화
-- **File**: `data/raw/MOVIE_FINAL_FIXED_TITLES.csv`
+- **Size**: 42,917편 영화
+- **cast_ko**: 100% 한글화 (Claude API 음역 변환)
+- **emotion_tags**: 2-Tier 시스템 (LLM 1,711편 + 키워드 41,206편)
+- **similar_movies**: 자체 유사도 계산 (429,170개 관계)
 
-### 주요 컬럼
+### movies 테이블 (22컬럼)
 
 | 카테고리 | 컬럼 |
 |----------|------|
-| 기본 정보 | id, title, title_ko, certification, runtime, release_date |
-| 평가 | vote_average, vote_count, popularity |
-| 텍스트 | overview, overview_ko, tagline, keywords |
-| 관계 | genres, cast, director, similar_movie_ids |
-| 장르 플래그 | SF, 가족, 공포, 드라마, 로맨스, 스릴러, 액션, 코미디 등 |
+| 기본 정보 (13) | id, title, title_ko, certification, runtime, vote_average, vote_count, overview, tagline, release_date, popularity, poster_path, is_adult |
+| 추가 정보 (6) | director, director_ko, cast_ko, production_countries_ko, release_season, weighted_score |
+| 점수 (3, JSONB) | mbti_scores, weather_scores, emotion_tags |
+
+### 유사 영화 계산 공식
+
+```
+유사도 = 0.5×emotion코사인 + 0.3×mbti코사인 + 0.2×장르Jaccard + LLM보너스(0.05)
+필터: weighted_score >= 6.0, 장르 1개 이상 겹침
+```
