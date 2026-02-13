@@ -259,6 +259,32 @@ Mood 없을 때: (0.35 × MBTI) + (0.25 × Weather) + (0.40 × Personal)
 3. **유사 영화 보너스**: similar_movies 테이블 활용
 4. **명작 보너스**: 평점 8.0↑, 투표 100↑ 영화
 
+### 컨텍스트 큐레이션 시스템
+
+사용자의 실시간 컨텍스트를 감지하여 섹션별 서브타이틀을 동적으로 선택.
+
+| 컨텍스트 | 감지 방법 | 적용 섹션 |
+|----------|----------|----------|
+| 시간대 (morning/afternoon/evening/night) | `new Date().getHours()` | 맞춤 추천 |
+| 계절 (spring/summer/autumn/winter) | `new Date().getMonth()` | 날씨 추천 (짝수 idx) |
+| 기온 (freezing/cold/cool/mild/warm/hot) | `weather.temperature` | 날씨 추천 (홀수 idx) |
+
+**파일 구조:**
+- `frontend/lib/contextCuration.ts` — 컨텍스트 감지 (타입, 감지 함수, buildUserContext)
+- `frontend/lib/curationMessages.ts` — 258개 문구 데이터 + 헬퍼 함수
+
+**문구 총계: 258개**
+
+| 카테고리 | 항목 × 개수 |
+|----------|------------|
+| WEATHER | 4종 × 6 = 24 |
+| MOOD | 8종 × 6 = 48 |
+| MBTI | 16종 × 6 = 96 |
+| FIXED | 3종 × 6 = 18 |
+| TIME | 4종 × 6 = 24 |
+| SEASON | 4종 × 6 = 24 |
+| TEMP | 6종 × 4 = 24 |
+
 ### 추천 태그 시스템
 
 | 태그 | 조건 | 색상 |

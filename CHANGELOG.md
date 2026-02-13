@@ -9,10 +9,20 @@ All notable changes to RecFlix will be documented in this file.
 ## [2026-02-13]
 
 ### Added
+- **컨텍스트 큐레이션 시스템**: 시간대/계절/기온 기반 동적 서브타이틀
+  - `frontend/lib/contextCuration.ts` 신규 (TimeOfDay, Season, TempRange 감지)
+  - TIME_SUBTITLES 24개 (아침/오후/저녁/심야 × 6) → 맞춤 추천 섹션
+  - SEASON_SUBTITLES 24개 (봄/여름/가을/겨울 × 6) → 날씨 섹션
+  - TEMP_SUBTITLES 24개 (영하/추움/서늘/온화/따뜻/더움 × 4) → 날씨 섹션 보조
+  - 날씨 섹션: 짝수 인덱스=계절 문구, 홀수 인덱스=기온 문구 교대 표시
+  - weather.temperature 연동으로 실시간 기온 기반 큐레이션
+  - 기존 186개 문구 시간/계절/기온 종속 표현 중립화
+  - 총 큐레이션 문구: **258개** (186 기존 + 72 신규)
 - **큐레이션 서브타이틀 시스템**: 모든 추천 섹션에 상황별 보조 설명 메시지
   - `frontend/lib/curationMessages.ts` 신규 (날씨 4종, 기분 8종, MBTI 16종, 고정 3종)
   - MovieRow/HybridMovieRow에 `subtitle` prop 추가
   - 홈 페이지에 `getRowSubtitle()`, `getHybridSubtitle()` 매칭 로직
+  - 문구 3개→6개 확장 (31종 × 6개 = 186개)
 - **기분(Mood) 8개 카테고리 확장**: 기존 6개 → 8개 (울적한, 답답한 추가)
   - Backend: `gloomy→["deep","healing"]`, `stifled→["tension","energy"]` emotion_tags 매핑
   - Frontend: 2x3 → 2x4 그리드 UI, 기분 라벨 개선 (평온한/긴장된/활기찬/몽글몽글한/상상에빠진/유쾌한/울적한/답답한)
