@@ -226,6 +226,7 @@ export interface AutocompleteResult {
     title_en: string;
     year: number | null;
     poster_path: string | null;
+    weighted_score: number | null;
   }>;
   people: Array<{
     id: number;

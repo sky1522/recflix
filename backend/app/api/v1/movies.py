@@ -1,6 +1,7 @@
 """
 Movie API endpoints
 """
+import json
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
@@ -14,12 +15,15 @@ from app.models.movie import movie_cast
 from app.schemas import (
     MovieListItem, MovieDetail, PaginatedMovies, GenreResponse
 )
+from app.services.llm import get_redis_client
 
 router = APIRouter(prefix="/movies", tags=["Movies"])
 
+AUTOCOMPLETE_CACHE_TTL = 3600  # 1시간
+
 
 @router.get("/search/autocomplete")
-def search_autocomplete(
+async def search_autocomplete(
     query: str = Query(..., min_length=1, description="Search query"),
     limit: int = Query(8, ge=1, le=20),
     db: Session = Depends(get_db)
@@ -27,7 +31,20 @@ def search_autocomplete(
     """
     Search autocomplete for movies, cast, and directors.
     Returns quick suggestions for search dropdown.
+    Redis cached (1 hour TTL).
     """
+    cache_key = f"autocomplete:{query.lower().strip()}:{limit}"
+
+    # Check Redis cache
+    redis = await get_redis_client()
+    if redis:
+        try:
+            cached = await redis.get(cache_key)
+            if cached:
+                return json.loads(cached)
+        except Exception:
+            pass
+
     results = {
         "movies": [],
         "people": [],
@@ -48,7 +65,8 @@ def search_autocomplete(
             "title": m.title_ko or m.title,
             "title_en": m.title,
             "year": m.release_date.year if m.release_date else None,
-            "poster_path": m.poster_path
+            "poster_path": m.poster_path,
+            "weighted_score": round(m.weighted_score, 1) if m.weighted_score else None
         }
         for m in movies
     ]
@@ -62,6 +80,13 @@ def search_autocomplete(
         {"id": p.id, "name": p.name}
         for p in people
     ]
+
+    # Save to Redis cache
+    if redis:
+        try:
+            await redis.setex(cache_key, AUTOCOMPLETE_CACHE_TTL, json.dumps(results, ensure_ascii=False))
+        except Exception:
+            pass
 
     return results
 
