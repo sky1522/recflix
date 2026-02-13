@@ -239,6 +239,19 @@ Mood 없을 때: (0.35 × MBTI) + (0.25 × Weather) + (0.40 × Personal)
 | cloudy | 힐링, 다큐멘터리, 차분한 영화 |
 | snowy | 로맨스, 가족, 따뜻한 영화 |
 
+### 기분(Mood) 매핑 (8종)
+
+| 기분 | 한국어 | 감성 클러스터 매핑 |
+|------|--------|-------------------|
+| relaxed | 평온한 | healing, light |
+| tense | 긴장된 | tension, energy |
+| excited | 활기찬 | energy, light |
+| emotional | 몽글몽글한 | romance, healing |
+| imaginative | 상상에 빠진 | fantasy, deep |
+| light | 유쾌한 | light, energy |
+| gloomy | 울적한 | deep, healing |
+| stifled | 답답한 | energy, tension |
+
 ### 개인화 추천 로직 (Personal Score)
 
 1. **장르 분석**: 찜 + 고평점(4.0↑) 영화 장르 집계 (고평점 2배 가중치)
@@ -267,17 +280,20 @@ Mood 없을 때: (0.35 × MBTI) + (0.25 × Weather) + (0.40 × Personal)
 | `/signup` | signup/page.tsx | 회원가입 + MBTI |
 | `/profile` | profile/page.tsx | MBTI 변경 |
 | `/movies` | movies/page.tsx | 검색, 필터, 정렬 |
+| `/movies/[id]` | movies/[id]/page.tsx | 영화 상세 (동적 OG 태그) |
 
 ### 주요 컴포넌트
 
 | 컴포넌트 | 기능 |
 |----------|------|
-| `Header` | 네비게이션, 검색, 날씨 인디케이터 |
+| `Header` | 네비게이션, 검색 자동완성, 날씨 인디케이터 |
 | `WeatherBanner` | 날씨 정보, 추천 메시지, 선택 버튼, 애니메이션 |
-| `MovieRow` | 가로 스크롤 영화 목록 |
+| `MovieRow` | 가로 스크롤 영화 목록, 큐레이션 서브타이틀, 새로고침 |
+| `HybridMovieRow` | 맞춤 추천 전용 Row (로그인 시 표시) |
 | `MovieCard` | 포스터 카드, 호버 효과 |
 | `MovieModal` | 상세 정보, 별점(1~5), 찜하기 |
-| `FeaturedBanner` | 대표 영화 배너 |
+| `FeaturedBanner` | 대표 영화 배너, 날씨/기분 선택 UI |
+| `SearchAutocomplete` | 검색 자동완성 (키보드 네비게이션, 하이라이팅) |
 
 ### Zustand 스토어
 
