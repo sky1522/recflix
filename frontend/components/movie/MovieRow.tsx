@@ -79,27 +79,25 @@ export default function MovieRow({ title, description, subtitle, movies, display
   return (
     <section className="relative group/row">
       {/* Header */}
-      <div className="mb-3">
-        <div className="flex items-center gap-3">
-          <h2 className="text-xl md:text-2xl font-bold text-white">{title}</h2>
-          {/* Refresh Button */}
-          {movies.length > displayCount && (
-            <button
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              className="ml-auto p-1.5 rounded-full hover:bg-white/10 transition-colors group/refresh"
-              title="다른 영화 보기"
-            >
-              <RefreshCw
-                className={`w-4 h-4 text-gray-400 group-hover/refresh:text-white transition-colors ${
-                  isRefreshing ? "animate-spin" : ""
-                }`}
-              />
-            </button>
-          )}
-        </div>
+      <div className="mb-3 flex items-baseline gap-3">
+        <h2 className="text-xl md:text-2xl font-bold text-white flex-shrink-0">{title}</h2>
         {subtitle && (
-          <p className="text-sm text-white/50 mt-1 truncate">{subtitle}</p>
+          <span className="hidden sm:inline text-sm text-white/40 truncate">{subtitle}</span>
+        )}
+        {/* Refresh Button */}
+        {movies.length > displayCount && (
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="ml-auto p-1.5 rounded-full hover:bg-white/10 transition-colors group/refresh flex-shrink-0"
+            title="다른 영화 보기"
+          >
+            <RefreshCw
+              className={`w-4 h-4 text-gray-400 group-hover/refresh:text-white transition-colors ${
+                isRefreshing ? "animate-spin" : ""
+              }`}
+            />
+          </button>
         )}
       </div>
 

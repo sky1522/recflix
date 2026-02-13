@@ -85,17 +85,20 @@ export default function HybridMovieRow({
     >
       {/* Header with gradient background */}
       <div className="mb-4 p-4 rounded-lg bg-gradient-to-r from-primary-600/20 to-purple-600/20 border border-primary-500/30">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center space-x-2">
+        <div className="flex items-baseline gap-3">
+          <div className="flex items-center space-x-2 flex-shrink-0">
             <Sparkles className="w-5 h-5 text-primary-400" />
             <h2 className="text-xl md:text-2xl font-bold text-white">{title}</h2>
           </div>
+          {subtitle && (
+            <span className="hidden sm:inline text-sm text-white/40 truncate">{subtitle}</span>
+          )}
           {/* Refresh Button */}
           {movies.length > displayCount && (
             <button
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="ml-auto p-1.5 rounded-full hover:bg-white/10 transition-colors group/refresh"
+              className="ml-auto p-1.5 rounded-full hover:bg-white/10 transition-colors group/refresh flex-shrink-0"
               title="다른 영화 보기"
             >
               <RefreshCw
@@ -106,9 +109,6 @@ export default function HybridMovieRow({
             </button>
           )}
         </div>
-        {subtitle && (
-          <p className="text-sm text-white/50 mt-1 truncate">{subtitle}</p>
-        )}
       </div>
 
       {/* Scroll Container */}

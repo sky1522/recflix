@@ -14,6 +14,7 @@ import {
   MOOD_SUBTITLES,
   MBTI_SUBTITLES,
   FIXED_SUBTITLES,
+  getSubtitle,
 } from "@/lib/curationMessages";
 
 // Module-level cache: survives component remounts (back navigation)
@@ -26,9 +27,15 @@ export default function HomePage() {
   const [loading, setLoading] = useState(!cachedRecommendations);
   const [error, setError] = useState<string | null>(null);
   const [mood, setMood] = useState<MoodType | null>(cachedMood);
+  const [subtitleIdx, setSubtitleIdx] = useState(0);
 
   const { isAuthenticated, user } = useAuthStore();
   const prevAuthRef = useRef(isAuthenticated);
+
+  // 페이지 로드 시 랜덤 서브타이틀 인덱스 결정 (하이드레이션 안전)
+  useEffect(() => {
+    setSubtitleIdx(Math.floor(Math.random() * 3));
+  }, []);
 
   // 로그아웃 감지 시 즉시 추천 데이터 초기화 (캐시 포함)
   useEffect(() => {
@@ -144,24 +151,24 @@ export default function HomePage() {
     );
   }
 
-  // subtitle 결정 함수
-  const getRowSubtitle = (title: string): string | undefined => {
-    if (title.includes("인기 영화")) return FIXED_SUBTITLES.popular;
-    if (title.includes("높은 평점")) return FIXED_SUBTITLES.topRated;
+  // subtitle 결정 함수 (3종 배열에서 subtitleIdx로 선택)
+  const getRowSubtitle = (title: string): string => {
+    if (title.includes("인기 영화")) return getSubtitle(FIXED_SUBTITLES.popular, subtitleIdx);
+    if (title.includes("높은 평점")) return getSubtitle(FIXED_SUBTITLES.topRated, subtitleIdx);
     // MBTI
     const mbti = user?.mbti;
-    if (mbti && title.includes(mbti)) return MBTI_SUBTITLES[mbti];
+    if (mbti && title.includes(mbti)) return getSubtitle(MBTI_SUBTITLES[mbti], subtitleIdx);
     // Weather
-    for (const [key, sub] of Object.entries(WEATHER_SUBTITLES)) {
+    for (const key of Object.keys(WEATHER_SUBTITLES)) {
       if (
         (key === "sunny" && title.includes("맑은")) ||
         (key === "rainy" && title.includes("비 오는")) ||
         (key === "cloudy" && title.includes("흐린")) ||
         (key === "snowy" && title.includes("눈 오는"))
-      ) return sub;
+      ) return getSubtitle(WEATHER_SUBTITLES[key], subtitleIdx);
     }
     // Mood
-    for (const [key, sub] of Object.entries(MOOD_SUBTITLES)) {
+    for (const key of Object.keys(MOOD_SUBTITLES)) {
       if (
         (key === "relaxed" && title.includes("편안한")) ||
         (key === "tense" && title.includes("긴장감")) ||
@@ -170,18 +177,18 @@ export default function HomePage() {
         (key === "imaginative" && title.includes("상상에")) ||
         (key === "light" && title.includes("가볍게")) ||
         (key === "gloomy" && title.includes("울적한")) ||
-        (key === "stifled" && title.includes("답답한"))
-      ) return sub;
+        (key === "stifled" && title.includes("답답"))
+      ) return getSubtitle(MOOD_SUBTITLES[key], subtitleIdx);
     }
-    return undefined;
+    return '';
   };
 
   const getHybridSubtitle = (): string => {
+    if (mood && MOOD_SUBTITLES[mood]) return getSubtitle(MOOD_SUBTITLES[mood], subtitleIdx);
     const mbti = user?.mbti;
-    if (mbti && MBTI_SUBTITLES[mbti]) return MBTI_SUBTITLES[mbti];
-    if (mood && MOOD_SUBTITLES[mood]) return MOOD_SUBTITLES[mood];
-    if (weather?.condition && WEATHER_SUBTITLES[weather.condition]) return WEATHER_SUBTITLES[weather.condition];
-    return FIXED_SUBTITLES.hybridDefault;
+    if (mbti && MBTI_SUBTITLES[mbti]) return getSubtitle(MBTI_SUBTITLES[mbti], subtitleIdx);
+    if (weather?.condition && WEATHER_SUBTITLES[weather.condition]) return getSubtitle(WEATHER_SUBTITLES[weather.condition], subtitleIdx);
+    return getSubtitle(FIXED_SUBTITLES.hybrid, subtitleIdx);
   };
 
   if (error && !recommendations) {
