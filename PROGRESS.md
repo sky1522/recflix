@@ -1,6 +1,6 @@
 # RecFlix 개발 진행 상황
 
-**최종 업데이트**: 2026-02-13
+**최종 업데이트**: 2026-02-19
 
 ---
 
@@ -357,6 +357,65 @@
 | weather.temperature 연동 | ✅ | OpenWeatherMap 기온 → TempRange 변환 |
 | 하이드레이션 안전 | ✅ | useEffect에서만 컨텍스트 설정 |
 
+### Phase 27: 프로젝트 컨텍스트 & 코드 품질 환경 구축 (2026-02-19)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| CLAUDE.md 재작성 | ✅ | 플레이북 표준 형식 (173줄), 기술스택/구조/규칙 통합 |
+| DECISION.md 생성 | ✅ | 7개 아키텍처 의사결정 기록 |
+| .claude/skills/ 7개 스킬 | ✅ | workflow, recommendation, curation, weather, database, deployment, frontend-patterns |
+| code-quality 스킬 추가 | ✅ | Karpathy 원칙, 500줄+ 파일 현황, 분리 가이드 |
+| .claude/settings.json | ✅ | context7, security-guidance MCP 설정 |
+
+### Phase 28: 코드 품질 리팩토링 (2026-02-19)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| movies/[id]/page.tsx 분리 | ✅ | 622줄 → 231줄 + 4개 서브 컴포넌트 (MovieHero, MovieSidebar, SimilarMovies, MovieDetailSkeleton) |
+| recommendations.py 분리 | ✅ | 770줄 → 347줄 + recommendation_engine.py(330줄) + recommendation_constants.py(76줄) |
+
+### Phase 29: 운영 안정성 강화 (2026-02-19)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| Sentry 연동 | ✅ | Backend/Frontend SDK, DSN 없으면 비활성화, traces 10% |
+| 에러 핸들링 표준화 | ✅ | AppException, 글로벌 핸들러 4개, 통일 에러 포맷 {error, message} |
+| Rate Limiting (slowapi) | ✅ | 39개 엔드포인트 (인증 5/분, 추천 15/분, 검색 30/분, 조회 60/분) |
+| 환경변수 검증 강화 | ✅ | DATABASE_URL, JWT_SECRET_KEY 필수 validator |
+| lifespan 시작 로그 | ✅ | 환경, DB, Redis, Sentry, Weather API 상태 요약 |
+
+### Phase 30: 사용자 행동 이벤트 분석 기반 (2026-02-19)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| user_events 테이블 | ✅ | 10종 이벤트, JSONB metadata, 복합 인덱스 3개 |
+| 이벤트 API (Backend) | ✅ | POST /events, POST /events/batch(최대 50), GET /events/stats |
+| eventTracker.ts 싱글톤 | ✅ | 배치 큐 + 5초 auto-flush + Beacon API (페이지 이탈 시) |
+| useImpressionTracker 훅 | ✅ | IntersectionObserver 기반 섹션 노출 감지 |
+| 프론트엔드 9개 이벤트 삽입 | ✅ | movie_click, detail_view/leave, impression, search/click, rating, favorite |
+
+### Phase 31: 추천 고도화 - 협업 필터링 (2026-02-19)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| MovieLens 25M TMDB 매핑 | ✅ | 20,372편 매핑 (47.5%), 22.5M 평점, 162K 사용자 |
+| 오프라인 평가 프레임워크 | ✅ | 3 베이스라인 (Popularity, Global Mean, Item Mean) |
+| SVD 모델 학습 (scipy) | ✅ | 50K users × 17.5K items, k=100, RMSE 0.8768 (-9.2%) |
+| CF 프로덕션 통합 | ✅ | item_bias 기반 품질 시그널, 25% 가중치 (v3) |
+| recommendation_cf.py | ✅ | SVD 모델 로드 + CF 점수 예측 모듈 |
+
+### Phase 32: A/B 테스트 & 소셜 로그인 (2026-02-19)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| A/B 테스트 프레임워크 | ✅ | experiment_group (control/test_a/test_b), 가중치 분기 |
+| AB Report 엔드포인트 | ✅ | GET /events/ab-report (그룹별 CTR, 전환율 집계) |
+| not_interested 이벤트 | ✅ | 10번째 이벤트 타입 추가 |
+| Kakao OAuth 로그인 | ✅ | POST /auth/kakao + 콜백 페이지 |
+| Google OAuth 로그인 | ✅ | POST /auth/google + 콜백 페이지 |
+| 온보딩 2단계 | ✅ | 장르 선택(3~5개) + 영화 평가(40편 중 5편 이상), /onboarding |
+| DB 마이그레이션 SQL | ✅ | migrate_phase4.sql (experiment_group + 소셜/온보딩 컬럼) |
+
 ---
 
 ## 프로젝트 구조
@@ -370,6 +429,10 @@ C:\dev\recflix\
 │   │   │   ├── users.py
 │   │   │   ├── movies.py
 │   │   │   ├── recommendations.py
+│   │   │   ├── recommendation_engine.py
+│   │   │   ├── recommendation_constants.py
+│   │   │   ├── recommendation_cf.py
+│   │   │   ├── events.py
 │   │   │   ├── ratings.py
 │   │   │   ├── collections.py
 │   │   │   ├── weather.py
@@ -378,7 +441,9 @@ C:\dev\recflix\
 │   │   ├── core/
 │   │   │   ├── config.py
 │   │   │   ├── security.py
-│   │   │   └── deps.py
+│   │   │   ├── deps.py
+│   │   │   ├── exceptions.py
+│   │   │   └── rate_limit.py
 │   │   ├── models/
 │   │   ├── schemas/
 │   │   ├── services/
@@ -399,6 +464,14 @@ C:\dev\recflix\
 │   │   ├── movies/page.tsx
 │   │   ├── movies/[id]/layout.tsx
 │   │   ├── movies/[id]/page.tsx
+│   │   ├── movies/[id]/components/
+│   │   │   ├── MovieHero.tsx
+│   │   │   ├── MovieSidebar.tsx
+│   │   │   ├── SimilarMovies.tsx
+│   │   │   └── MovieDetailSkeleton.tsx
+│   │   ├── auth/kakao/callback/page.tsx
+│   │   ├── auth/google/callback/page.tsx
+│   │   ├── onboarding/page.tsx
 │   │   ├── favorites/page.tsx
 │   │   └── ratings/page.tsx
 │   ├── components/
@@ -420,12 +493,15 @@ C:\dev\recflix\
 │   ├── hooks/
 │   │   ├── useWeather.ts
 │   │   ├── useDebounce.ts
-│   │   └── useInfiniteScroll.ts
+│   │   ├── useInfiniteScroll.ts
+│   │   └── useImpressionTracker.ts
 │   ├── stores/
 │   │   ├── authStore.ts
 │   │   └── interactionStore.ts
 │   ├── lib/
 │   │   ├── api.ts
+│   │   ├── eventTracker.ts
+│   │   ├── constants.ts
 │   │   └── utils.ts
 │   └── types/index.ts
 ├── scripts/
@@ -541,12 +617,23 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 - [x] **기분 8개 카테고리 확장** (gloomy 울적한, stifled 답답한 추가) (2026-02-13)
 - [x] **서브타이틀 3종 랜덤** (90개 문구, 제목 우측 배치, MBTI 매칭 수정) (2026-02-13)
 - [x] **stifled 매핑 튜닝** (energy 우선 정렬로 사이다 영화 추천) (2026-02-13)
+- [x] **CLAUDE.md + skills 환경 구축** (플레이북 표준, 7개 도메인 스킬) (2026-02-19)
+- [x] **코드 리팩토링** (movies/[id] 622→231줄, recommendations 770→347줄) (2026-02-19)
+- [x] **Sentry 연동 + 에러 핸들링 표준화** (글로벌 핸들러 4개, 통일 포맷) (2026-02-19)
+- [x] **Rate Limiting** (slowapi, 39개 엔드포인트) (2026-02-19)
+- [x] **사용자 행동 이벤트 로깅** (Backend API + Frontend 트래킹 + Beacon API) (2026-02-19)
+- [x] **MovieLens 25M 매핑 + 오프라인 평가** (20,372편, 3 베이스라인) (2026-02-19)
+- [x] **협업 필터링 SVD** (RMSE 0.8768, CF 25% 가중치 통합) (2026-02-19)
+- [x] **A/B 테스트 프레임워크** (3그룹 분기, AB Report) (2026-02-19)
+- [x] **소셜 로그인** (Kakao/Google OAuth + 콜백) (2026-02-19)
+- [x] **온보딩** (장르 선택 + 영화 평가 2단계) (2026-02-19)
 
 ### 향후 개선사항
-- [ ] 소셜 로그인 (Google, Kakao)
 - [ ] PWA 지원
 - [ ] CI/CD 파이프라인 (GitHub Actions)
-- [ ] 모니터링/로깅 설정 (Sentry 등)
+- [ ] 프로덕션 DB 마이그레이션 (Phase 31-32 스키마)
+- [ ] OAuth 앱 등록 (Kakao/Google Developer Console)
+- [ ] SVD 모델 프로덕션 배포 (Railway에 pickle 파일)
 
 ---
 

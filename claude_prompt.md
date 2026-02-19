@@ -1,245 +1,246 @@
-# Phase 4-1: A/B 테스트 프레임워크 + 추천 품질 대시보드
+# 소셜 로그인 키 불일치 수정 + Google 400 해결
 
-Phase 3의 CF 모델을 실사용자 대상으로 검증할 수 있는 실험 인프라 구축.
+## 현재 문제
 
-⚠️ Phase 2 (이벤트 로깅) + Phase 3 (CF 모델) 완료 후 실행.
+### 카카오 KOE006
+Frontend 빌드에 Default REST API 키(0662...)가 들어있고, Redirect URI도 등록됨.
+하지만 Backend(Railway)에는 RecFlix 키(f5ba...)와 RecFlix 시크릿(xKK3...)이 등록됨.
+→ Frontend가 0662 키로 인가코드를 받아오면, Backend가 f5ba 키로 토큰 교환 시도 → 실패.
+→ 또한 카카오는 REST API 키마다 클라이언트 시크릿이 기본 활성화됨. 키와 시크릿이 짝이 맞아야 함.
+
+### Google 400 invalid_request
+정확한 원인 미상. URL 생성 로직 또는 파라미터 문제 가능성.
+
+---
 
 먼저 읽을 것:
 - CLAUDE.md
-- .claude/skills/database.md (DB 스키마 규칙)
-- .claude/skills/recommendation.md (추천 엔진 구조)
-- backend/app/models/user.py (현재 User 모델)
-- backend/app/api/v1/recommendation_engine.py (현재 스코어링)
-- backend/app/api/v1/recommendation_constants.py (가중치 상수)
-- backend/app/api/v1/events.py (이벤트 API, 통계 엔드포인트)
+- frontend/app/login/page.tsx
+- frontend/app/signup/page.tsx
+- frontend/app/auth/kakao/callback/page.tsx
+- frontend/app/auth/google/callback/page.tsx
+- frontend/stores/authStore.ts
+- frontend/lib/api.ts
+- backend/app/api/v1/auth.py
+- backend/app/config.py
 
-현재 상태 파악:
+---
+
+=== 1단계: Frontend/Backend 환경변수 키 값 대조 ===
+
 ```bash
-# User 모델 구조
-grep -n "class User\|Column" backend/app/models/user.py
+echo "=== Frontend .env.local ==="
+cat frontend/.env.local 2>/dev/null || echo "없음"
 
-# 현재 추천 엔드포인트 파라미터
-grep -n "def \|async def " backend/app/api/v1/recommendations.py | head -10
+echo ""
+echo "=== Backend .env ==="
+cat backend/.env 2>/dev/null | grep -i "KAKAO\|GOOGLE" || echo "없음"
 
-# 이벤트 통계 엔드포인트
-grep -n "def \|stats" backend/app/api/v1/events.py
+echo ""
+echo "=== Backend config.py 기본값 ==="
+grep -A1 "KAKAO\|GOOGLE" backend/app/config.py
 ```
+
+**핵심 체크:** Frontend의 NEXT_PUBLIC_KAKAO_CLIENT_ID와 Backend의 KAKAO_CLIENT_ID가 **동일한 값**인지 확인.
+→ 다르면 이게 원인. 반드시 동일한 REST API 키를 사용해야 함.
+
+⚠️ 카카오는 REST API 키마다 독립적인 클라이언트 시크릿이 있음.
+→ KAKAO_CLIENT_ID = 특정 REST API 키 → KAKAO_CLIENT_SECRET = 그 키의 시크릿
+→ 짝이 안 맞으면 토큰 교환 실패.
 
 ---
 
-=== 1단계: User 모델에 실험 그룹 추가 ===
+=== 2단계: 키 통일 방안 결정 ===
 
-**users 테이블에 컬럼 추가:**
+현재 빌드에 0662 키가 들어있으므로, **모든 곳을 0662 키로 통일**하는 것이 가장 빠름.
 
-```python
-# User 모델에 추가
-experiment_group = Column(String(10), default="control", nullable=False)
-# 값: "control" (기존 Rule-based), "test_a" (Hybrid α=0.5), "test_b" (Hybrid α=0.3)
-```
+하지만 Vercel/Railway 환경변수는 코드에서 변경 불가.
+→ 코드 수정이 아니라 **환경변수 통일이 필요한 상황**임을 인지.
 
-**신규 사용자 자동 배정:**
-- 회원가입 시 랜덤 배정 (3등분)
-- auth.py의 register 엔드포인트에서 `random.choice(["control", "test_a", "test_b"])` 추가
-
-**기존 사용자 배정 (마이그레이션):**
-```sql
--- 기존 사용자를 3등분으로 랜덤 배정
-UPDATE users SET experiment_group = 
-  CASE (id % 3)
-    WHEN 0 THEN 'control'
-    WHEN 1 THEN 'test_a'
-    WHEN 2 THEN 'test_b'
-  END
-WHERE experiment_group IS NULL;
-```
+**코드에서 할 수 있는 것:**
+- Frontend .env.local의 NEXT_PUBLIC_KAKAO_CLIENT_ID 값 확인 및 기록
+- Backend .env의 KAKAO_CLIENT_ID, KAKAO_CLIENT_SECRET 값 확인 및 기록
+- 불일치 시 어떤 값으로 통일해야 하는지 결과에 명시
 
 ---
 
-=== 2단계: 추천 API에 실험 그룹 분기 ===
+=== 3단계: OAuth URL 생성 로직 안전하게 교체 ===
 
-**recommendation_engine.py 수정:**
+수동 문자열 조립 대신 URLSearchParams 사용으로 교체. 인코딩 실수 원천 차단.
 
-```python
-def get_weights_for_group(experiment_group: str) -> dict:
-    """실험 그룹별 다른 가중치 반환"""
-    if experiment_group == "test_a":
-        return WEIGHTS_HYBRID_A  # Rule 0.5 + CF 0.5
-    elif experiment_group == "test_b":
-        return WEIGHTS_HYBRID_B  # Rule 0.3 + CF 0.7
-    else:  # "control"
-        return WEIGHTS_WITHOUT_CF  # 기존 Rule-based만
+**frontend/app/login/page.tsx의 카카오 버튼:**
+```typescript
+onClick={() => {
+  const clientId = process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID;
+  const redirectUri = process.env.NEXT_PUBLIC_KAKAO_REDIRECT_URI;
+  if (!clientId || !redirectUri) {
+    alert("카카오 로그인 설정이 필요합니다.");
+    return;
+  }
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+  });
+  window.location.href = `https://kauth.kakao.com/oauth/authorize?${params.toString()}`;
+}}
 ```
 
-**recommendation_constants.py에 실험 가중치 추가:**
-
-```python
-# A/B 테스트 가중치
-WEIGHTS_HYBRID_A = {
-    "mbti": 0.12, "weather": 0.10, "mood": 0.15, "personal": 0.13, "cf": 0.50,
-}
-WEIGHTS_HYBRID_B = {
-    "mbti": 0.08, "weather": 0.07, "mood": 0.10, "personal": 0.05, "cf": 0.70,
-}
+**Google 버튼:**
+```typescript
+onClick={() => {
+  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  const redirectUri = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI;
+  if (!clientId || !redirectUri) {
+    alert("Google 로그인 설정이 필요합니다.");
+    return;
+  }
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: "openid email profile",
+  });
+  window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+}}
 ```
 
-**recommendations.py 수정:**
-- `current_user.experiment_group`을 가져와서 엔진에 전달
-- 비로그인 사용자는 항상 "control"
+**signup/page.tsx에도 동일한 소셜 버튼이 있으면 같이 수정.**
 
 ---
 
-=== 3단계: 이벤트에 실험 그룹 기록 ===
+=== 4단계: Backend 토큰 교환 로직 검증 ===
 
-**events.py 수정:**
+```bash
+# auth.py에서 카카오 토큰 교환 코드 확인
+grep -B5 -A30 "kauth.kakao.com/oauth/token\|oauth/token" backend/app/api/v1/auth.py
 
-이벤트 기록 시 `metadata`에 `experiment_group` 자동 포함:
+# Google 토큰 교환 코드 확인
+grep -B5 -A30 "oauth2.googleapis.com/token\|googleapis.*token" backend/app/api/v1/auth.py
+```
 
+**카카오 토큰 교환 시 필수 파라미터 (REST API 문서 기준):**
 ```python
-@router.post("/events")
-async def create_event(...):
-    ...
-    # 실험 그룹 자동 추가
-    metadata = event.metadata or {}
-    if current_user:
-        metadata["experiment_group"] = current_user.experiment_group
-    db_event.metadata_ = metadata
-    ...
-```
-
----
-
-=== 4단계: 추천 품질 대시보드 API ===
-
-**backend/app/api/v1/events.py의 stats 엔드포인트 확장** 또는 별도 엔드포인트:
-
-```
-GET /api/v1/events/ab-report?days=7
-```
-
-반환:
-```json
 {
-  "period": "7d",
-  "groups": {
-    "control": {
-      "users": 150,
-      "total_clicks": 500,
-      "total_impressions": 3000,
-      "ctr": 0.167,
-      "avg_detail_duration_ms": 32000,
-      "rating_conversion": 0.05,
-      "favorite_conversion": 0.08,
-      "by_section": {
-        "weather": {"clicks": 120, "impressions": 800, "ctr": 0.15},
-        "mbti": {"clicks": 90, "impressions": 750, "ctr": 0.12},
-        "mood": {"clicks": 180, "impressions": 900, "ctr": 0.20},
-        "personal": {"clicks": 110, "impressions": 550, "ctr": 0.20}
-      }
-    },
-    "test_a": { ... },
-    "test_b": { ... }
-  },
-  "winner": "test_a",  // CTR 기준 최고 그룹 (참고용, 통계적 유의성 미포함)
-  "confidence_note": "통계적 유의성 검증은 최소 1000명 이상, 2주 이상 데이터 필요"
+    "grant_type": "authorization_code",
+    "client_id": "REST_API_키",          # Frontend와 동일한 키!
+    "client_secret": "해당_키의_시크릿",   # 이 키의 시크릿!
+    "redirect_uri": "등록된_리다이렉트_URI", # Frontend와 동일!
+    "code": "인가코드"
 }
 ```
 
-**집계 SQL 예시:**
-```sql
-SELECT 
-  metadata->>'experiment_group' as exp_group,
-  event_type,
-  COUNT(*) as count,
-  COUNT(DISTINCT user_id) as unique_users
-FROM user_events
-WHERE created_at > NOW() - INTERVAL '7 days'
-GROUP BY exp_group, event_type
-ORDER BY exp_group, event_type;
+⚠️ client_id, client_secret, redirect_uri 3개가 모두 같은 REST API 키 기준이어야 함.
+⚠️ redirect_uri는 인가 요청 시 사용한 것과 정확히 동일해야 함.
+
+**Google 토큰 교환 시 필수 파라미터:**
+```python
+{
+    "grant_type": "authorization_code",
+    "client_id": "전체_클라이언트_ID.apps.googleusercontent.com",
+    "client_secret": "클라이언트_보안_비밀번호",
+    "redirect_uri": "등록된_리다이렉트_URI",
+    "code": "인가코드"
+}
 ```
 
 ---
 
-=== 5단계: "관심없음" 버튼 ===
+=== 5단계: .env.local 환경변수 값 숨겨진 문자 검사 ===
 
-추천 카드에 부정적 시그널 수집용 버튼 추가.
+```bash
+# hex로 출력해서 공백, 줄바꿈, 캐리지리턴 확인
+if [ -f frontend/.env.local ]; then
+  echo "=== KAKAO_CLIENT_ID ==="
+  grep "NEXT_PUBLIC_KAKAO_CLIENT_ID" frontend/.env.local | xxd | head -5
+  echo ""
+  echo "=== KAKAO_REDIRECT_URI ==="
+  grep "NEXT_PUBLIC_KAKAO_REDIRECT_URI" frontend/.env.local | xxd | head -5
+  echo ""
+  echo "=== GOOGLE_CLIENT_ID ==="
+  grep "NEXT_PUBLIC_GOOGLE_CLIENT_ID" frontend/.env.local | xxd | head -5
+  echo ""
+  echo "=== GOOGLE_REDIRECT_URI ==="
+  grep "NEXT_PUBLIC_GOOGLE_REDIRECT_URI" frontend/.env.local | xxd | head -5
+fi
+```
 
-**Backend:**
-- event_type 목록에 `"not_interested"` 추가 (schemas/user_event.py의 allowed set)
-- 별도 API 필요 없음 (기존 이벤트 API로 충분)
+→ 값 끝에 `0d`(캐리지리턴), `20`(공백) 있으면 문제. .env.local 다시 작성.
 
-**Frontend (가이드만, 프롬프트에서 직접 구현하지 않아도 됨):**
-- MovieCard에 X 버튼 또는 "..." 메뉴에 "관심없음" 옵션
-- 클릭 시 `trackEvent({ event_type: "not_interested", movie_id, metadata: { section } })`
-- 카드를 UI에서 숨기기 (선택)
+---
+
+=== 6단계: 콜백 페이지 검증 ===
+
+```bash
+cat frontend/app/auth/kakao/callback/page.tsx
+cat frontend/app/auth/google/callback/page.tsx
+```
+
+체크:
+- useSearchParams()로 `code` 파라미터 추출하는지
+- code를 Backend API에 POST 전송하는지
+- 에러 발생 시 사용자에게 표시하는지 (silent fail 아닌지)
+
+---
+
+=== 7단계: 빌드 + 테스트 ===
+
+```bash
+cd frontend && npm run build
+```
+
+빌드 후 환경변수가 번들에 포함됐는지 확인:
+```bash
+grep -r "kauth.kakao.com" frontend/.next/static/ 2>/dev/null | head -2
+grep -r "accounts.google.com" frontend/.next/static/ 2>/dev/null | head -2
+```
 
 ---
 
 === 건드리지 말 것 ===
-- frontend/ UI/스타일 (이번은 API + 데이터 레이어만)
-- 기존 추천 로직의 비즈니스 규칙 (가중치만 분기, 로직 변경 금지)
-- recommendation_cf.py (Phase 3-2에서 완성)
+- recommendation 관련 코드 전체
+- 이벤트 시스템
+- 기존 이메일 로그인 로직 (추가만, 기존 변경 금지)
 - 모든 .md 문서 파일
 
 ---
 
-=== 검증 ===
-```bash
-# User 모델에 experiment_group 확인
-python -c "from app.models.user import User; print(hasattr(User, 'experiment_group'))"
-
-# 가중치 분기 확인
-python -c "from app.api.v1.recommendation_engine import get_weights_for_group; print(get_weights_for_group('test_a'))"
-
-# 이벤트 스키마에 not_interested 포함 확인
-python -c "from app.schemas.user_event import EventCreate; e = EventCreate(event_type='not_interested', movie_id=1); print('OK')"
-
-# 앱 시작 확인
-python -c "from app.main import app; print('app OK')"
-
-# Ruff 린트
-ruff check backend/app/models/user.py backend/app/api/v1/recommendations.py backend/app/api/v1/events.py
-```
-
----
-
-결과를 claude_results.md에 **기존 내용 아래에 --- 구분선 후 이어서** 저장:
+결과를 claude_results.md에 **기존 내용을 전부 지우고 새로 작성** (덮어쓰기):
 
 ```markdown
----
-
-# Phase 4-1: A/B 테스트 프레임워크 + 추천 품질 대시보드 결과
+# 소셜 로그인 키 불일치 수정 결과
 
 ## 날짜
 YYYY-MM-DD
 
-## 수정된 파일
-| 파일 | 변경 내용 |
-|------|----------|
-| backend/app/models/user.py | experiment_group 컬럼 추가 |
-| backend/app/api/v1/auth.py | 회원가입 시 랜덤 그룹 배정 |
-| backend/app/api/v1/recommendation_engine.py | get_weights_for_group 함수 추가 |
-| backend/app/api/v1/recommendation_constants.py | WEIGHTS_HYBRID_A/B 추가 |
-| backend/app/api/v1/recommendations.py | experiment_group 분기 적용 |
-| backend/app/api/v1/events.py | AB report 엔드포인트 + not_interested 이벤트 |
-| backend/app/schemas/user_event.py | not_interested 이벤트 타입 추가 |
+## 1단계: 환경변수 대조 결과
+| 위치 | KAKAO_CLIENT_ID | KAKAO_CLIENT_SECRET | 일치 |
+|------|----------------|--------------------|----|
+| Frontend .env.local | (값) | - | |
+| Backend .env | (값) | (값) | |
+| Vercel | (값) | - | |
+| Railway | (값) | (값) | |
 
-## 실험 그룹
-| 그룹 | 알고리즘 | CF 비중 |
-|------|---------|--------|
-| control | Rule-based only | 0% |
-| test_a | Hybrid | 50% |
-| test_b | Hybrid | 70% |
+## 2단계: 키 통일 필요 여부
+(일치/불일치 — 불일치면 어떤 값으로 통일해야 하는지)
 
-## API 엔드포인트
-| 메서드 | 경로 | 용도 |
-|--------|------|------|
-| GET | /api/v1/events/ab-report | A/B 테스트 리포트 |
+## 3단계: URL 생성 로직 수정
+| 파일 | 변경 |
+|------|------|
+| (파일) | (변경) |
 
-## 검증 결과
-- experiment_group: 모델 OK ✅
-- 가중치 분기: OK ✅
-- not_interested 이벤트: OK ✅
-- Ruff: No errors ✅
+## 4단계: Backend 토큰 교환 검증
+- client_id 일치: ✅/❌
+- client_secret 짝 맞음: ✅/❌
+- redirect_uri 일치: ✅/❌
+
+## 5단계: .env.local 숨겨진 문자
+(발견 여부)
+
+## 수동 조치 필요 사항
+(Vercel/Railway 환경변수 변경이 필요하면 여기에 명시)
 ```
 
-git add -A && git commit -m 'feat: A/B 테스트 프레임워크 (실험 그룹 분기 + 추천 품질 리포트 + 관심없음 이벤트)' && git push origin HEAD:main
+⚠️ 환경변수 변경이 필요한 경우 커밋하지 말고 결과만 저장. 환경변수 수정 후 재배포 필요.
+⚠️ 코드 수정만 있는 경우:
+git add -A && git commit -m 'fix: 소셜 로그인 OAuth URL 안전하게 교체 (URLSearchParams) + 키 통일' && git push origin HEAD:main

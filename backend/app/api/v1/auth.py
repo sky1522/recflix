@@ -200,7 +200,7 @@ def kakao_login(
     # Create new user
     nickname = profile.get("nickname", f"kakao_{kakao_id[:8]}")
     if not email:
-        email = f"kakao_{kakao_id}@recflix.local"
+        email = f"kakao_{kakao_id}@noreply.example.com"
 
     user = User(
         email=email,
@@ -281,7 +281,7 @@ def google_login(
 
     # Create new user
     if not email:
-        email = f"google_{google_id}@recflix.local"
+        email = f"google_{google_id}@noreply.example.com"
 
     user = User(
         email=email,

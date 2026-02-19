@@ -6,6 +6,72 @@ All notable changes to RecFlix will be documented in this file.
 
 ---
 
+## [2026-02-19]
+
+### Added
+- **프로젝트 컨텍스트 환경 구축**: AI 에이전트 최적화 문서 체계
+  - `CLAUDE.md` 플레이북 표준 형식 재작성 (173줄)
+  - `DECISION.md` 7개 아키텍처 의사결정 기록
+  - `.claude/skills/` 8개 도메인 스킬 (workflow, recommendation, curation, weather, database, deployment, frontend-patterns, code-quality)
+  - `.claude/settings.json` context7 + security-guidance MCP 설정
+- **Sentry 연동 + 에러 핸들링 표준화**
+  - `backend/app/core/exceptions.py` 공통 에러 스키마 (ErrorResponse, AppException)
+  - 글로벌 예외 핸들러 4개 (AppException, HTTPException, ValidationError, Exception)
+  - 통일 에러 포맷: `{error, message}`
+  - Backend/Frontend Sentry SDK (DSN 없으면 비활성화, traces 10%)
+- **Rate Limiting (slowapi)**
+  - 39개 엔드포인트 IP Rate Limiting (인증 5/분, 추천/LLM 15/분, 검색 30/분, 일반 60/분)
+  - 커스텀 RateLimitExceeded 핸들러
+  - DATABASE_URL, JWT_SECRET_KEY 필수 검증 validator
+  - lifespan 시작 시 환경 요약 로그
+- **사용자 행동 이벤트 로깅 시스템**
+  - `backend/app/models/user_event.py` UserEvent 모델 (10종 이벤트, JSONB metadata, 복합 인덱스 3개)
+  - `backend/app/api/v1/events.py` 이벤트 API (단일, 배치 50개, 통계/CTR)
+  - `frontend/lib/eventTracker.ts` 배치 전송 싱글톤 (5초 auto-flush, Beacon API)
+  - `frontend/hooks/useImpressionTracker.ts` IntersectionObserver 섹션 노출 감지
+  - 프론트엔드 9개 이벤트 삽입: movie_click, detail_view/leave, impression, search/click, rating, favorite
+- **MovieLens 25M TMDB 매핑 + 오프라인 평가 프레임워크**
+  - `backend/scripts/movielens_mapper.py` MovieLens→RecFlix 매핑 (20,372편, 22.5M 평점)
+  - `backend/scripts/recommendation_eval.py` 3 베이스라인 평가 (Popularity, Global/Item Mean)
+- **협업 필터링 (SVD) 구현 + 하이브리드 통합**
+  - `backend/scripts/train_cf_model.py` SVD 학습 (50K users × 17.5K items, k=100)
+  - SVD RMSE 0.8768 (Item Mean 대비 -9.2%)
+  - `backend/app/api/v1/recommendation_cf.py` item_bias 기반 CF 품질 점수
+  - 프로덕션 가중치 v3: CF 25% 통합 (MBTI 0.20 + Weather 0.15 + Mood 0.25 + Personal 0.15 + CF 0.25)
+- **A/B 테스트 프레임워크**
+  - experiment_group 컬럼 (control/test_a/test_b), 회원가입 시 랜덤 배정
+  - 그룹별 가중치 분기 (control CF25%, test_a CF50%, test_b CF70%)
+  - GET /events/ab-report (그룹별 CTR, 전환율, 체류시간 집계)
+  - not_interested 이벤트 타입 추가 (총 10종)
+- **소셜 로그인 (Kakao/Google OAuth)**
+  - POST /auth/kakao, POST /auth/google 엔드포인트
+  - kakao_id, google_id, profile_image, auth_provider, onboarding_completed, preferred_genres 컬럼
+  - `frontend/app/auth/kakao/callback/page.tsx`, `frontend/app/auth/google/callback/page.tsx`
+  - 로그인/회원가입 페이지에 소셜 로그인 버튼
+- **온보딩 2단계 플로우**
+  - Step 1: 장르 선택 (3~5개)
+  - Step 2: 영화 평가 (장르별 분포 40편 중 5편 이상 별점)
+  - GET /movies/onboarding, PUT /users/me/onboarding-complete
+  - `frontend/app/onboarding/page.tsx`
+
+### Changed
+- **movies/[id]/page.tsx 리팩토링**: 622줄 → 231줄 + 4개 서브 컴포넌트
+  - `MovieHero.tsx` (207줄), `MovieSidebar.tsx` (123줄), `SimilarMovies.tsx` (64줄), `MovieDetailSkeleton.tsx` (56줄)
+- **recommendations.py 모듈 분리**: 770줄 → 347줄
+  - `recommendation_engine.py` (330줄, 순수 계산 로직)
+  - `recommendation_constants.py` (76줄, 매핑/가중치 상수)
+- **추천 가중치 v2→v3**: CF 25% 추가 (기존 4축 → 5축)
+
+### Technical Details
+- 총 83개 파일 변경 (+12,709줄, -1,156줄)
+- 신규 의존성: sentry-sdk[fastapi], slowapi, scipy, @sentry/nextjs
+- DB 스키마 변경: users 테이블 6컬럼 추가 (experiment_group, kakao_id, google_id, profile_image, onboarding_completed, preferred_genres)
+- DB 신규 테이블: user_events
+- SVD 모델: 53.1MB pickle (svd_model.pkl, .gitignore 처리)
+- MovieLens 데이터: backend/data/movielens/ (.gitignore 처리)
+
+---
+
 ## [2026-02-13]
 
 ### Added
