@@ -50,6 +50,20 @@ class Settings(BaseSettings):
     DATA_RAW_PATH: str = "./data/raw"
     DATA_PROCESSED_PATH: str = "./data/processed"
 
+    @field_validator("DATABASE_URL")
+    @classmethod
+    def validate_database_url(cls, v: str) -> str:
+        if not v or v == "changeme":
+            raise ValueError("DATABASE_URL must be set")
+        return v
+
+    @field_validator("JWT_SECRET_KEY")
+    @classmethod
+    def validate_jwt_secret(cls, v: str) -> str:
+        if not v or len(v) < 16:
+            raise ValueError("JWT_SECRET_KEY must be at least 16 characters")
+        return v
+
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def parse_cors_origins(cls, v):

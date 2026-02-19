@@ -2,10 +2,11 @@
 Rating API endpoints
 """
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_db, get_current_user
+from app.core.rate_limit import limiter
 from app.models import User, Movie, Rating
 from app.schemas import (
     RatingCreate, RatingUpdate, RatingResponse, RatingWithMovie, MovieListItem
@@ -15,7 +16,9 @@ router = APIRouter(prefix="/ratings", tags=["Ratings"])
 
 
 @router.get("/me", response_model=List[RatingWithMovie])
+@limiter.limit("30/minute")
 def get_my_ratings(
+    request: Request,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     current_user: User = Depends(get_current_user),
@@ -43,7 +46,9 @@ def get_my_ratings(
 
 
 @router.post("", response_model=RatingResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("30/minute")
 def create_or_update_rating(
+    request: Request,
     rating_data: RatingCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -85,7 +90,9 @@ def create_or_update_rating(
 
 
 @router.get("/{movie_id}", response_model=RatingResponse)
+@limiter.limit("30/minute")
 def get_my_rating_for_movie(
+    request: Request,
     movie_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -106,7 +113,9 @@ def get_my_rating_for_movie(
 
 
 @router.put("/{movie_id}", response_model=RatingResponse)
+@limiter.limit("30/minute")
 def update_rating(
+    request: Request,
     movie_id: int,
     rating_data: RatingUpdate,
     current_user: User = Depends(get_current_user),
@@ -135,7 +144,9 @@ def update_rating(
 
 
 @router.delete("/{movie_id}", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("30/minute")
 def delete_rating(
+    request: Request,
     movie_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)

@@ -28,6 +28,9 @@ passlib[bcrypt]==1.7.4
 # Error Tracking
 sentry-sdk[fastapi]==2.19.2
 
+# Rate Limiting
+slowapi==0.1.9
+
 # HTTP Client
 httpx==0.26.0
 

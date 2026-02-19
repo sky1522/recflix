@@ -216,3 +216,72 @@
 - 기존 API: 동작 OK ✅
 - Ruff (exceptions.py): All checks passed ✅
 - Frontend Build: 성공 ✅
+
+---
+
+# Phase 1-2: Rate Limiting + 환경변수 검증 결과
+
+## 날짜
+2026-02-19
+
+## 생성된 파일
+| 파일 | 용도 | 줄 수 |
+|------|------|-------|
+| backend/app/core/rate_limit.py | slowapi Limiter 인스턴스 (IP 기반) | 8줄 |
+
+## 수정된 파일
+| 파일 | 변경 내용 |
+|------|----------|
+| backend/app/main.py | Rate Limiter 등록 + RateLimitExceeded 핸들러 + lifespan 시작 로그 |
+| backend/app/config.py | DATABASE_URL, JWT_SECRET_KEY 검증 validator 추가 |
+| backend/requirements.txt | slowapi==0.1.9 추가 |
+| backend/app/api/v1/auth.py | @limiter.limit("5/minute") × 3 |
+| backend/app/api/v1/recommendations.py | @limiter.limit("15/minute") × 8 |
+| backend/app/api/v1/movies.py | autocomplete 30/min, 나머지 60/min × 5 |
+| backend/app/api/v1/collections.py | @limiter.limit("30/minute") × 7 |
+| backend/app/api/v1/ratings.py | @limiter.limit("30/minute") × 5 |
+| backend/app/api/v1/weather.py | @limiter.limit("60/minute") × 2 |
+| backend/app/api/v1/interactions.py | @limiter.limit("30/minute") × 5 |
+| backend/app/api/v1/llm.py | @limiter.limit("15/minute") × 1 |
+| backend/app/api/v1/users.py | @limiter.limit("30/minute") × 3 |
+
+## Rate Limit 설정
+| 엔드포인트 그룹 | 제한 | 엔드포인트 수 |
+|----------------|------|-------------|
+| 인증 (auth) | 5/분 | 3 |
+| 추천 (recommendations) | 15/분 | 8 |
+| LLM (catchphrase) | 15/분 | 1 |
+| 검색 자동완성 (autocomplete) | 30/분 | 1 |
+| 평점/찜/상호작용 | 30/분 | 17 |
+| 일반 조회 (movies, weather) | 60/분 | 6 |
+| 사용자 (users) | 30/분 | 3 |
+| **합계** | | **39** |
+
+## Rate Limit 초과 응답
+```json
+{"error": "RATE_LIMIT_EXCEEDED", "message": "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."}
+```
+
+## 환경변수 검증
+| 변수 | 검증 | 실패 시 |
+|------|------|--------|
+| DATABASE_URL | 비어있거나 "changeme"이면 거부 | 앱 시작 실패 |
+| JWT_SECRET_KEY | 비어있거나 16자 미만이면 거부 | 앱 시작 실패 |
+| SENTRY_DSN | 빈 문자열이면 비활성화 | 경고 없음 (선택) |
+| WEATHER_API_KEY | 빈 문자열이면 비활성화 | 시작 로그에 표시 |
+
+## 시작 로그
+```
+Environment: development
+Database: connected
+Redis: enabled/disabled
+Sentry: enabled/disabled
+Weather API: enabled/disabled
+```
+
+## 검증 결과
+- rate_limit.py: Import OK ✅
+- slowapi: Import OK ✅
+- Config 검증: DB=True, JWT=True ✅
+- 앱 시작: OK ✅
+- Ruff (rate_limit.py, exceptions.py): All checks passed ✅

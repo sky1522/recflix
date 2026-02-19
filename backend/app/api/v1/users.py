@@ -1,10 +1,11 @@
 """
 User API endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_db, get_current_user
+from app.core.rate_limit import limiter
 from app.models import User
 from app.schemas import UserResponse, UserUpdate, MBTIUpdate
 
@@ -12,13 +13,16 @@ router = APIRouter(prefix="/users", tags=["Users"])
 
 
 @router.get("/me", response_model=UserResponse)
-def get_current_user_info(current_user: User = Depends(get_current_user)):
+@limiter.limit("30/minute")
+def get_current_user_info(request: Request, current_user: User = Depends(get_current_user)):
     """Get current user's information"""
     return current_user
 
 
 @router.put("/me", response_model=UserResponse)
+@limiter.limit("30/minute")
 def update_current_user(
+    request: Request,
     user_data: UserUpdate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -38,7 +42,9 @@ def update_current_user(
 
 
 @router.put("/me/mbti", response_model=UserResponse)
+@limiter.limit("30/minute")
 def update_mbti(
+    request: Request,
     mbti_data: MBTIUpdate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)

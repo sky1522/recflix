@@ -1,10 +1,11 @@
 """
 LLM API Endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_db
+from app.core.rate_limit import limiter
 from app.models import Movie
 from app.schemas.llm import CatchphraseResponse
 from app.services.llm import generate_catchphrase
@@ -13,7 +14,8 @@ router = APIRouter(prefix="/llm", tags=["llm"])
 
 
 @router.get("/catchphrase/{movie_id}", response_model=CatchphraseResponse)
-async def get_catchphrase(movie_id: int, db: Session = Depends(get_db)):
+@limiter.limit("15/minute")
+async def get_catchphrase(request: Request, movie_id: int, db: Session = Depends(get_db)):
     """
     영화에 대한 LLM 생성 캐치프레이즈 조회
 

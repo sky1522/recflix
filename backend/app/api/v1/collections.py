@@ -2,10 +2,11 @@
 Collection API endpoints
 """
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_db, get_current_user
+from app.core.rate_limit import limiter
 from app.models import User, Movie, Collection
 from app.schemas import (
     CollectionCreate, CollectionUpdate, CollectionResponse,
@@ -16,7 +17,9 @@ router = APIRouter(prefix="/collections", tags=["Collections"])
 
 
 @router.get("", response_model=List[CollectionResponse])
+@limiter.limit("30/minute")
 def get_my_collections(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -35,7 +38,9 @@ def get_my_collections(
 
 
 @router.post("", response_model=CollectionResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("30/minute")
 def create_collection(
+    request: Request,
     collection_data: CollectionCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -57,7 +62,9 @@ def create_collection(
 
 
 @router.get("/{collection_id}", response_model=CollectionDetail)
+@limiter.limit("30/minute")
 def get_collection(
+    request: Request,
     collection_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -93,7 +100,9 @@ def get_collection(
 
 
 @router.put("/{collection_id}", response_model=CollectionResponse)
+@limiter.limit("30/minute")
 def update_collection(
+    request: Request,
     collection_id: int,
     collection_data: CollectionUpdate,
     current_user: User = Depends(get_current_user),
@@ -124,7 +133,9 @@ def update_collection(
 
 
 @router.delete("/{collection_id}", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("30/minute")
 def delete_collection(
+    request: Request,
     collection_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -146,7 +157,9 @@ def delete_collection(
 
 
 @router.post("/{collection_id}/movies", status_code=status.HTTP_201_CREATED)
+@limiter.limit("30/minute")
 def add_movie_to_collection(
+    request: Request,
     collection_id: int,
     data: AddMovieToCollection,
     current_user: User = Depends(get_current_user),
@@ -184,7 +197,9 @@ def add_movie_to_collection(
 
 
 @router.delete("/{collection_id}/movies/{movie_id}", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("30/minute")
 def remove_movie_from_collection(
+    request: Request,
     collection_id: int,
     movie_id: int,
     current_user: User = Depends(get_current_user),

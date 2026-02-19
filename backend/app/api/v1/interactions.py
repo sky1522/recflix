@@ -2,12 +2,13 @@
 User Interactions API - 평점/찜 상태 통합 조회
 """
 from typing import List, Optional
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from pydantic import BaseModel
 
 from app.core.deps import get_db, get_current_user, get_current_user_optional
+from app.core.rate_limit import limiter
 from app.models import User, Movie, Rating, Collection, collection_movies
 from app.schemas import MovieListItem
 
@@ -30,7 +31,9 @@ class MovieInteractionBulk(BaseModel):
 
 
 @router.get("/movie/{movie_id}", response_model=MovieInteraction)
+@limiter.limit("30/minute")
 def get_movie_interaction(
+    request: Request,
     movie_id: int,
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
@@ -66,7 +69,9 @@ def get_movie_interaction(
 
 
 @router.post("/movies", response_model=MovieInteractionBulk)
+@limiter.limit("30/minute")
 def get_movies_interactions(
+    request: Request,
     movie_ids: List[int],
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
@@ -108,7 +113,9 @@ def get_movies_interactions(
 
 
 @router.post("/favorite/{movie_id}")
+@limiter.limit("30/minute")
 def toggle_favorite(
+    request: Request,
     movie_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -154,7 +161,9 @@ def toggle_favorite(
 
 
 @router.get("/favorites", response_model=List[MovieListItem])
+@limiter.limit("30/minute")
 def get_favorites(
+    request: Request,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     current_user: User = Depends(get_current_user),
@@ -176,7 +185,9 @@ def get_favorites(
 
 
 @router.get("/favorites/genres")
+@limiter.limit("30/minute")
 def get_favorite_genres(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):

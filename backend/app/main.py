@@ -9,9 +9,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.core.exceptions import AppException
+from app.core.rate_limit import limiter
 
 logging.basicConfig(
     level=logging.DEBUG if settings.DEBUG else logging.INFO,
@@ -39,6 +41,11 @@ async def lifespan(app: FastAPI):
     """Application lifespan events"""
     # Startup: Create database tables
     Base.metadata.create_all(bind=engine)
+    logger.info("Environment: %s", settings.APP_ENV)
+    logger.info("Database: %s", "connected" if settings.DATABASE_URL else "NOT SET")
+    logger.info("Redis: %s", "enabled" if settings.REDIS_URL else "disabled")
+    logger.info("Sentry: %s", "enabled" if settings.SENTRY_DSN else "disabled")
+    logger.info("Weather API: %s", "enabled" if settings.WEATHER_API_KEY else "disabled")
     yield
     # Shutdown: cleanup if needed
 
@@ -51,6 +58,9 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+# Rate Limiter
+app.state.limiter = limiter
 
 # CORS Configuration
 app.add_middleware(
@@ -91,6 +101,18 @@ async def validation_exception_handler(request, exc: RequestValidationError):
             "error": "VALIDATION_ERROR",
             "message": "요청 데이터가 올바르지 않습니다",
             "detail": exc.errors() if settings.DEBUG else None,
+        },
+    )
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request, exc: RateLimitExceeded):
+    """Handle rate limit exceeded with unified format."""
+    return JSONResponse(
+        status_code=429,
+        content={
+            "error": "RATE_LIMIT_EXCEEDED",
+            "message": "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.",
         },
     )
 

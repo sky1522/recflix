@@ -4,7 +4,7 @@ Scoring logic lives in recommendation_engine.py, constants in recommendation_con
 """
 import random
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import desc
 from sqlalchemy.orm import Session, selectinload
 
@@ -21,6 +21,7 @@ from app.api.v1.recommendation_engine import (
     get_user_preferences,
 )
 from app.core.deps import get_current_user, get_current_user_optional, get_db
+from app.core.rate_limit import limiter
 from app.models import Collection, Genre, Movie, User
 from app.schemas import HomeRecommendations, MovieListItem, RecommendationRow
 from app.schemas.recommendation import HybridMovieItem, HybridRecommendationRow
@@ -29,7 +30,9 @@ router = APIRouter(prefix="/recommendations", tags=["Recommendations"])
 
 
 @router.get("", response_model=HomeRecommendations)
+@limiter.limit("15/minute")
 def get_home_recommendations(
+    request: Request,
     weather: str | None = Query(None, regex="^(sunny|rainy|cloudy|snowy)$"),
     mood: str | None = Query(None, regex="^(relaxed|tense|excited|emotional|imaginative|light|gloomy|stifled)$"),
     age_rating: str | None = Query(None, regex="^(all|family|teen|adult)$"),
@@ -193,7 +196,9 @@ def get_home_recommendations(
 
 
 @router.get("/hybrid", response_model=list[HybridMovieItem])
+@limiter.limit("15/minute")
 def get_hybrid_recommendations(
+    request: Request,
     weather: str | None = Query(None, regex="^(sunny|rainy|cloudy|snowy)$"),
     age_rating: str | None = Query(None, regex="^(all|family|teen|adult)$"),
     limit: int = Query(20, ge=1, le=100),
@@ -227,7 +232,9 @@ def get_hybrid_recommendations(
 
 
 @router.get("/weather", response_model=list[MovieListItem])
+@limiter.limit("15/minute")
 def get_weather_recommendations(
+    request: Request,
     weather: str = Query(..., regex="^(sunny|rainy|cloudy|snowy)$"),
     age_rating: str | None = Query(None, regex="^(all|family|teen|adult)$"),
     limit: int = Query(20, ge=1, le=100),
@@ -239,7 +246,9 @@ def get_weather_recommendations(
 
 
 @router.get("/mbti", response_model=list[MovieListItem])
+@limiter.limit("15/minute")
 def get_mbti_recommendations(
+    request: Request,
     mbti: str = Query(..., regex="^[EI][NS][TF][JP]$"),
     age_rating: str | None = Query(None, regex="^(all|family|teen|adult)$"),
     limit: int = Query(20, ge=1, le=100),
@@ -251,7 +260,9 @@ def get_mbti_recommendations(
 
 
 @router.get("/emotion", response_model=list[MovieListItem])
+@limiter.limit("15/minute")
 def get_emotion_recommendations(
+    request: Request,
     emotion: str = Query(..., regex="^(healing|tension|energy|romance|deep|fantasy|light)$"),
     age_rating: str | None = Query(None, regex="^(all|family|teen|adult)$"),
     limit: int = Query(20, ge=1, le=100),
@@ -263,7 +274,9 @@ def get_emotion_recommendations(
 
 
 @router.get("/popular", response_model=list[MovieListItem])
+@limiter.limit("15/minute")
 def get_popular_movies(
+    request: Request,
     age_rating: str | None = Query(None, regex="^(all|family|teen|adult)$"),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db)
@@ -276,7 +289,9 @@ def get_popular_movies(
 
 
 @router.get("/top-rated", response_model=list[MovieListItem])
+@limiter.limit("15/minute")
 def get_top_rated_movies(
+    request: Request,
     age_rating: str | None = Query(None, regex="^(all|family|teen|adult)$"),
     limit: int = Query(20, ge=1, le=100),
     min_votes: int = Query(100, ge=1),
@@ -290,7 +305,9 @@ def get_top_rated_movies(
 
 
 @router.get("/for-you", response_model=list[MovieListItem])
+@limiter.limit("15/minute")
 def get_personalized_recommendations(
+    request: Request,
     age_rating: str | None = Query(None, regex="^(all|family|teen|adult)$"),
     limit: int = Query(20, ge=1, le=100),
     current_user: User = Depends(get_current_user),

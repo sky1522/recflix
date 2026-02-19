@@ -1,10 +1,11 @@
 """
 Authentication API endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_db
+from app.core.rate_limit import limiter
 from app.core.security import (
     verify_password, get_password_hash,
     create_access_token, create_refresh_token, decode_token
@@ -16,7 +17,8 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 @router.post("/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-def signup(user_data: UserCreate, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def signup(request: Request, user_data: UserCreate, db: Session = Depends(get_db)):
     """Register a new user"""
     # Check if email already exists
     if db.query(User).filter(User.email == user_data.email).first():
@@ -42,7 +44,8 @@ def signup(user_data: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=Token)
-def login(credentials: UserLogin, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def login(request: Request, credentials: UserLogin, db: Session = Depends(get_db)):
     """Login and get access token"""
     user = db.query(User).filter(User.email == credentials.email).first()
 
@@ -69,7 +72,8 @@ def login(credentials: UserLogin, db: Session = Depends(get_db)):
 
 
 @router.post("/refresh", response_model=Token)
-def refresh_token(token_data: TokenRefresh, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def refresh_token(request: Request, token_data: TokenRefresh, db: Session = Depends(get_db)):
     """Refresh access token using refresh token"""
     payload = decode_token(token_data.refresh_token)
 

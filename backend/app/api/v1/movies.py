@@ -3,13 +3,13 @@ Movie API endpoints
 """
 import json
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, extract, distinct, select
 
 from app.api.v1.recommendation_constants import AGE_RATING_MAP
-
 from app.core.deps import get_db
+from app.core.rate_limit import limiter
 from app.models import Movie, Genre, Person
 from app.models.movie import movie_cast
 from app.schemas import (
@@ -23,7 +23,9 @@ AUTOCOMPLETE_CACHE_TTL = 3600  # 1시간
 
 
 @router.get("/search/autocomplete")
+@limiter.limit("30/minute")
 async def search_autocomplete(
+    request: Request,
     query: str = Query(..., min_length=1, description="Search query"),
     limit: int = Query(8, ge=1, le=20),
     db: Session = Depends(get_db)
@@ -92,7 +94,9 @@ async def search_autocomplete(
 
 
 @router.get("", response_model=PaginatedMovies)
+@limiter.limit("60/minute")
 def get_movies(
+    request: Request,
     query: Optional[str] = None,
     genres: Optional[str] = Query(None, description="Comma-separated genre names"),
     person: Optional[str] = Query(None, description="Actor or director name"),
@@ -191,14 +195,16 @@ def get_movies(
 
 
 @router.get("/genres", response_model=List[GenreResponse])
-def get_genres(db: Session = Depends(get_db)):
+@limiter.limit("60/minute")
+def get_genres(request: Request, db: Session = Depends(get_db)):
     """Get all genres"""
     genres = db.query(Genre).order_by(Genre.name).all()
     return genres
 
 
 @router.get("/{movie_id}", response_model=MovieDetail)
-def get_movie(movie_id: int, db: Session = Depends(get_db)):
+@limiter.limit("60/minute")
+def get_movie(request: Request, movie_id: int, db: Session = Depends(get_db)):
     """Get movie detail by ID"""
     movie = db.query(Movie).filter(Movie.id == movie_id).first()
 
@@ -212,7 +218,9 @@ def get_movie(movie_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{movie_id}/similar", response_model=List[MovieListItem])
+@limiter.limit("60/minute")
 def get_similar_movies(
+    request: Request,
     movie_id: int,
     limit: int = Query(10, ge=1, le=50),
     db: Session = Depends(get_db)

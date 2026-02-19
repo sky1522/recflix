@@ -2,8 +2,10 @@
 Weather API endpoints
 """
 from typing import Optional
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
+
+from app.core.rate_limit import limiter
 
 from app.services.weather import (
     get_weather_by_coords,
@@ -74,7 +76,9 @@ def weather_to_response(weather: WeatherData) -> WeatherResponse:
 
 
 @router.get("", response_model=WeatherResponse)
+@limiter.limit("60/minute")
 async def get_weather(
+    request: Request,
     lat: Optional[float] = Query(None, ge=-90, le=90, description="위도"),
     lon: Optional[float] = Query(None, ge=-180, le=180, description="경도"),
     city: Optional[str] = Query(None, description="도시명 (예: Seoul)"),
@@ -107,7 +111,8 @@ async def get_weather(
 
 
 @router.get("/conditions")
-async def get_weather_conditions():
+@limiter.limit("60/minute")
+async def get_weather_conditions(request: Request):
     """
     지원하는 날씨 조건 목록
     """
