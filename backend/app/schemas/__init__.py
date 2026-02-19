@@ -1,7 +1,8 @@
 """RecFlix Pydantic Schemas Package"""
 from app.schemas.user import (
     UserBase, UserCreate, UserUpdate, UserResponse,
-    UserLogin, Token, TokenRefresh, MBTIUpdate
+    UserLogin, Token, TokenRefresh, MBTIUpdate,
+    SocialLoginRequest, SocialLoginResponse, OnboardingComplete,
 )
 from app.schemas.movie import (
     GenreResponse, PersonResponse, MovieBase, MovieListItem,
@@ -24,6 +25,7 @@ __all__ = [
     # User
     'UserBase', 'UserCreate', 'UserUpdate', 'UserResponse',
     'UserLogin', 'Token', 'TokenRefresh', 'MBTIUpdate',
+    'SocialLoginRequest', 'SocialLoginResponse', 'OnboardingComplete',
     # Movie
     'GenreResponse', 'PersonResponse', 'MovieBase', 'MovieListItem',
     'MovieDetail', 'MovieSearchParams', 'PaginatedMovies',

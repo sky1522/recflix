@@ -2,10 +2,11 @@
 Movie API endpoints
 """
 import json
+import random as random_mod
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, extract, distinct, select
+from sqlalchemy import or_, extract, distinct, select, func
 
 from app.api.v1.recommendation_constants import AGE_RATING_MAP
 from app.core.deps import get_db
@@ -200,6 +201,48 @@ def get_genres(request: Request, db: Session = Depends(get_db)):
     """Get all genres"""
     genres = db.query(Genre).order_by(Genre.name).all()
     return genres
+
+
+@router.get("/onboarding", response_model=List[MovieListItem])
+@limiter.limit("10/minute")
+def get_onboarding_movies(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> list[MovieListItem]:
+    """
+    Get movies for onboarding: 40 popular, high-quality movies
+    distributed across genres for new users to rate.
+    """
+    genres = db.query(Genre).all()
+    genre_names = [g.name for g in genres]
+
+    all_movies: list[Movie] = []
+    seen_ids: set[int] = set()
+    per_genre = max(4, 40 // len(genre_names) + 1)
+
+    for genre_name in genre_names:
+        movies = (
+            db.query(Movie)
+            .join(Movie.genres)
+            .filter(
+                Genre.name == genre_name,
+                Movie.weighted_score >= 7.0,
+                Movie.vote_count >= 500,
+                extract("year", Movie.release_date) >= 2000,
+                Movie.poster_path.isnot(None),
+            )
+            .order_by(func.random())
+            .limit(per_genre)
+            .all()
+        )
+        for m in movies:
+            if m.id not in seen_ids:
+                seen_ids.add(m.id)
+                all_movies.append(m)
+
+    random_mod.shuffle(all_movies)
+    selected = all_movies[:40]
+    return [MovieListItem.from_orm_with_genres(m) for m in selected]
 
 
 @router.get("/{movie_id}", response_model=MovieDetail)

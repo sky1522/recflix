@@ -76,6 +76,10 @@ export interface User {
   mbti: string | null;
   birth_date: string | null;
   location_consent: boolean;
+  auth_provider?: string;
+  profile_image?: string | null;
+  onboarding_completed?: boolean;
+  preferred_genres?: string[] | null;
   is_active: boolean;
   created_at: string;
 }
@@ -96,6 +100,14 @@ export interface AuthTokens {
   access_token: string;
   refresh_token: string;
   token_type: string;
+}
+
+export interface SocialLoginResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  user: User;
+  is_new: boolean;
 }
 
 // Collection types

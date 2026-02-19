@@ -3,7 +3,7 @@ User Pydantic Schemas
 """
 from datetime import date, datetime
 from typing import Optional
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class UserBase(BaseModel):
@@ -36,11 +36,23 @@ class UserResponse(BaseModel):
     mbti: Optional[str]
     birth_date: Optional[date]
     location_consent: bool
+    auth_provider: str = "email"
+    profile_image: Optional[str] = None
+    onboarding_completed: bool = False
+    preferred_genres: Optional[list[str]] = None
     is_active: bool
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+    @field_validator("preferred_genres", mode="before")
+    @classmethod
+    def parse_preferred_genres(cls, v: object) -> Optional[list[str]]:
+        import json
+        if isinstance(v, str):
+            return json.loads(v)
+        return v
 
 
 class UserLogin(BaseModel):
@@ -64,3 +76,22 @@ class TokenRefresh(BaseModel):
 class MBTIUpdate(BaseModel):
     """Schema for MBTI update"""
     mbti: str = Field(..., pattern=r'^[EI][NS][TF][JP]$')
+
+
+class SocialLoginRequest(BaseModel):
+    """Schema for social login (Kakao/Google)"""
+    code: str = Field(..., min_length=1)
+
+
+class SocialLoginResponse(BaseModel):
+    """Schema for social login response"""
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+    is_new: bool
+
+
+class OnboardingComplete(BaseModel):
+    """Schema for onboarding completion"""
+    preferred_genres: list[str] = Field(..., min_length=1)

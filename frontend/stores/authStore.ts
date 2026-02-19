@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { User, AuthTokens, LoginCredentials, SignupData } from "@/types";
+import type { User, AuthTokens, LoginCredentials, SignupData, SocialLoginResponse } from "@/types";
 import * as api from "@/lib/api";
 import { useInteractionStore } from "./interactionStore";
 
@@ -11,6 +11,7 @@ interface AuthState {
 
   login: (credentials: LoginCredentials) => Promise<void>;
   signup: (data: SignupData) => Promise<void>;
+  socialLogin: (response: SocialLoginResponse) => boolean;
   logout: () => void;
   fetchUser: () => Promise<void>;
   updateMBTI: (mbti: string) => Promise<void>;
@@ -48,6 +49,13 @@ export const useAuthStore = create<AuthState>()(
           set({ isLoading: false });
           throw error;
         }
+      },
+
+      socialLogin: (response: SocialLoginResponse) => {
+        localStorage.setItem("access_token", response.access_token);
+        localStorage.setItem("refresh_token", response.refresh_token);
+        set({ user: response.user, isAuthenticated: true, isLoading: false });
+        return response.is_new;
       },
 
       logout: () => {

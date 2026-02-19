@@ -1,13 +1,15 @@
 """
 User API endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+import json
+
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_db, get_current_user
 from app.core.rate_limit import limiter
 from app.models import User
-from app.schemas import UserResponse, UserUpdate, MBTIUpdate
+from app.schemas import UserResponse, UserUpdate, MBTIUpdate, OnboardingComplete
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -54,4 +56,20 @@ def update_mbti(
     db.commit()
     db.refresh(current_user)
 
+    return current_user
+
+
+@router.put("/me/onboarding-complete", response_model=UserResponse)
+@limiter.limit("10/minute")
+def complete_onboarding(
+    request: Request,
+    body: OnboardingComplete,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> UserResponse:
+    """Mark onboarding as completed and save preferred genres"""
+    current_user.onboarding_completed = True
+    current_user.preferred_genres = json.dumps(body.preferred_genres, ensure_ascii=False)
+    db.commit()
+    db.refresh(current_user)
     return current_user

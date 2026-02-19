@@ -3,7 +3,7 @@ User Model
 """
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, Date, DateTime, Integer, String
+from sqlalchemy import Boolean, Column, Date, DateTime, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -21,6 +21,17 @@ class User(Base):
     birth_date = Column(Date, nullable=True)
     location_consent = Column(Boolean, default=False)
     experiment_group = Column(String(10), nullable=False, default="control", server_default="control")
+
+    # Social login
+    kakao_id = Column(String(50), unique=True, nullable=True)
+    google_id = Column(String(100), unique=True, nullable=True)
+    profile_image = Column(String(500), nullable=True)
+    auth_provider = Column(String(20), default="email", server_default="email")
+
+    # Onboarding
+    onboarding_completed = Column(Boolean, default=False, server_default="false")
+    preferred_genres = Column(Text, nullable=True)  # JSON 문자열 '["액션","SF"]'
+
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

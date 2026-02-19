@@ -10,6 +10,7 @@ import type {
   Weather,
   RatingWithMovie,
   CatchphraseResponse,
+  SocialLoginResponse,
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
@@ -118,6 +119,20 @@ export async function refreshToken(refresh_token: string): Promise<AuthTokens> {
   return fetchAPI<AuthTokens>("/auth/refresh", {
     method: "POST",
     body: JSON.stringify({ refresh_token }),
+  });
+}
+
+export async function kakaoLogin(code: string): Promise<SocialLoginResponse> {
+  return fetchAPI<SocialLoginResponse>("/auth/kakao", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
+}
+
+export async function googleLogin(code: string): Promise<SocialLoginResponse> {
+  return fetchAPI<SocialLoginResponse>("/auth/google", {
+    method: "POST",
+    body: JSON.stringify({ code }),
   });
 }
 
@@ -237,6 +252,18 @@ export interface AutocompleteResult {
 
 export async function searchAutocomplete(query: string, limit = 8): Promise<AutocompleteResult> {
   return fetchAPI<AutocompleteResult>(`/movies/search/autocomplete?query=${encodeURIComponent(query)}&limit=${limit}`);
+}
+
+// Onboarding APIs
+export async function getOnboardingMovies(): Promise<Movie[]> {
+  return fetchAPI<Movie[]>("/movies/onboarding");
+}
+
+export async function completeOnboarding(preferred_genres: string[]): Promise<User> {
+  return fetchAPI<User>("/users/me/onboarding-complete", {
+    method: "PUT",
+    body: JSON.stringify({ preferred_genres }),
+  });
 }
 
 // LLM APIs

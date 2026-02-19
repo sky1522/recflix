@@ -126,6 +126,56 @@ export default function LoginPage() {
             </button>
           </form>
 
+          {/* Divider */}
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-white/10" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-3 bg-dark-100 text-white/40">또는</span>
+            </div>
+          </div>
+
+          {/* Social Login */}
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => {
+                const clientId = process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID;
+                const redirectUri = process.env.NEXT_PUBLIC_KAKAO_REDIRECT_URI;
+                if (clientId && redirectUri) {
+                  window.location.href = `https://kauth.kakao.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code`;
+                }
+              }}
+              className="w-full py-3 bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] font-medium rounded-lg transition flex items-center justify-center gap-2"
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M10 3C5.58 3 2 5.79 2 9.21c0 2.17 1.45 4.08 3.63 5.17l-.93 3.42c-.08.29.25.52.51.36l4.09-2.7c.23.02.46.03.7.03 4.42 0 8-2.79 8-6.22S14.42 3 10 3z" fill="#191919"/>
+              </svg>
+              카카오로 시작하기
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+                const redirectUri = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI;
+                if (clientId && redirectUri) {
+                  window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid%20email%20profile`;
+                }
+              }}
+              className="w-full py-3 bg-white hover:bg-gray-100 text-gray-700 font-medium rounded-lg transition flex items-center justify-center gap-2 border border-white/20"
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20">
+                <path d="M19.6 10.23c0-.68-.06-1.36-.17-2H10v3.8h5.38a4.6 4.6 0 01-2 3.02v2.5h3.24c1.89-1.74 2.98-4.3 2.98-7.32z" fill="#4285F4"/>
+                <path d="M10 20c2.7 0 4.96-.9 6.62-2.42l-3.24-2.5c-.9.6-2.04.95-3.38.95-2.6 0-4.8-1.76-5.58-4.12H1.07v2.58A9.99 9.99 0 0010 20z" fill="#34A853"/>
+                <path d="M4.42 11.91A6.01 6.01 0 014.1 10c0-.66.11-1.31.32-1.91V5.51H1.07A9.99 9.99 0 000 10c0 1.61.39 3.14 1.07 4.49l3.35-2.58z" fill="#FBBC05"/>
+                <path d="M10 3.96c1.47 0 2.78.5 3.82 1.5l2.86-2.86C14.96.99 12.7 0 10 0A9.99 9.99 0 001.07 5.51l3.35 2.58C5.2 5.72 7.4 3.96 10 3.96z" fill="#EA4335"/>
+              </svg>
+              Google로 시작하기
+            </button>
+          </div>
+
           <div className="mt-6 text-center text-white/60 text-sm md:text-base">
             계정이 없으신가요?{" "}
             <Link href="/signup" className="text-primary-500 hover:text-primary-400 transition font-medium">

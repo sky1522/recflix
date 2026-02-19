@@ -561,3 +561,41 @@ search, search_click, rating, favorite_add, favorite_remove
 - 가중치 분기: control/test_a/test_b 모두 정상 반환 ✅
 - not_interested 이벤트: OK ✅
 - Ruff: All checks passed ✅
+
+---
+
+# Phase 4-2: 온보딩 개선 + 소셜 로그인 구현 결과
+
+## 날짜
+2026-02-19
+
+## 신규 파일 (4)
+| 파일 | 용도 |
+|------|------|
+| `backend/scripts/migrate_phase4.sql` | DB 마이그레이션 SQL (experiment_group + 소셜/온보딩 컬럼) |
+| `frontend/app/auth/kakao/callback/page.tsx` | 카카오 OAuth 콜백 (Suspense 래핑) |
+| `frontend/app/auth/google/callback/page.tsx` | 구글 OAuth 콜백 (Suspense 래핑) |
+| `frontend/app/onboarding/page.tsx` | 온보딩 2단계 (장르 선택 + 영화 평가) |
+
+## 수정 파일 (12)
+| 파일 | 변경 내용 |
+|------|----------|
+| `backend/app/models/user.py` | 소셜 로그인 컬럼 4개 + 온보딩 컬럼 2개 추가 |
+| `backend/app/schemas/user.py` | UserResponse 확장, SocialLoginRequest/Response, OnboardingComplete 추가 |
+| `backend/app/schemas/__init__.py` | 새 스키마 export |
+| `backend/app/config.py` | Kakao/Google OAuth 환경변수 6개 |
+| `backend/app/api/v1/auth.py` | POST /auth/kakao, POST /auth/google 엔드포인트 |
+| `backend/app/api/v1/movies.py` | GET /movies/onboarding 엔드포인트 (40편, 장르 분포) |
+| `backend/app/api/v1/users.py` | PUT /users/me/onboarding-complete 엔드포인트 |
+| `frontend/types/index.ts` | User 확장, SocialLoginResponse 추가 |
+| `frontend/lib/api.ts` | kakaoLogin, googleLogin, getOnboardingMovies, completeOnboarding |
+| `frontend/stores/authStore.ts` | socialLogin 메서드 추가 |
+| `frontend/app/login/page.tsx` | 소셜 로그인 버튼 (카카오 #FEE500, Google 흰색) |
+| `frontend/app/signup/page.tsx` | 동일한 소셜 로그인 버튼 |
+
+## 검증 결과
+- Backend 모델: ✅
+- Backend 스키마: ✅
+- Backend 라우트: signup, login, refresh_token, kakao_login, google_login ✅
+- Frontend TypeScript: ✅
+- Frontend Build: 성공 (13 pages) ✅
