@@ -1,0 +1,4 @@
+model,precision@10,recall@10,ndcg@10,evaluated_users,rmse,global_mean,coverage
+popularity_baseline,0.0209,0.0269,0.0313,159020,,,
+global_mean_baseline,,,,,1.0566,3.5476,
+item_mean_baseline,,,,,0.9604,,99.9%

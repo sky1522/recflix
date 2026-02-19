@@ -386,3 +386,56 @@ search, search_click, rating, favorite_add, favorite_remove
 - ESLint: No warnings ✅
 - Build: 성공 ✅
 - 기존 기능: 변경 없음 ✅
+
+---
+
+# Phase 3-1: MovieLens 매핑 + 오프라인 평가 환경 결과
+
+## 날짜
+2026-02-19
+
+## 생성된 파일
+| 파일 | 용도 | 줄 수 |
+|------|------|-------|
+| backend/scripts/movielens_mapper.py | MovieLens→RecFlix TMDB 매핑 | 101줄 |
+| backend/scripts/recommendation_eval.py | 오프라인 평가 프레임워크 (3 베이스라인) | 193줄 |
+| backend/data/movielens/mapped_ratings.csv | 매핑된 평점 데이터 | 22,506,842행 |
+| backend/data/movielens/mapping_stats.json | 매핑 통계 | - |
+| backend/data/movielens/eval_results.csv | 평가 결과 | - |
+
+## 매핑 결과
+| 항목 | 값 |
+|------|-----|
+| RecFlix 전체 영화 | 42,917편 |
+| MovieLens 전체 영화 | 62,316편 |
+| 매핑된 영화 | 20,372편 |
+| RecFlix 매핑률 | 47.5% |
+| MovieLens 매핑률 | 32.7% |
+| 매핑된 평점 수 | 22,506,842개 (전체 25M 중 90%) |
+| 매핑된 사용자 수 | 162,536명 |
+| 사용자당 평균 평점 | 138.5개 |
+
+## 핵심 설계 결정
+- **Movie.id = TMDB ID**: 별도 tmdb_id 컬럼 없이 Movie.id가 곧 TMDB PK
+- **동기 DB 접근**: SessionLocal() 동기 세션 사용 (기존 패턴 준수)
+- **Train/Test 분리**: timestamp 기준 80/20 (사용자별), 최소 5평점 사용자만
+
+## 베이스라인 평가 결과
+| 모델 | Precision@10 | Recall@10 | NDCG@10 | RMSE |
+|------|-------------|-----------|---------|------|
+| Popularity Baseline | 0.0209 | 0.0269 | 0.0313 | - |
+| Global Mean Baseline | - | - | - | 1.0566 |
+| Item Mean Baseline | - | - | - | 0.9604 |
+
+## 데이터 규모
+- Train: 17,940,901 ratings
+- Test: 4,565,909 ratings
+- 활성 사용자: 162,524명
+- 활성 영화: 18,464편
+
+## 검증 결과
+- movielens_mapper.py: 실행 OK ✅
+- mapped_ratings.csv: 22,506,842행 생성 ✅
+- recommendation_eval.py: 실행 OK ✅
+- eval_results.csv: 3 베이스라인 결과 저장 ✅
+- .gitignore: 대용량 파일 제외 ✅

@@ -114,6 +114,11 @@ logs/
 data/processed/*
 !data/processed/.gitkeep
 
+# MovieLens 데이터 (대용량)
+backend/data/movielens/ml-25m/
+backend/data/movielens/ml-25m.zip
+backend/data/movielens/mapped_ratings.csv
+
 # ----------------------------------------------
 # Docker
 # ----------------------------------------------

@@ -1,0 +1,11 @@
+{
+  "movielens_total_movies": 62316,
+  "recflix_total_movies": 42917,
+  "mapped_movies": 20372,
+  "mapping_rate_movielens": "32.7%",
+  "mapping_rate_recflix": "47.5%",
+  "total_ratings": 25000095,
+  "mapped_ratings": 22506842,
+  "mapped_users": 162536,
+  "ratings_per_user_avg": "138.5"
+}
