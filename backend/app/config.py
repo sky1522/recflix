@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # Sentry
+    SENTRY_DSN: str = ""
+
     # External APIs
     WEATHER_API_KEY: str = ""
     OPENAI_API_KEY: str = ""

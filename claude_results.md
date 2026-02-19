@@ -159,3 +159,60 @@
 - Import: router OK, engine OK ✅
 - Ruff: All checks passed ✅
 - 기능 변경: 없음 ✅
+
+---
+
+# Phase 1-1: Sentry 연동 + 에러 핸들링 표준화 결과
+
+## 날짜
+2026-02-19
+
+## 생성된 파일
+| 파일 | 용도 | 줄 수 |
+|------|------|-------|
+| backend/app/core/exceptions.py | 공통 에러 스키마 (ErrorResponse), 커스텀 예외 (AppException) | 31줄 |
+| frontend/sentry.client.config.ts | Sentry 클라이언트 초기화 (DSN 없으면 스킵) | 13줄 |
+
+## 수정된 파일
+| 파일 | 변경 내용 |
+|------|----------|
+| backend/app/main.py | 글로벌 예외 핸들러 4개 (AppException, HTTPException, RequestValidationError, Exception) + Sentry 초기화 (65줄 → 113줄) |
+| backend/app/config.py | SENTRY_DSN: str = "" 추가 |
+| backend/requirements.txt | sentry-sdk[fastapi]==2.19.2 추가 |
+| frontend/next.config.js | withSentryConfig 래퍼 (DSN 있을 때만 활성화) |
+| frontend/package.json | @sentry/nextjs 추가 |
+| backend/.env.example | SENTRY_DSN 추가 |
+| frontend/.env.example | NEXT_PUBLIC_SENTRY_DSN 추가 |
+| backend/app/api/v1/movies.py | AGE_RATING_MAP import 경로 수정 (recommendations → recommendation_constants) |
+
+## 에러 응답 포맷
+```json
+{
+  "error": "NOT_FOUND",
+  "message": "영화를 찾을 수 없습니다"
+}
+```
+
+## 글로벌 예외 핸들러
+| 핸들러 | 대상 | 동작 |
+|--------|------|------|
+| AppException | 커스텀 비즈니스 예외 | {error, message} 반환 |
+| HTTPException | FastAPI 기본 예외 | detail을 통일 포맷으로 래핑 |
+| RequestValidationError | 요청 유효성 검증 실패 | 422 + DEBUG 시 detail 포함 |
+| Exception | 미처리 예외 전부 | Sentry 전송 + 500 반환 |
+
+## Sentry 설정
+- Backend: `SENTRY_DSN` 환경변수 (빈 문자열이면 비활성화)
+- Frontend: `NEXT_PUBLIC_SENTRY_DSN` 환경변수 (없으면 비활성화)
+- traces_sample_rate: 0.1 (10%)
+- send_default_pii: false
+
+## 추가 수정 (이전 리팩토링 누락 수정)
+- `movies.py`에서 `AGE_RATING_MAP` import 경로가 `recommendations`에서 `recommendation_constants`로 변경되지 않은 문제 수정
+
+## 검증 결과
+- exceptions.py: Import OK ✅
+- Sentry SDK: Import OK ✅
+- 기존 API: 동작 OK ✅
+- Ruff (exceptions.py): All checks passed ✅
+- Frontend Build: 성공 ✅

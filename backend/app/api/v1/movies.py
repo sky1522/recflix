@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, extract, distinct, select
 
-from app.api.v1.recommendations import AGE_RATING_MAP
+from app.api.v1.recommendation_constants import AGE_RATING_MAP
 
 from app.core.deps import get_db
 from app.models import Movie, Genre, Person

@@ -1,3 +1,5 @@
+const { withSentryConfig } = require("@sentry/nextjs");
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Enable standalone output for Docker deployment
@@ -53,4 +55,13 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+// Wrap with Sentry only when DSN is configured
+const sentryConfig = {
+  silent: true, // Suppress Sentry build logs
+  disableServerWebpackPlugin: true,
+  disableClientWebpackPlugin: !process.env.NEXT_PUBLIC_SENTRY_DSN,
+};
+
+module.exports = process.env.NEXT_PUBLIC_SENTRY_DSN
+  ? withSentryConfig(nextConfig, sentryConfig)
+  : nextConfig;
