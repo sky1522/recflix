@@ -8,6 +8,7 @@ import { Menu, X, Search, Heart, Star, Film, User, LogOut, Home } from "lucide-r
 import { useAuthStore } from "@/stores/authStore";
 import { WeatherIndicator } from "@/components/weather/WeatherBanner";
 import SearchAutocomplete from "@/components/search/SearchAutocomplete";
+import { WEATHER_CACHE_KEY } from "@/lib/constants";
 import type { Weather } from "@/types";
 
 export default function Header() {
@@ -47,7 +48,7 @@ export default function Header() {
   useEffect(() => {
     const loadWeather = () => {
       try {
-        const cached = localStorage.getItem("recflix_weather_v3");
+        const cached = localStorage.getItem(WEATHER_CACHE_KEY);
         if (cached) {
           const { data } = JSON.parse(cached);
           setWeather(data);

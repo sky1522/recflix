@@ -2,6 +2,8 @@
 Weather Service - OpenWeatherMap API Integration with Redis Caching
 """
 import asyncio
+import logging
+
 import httpx
 import redis.asyncio as aioredis
 from typing import Optional
@@ -9,6 +11,8 @@ from datetime import datetime
 import json
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 # Redis 캐시 TTL (30분)
 WEATHER_CACHE_TTL = 1800
@@ -38,10 +42,10 @@ async def get_redis_client() -> Optional[aioredis.Redis]:
             socket_connect_timeout=5,
         )
         await _redis_client.ping()
-        print(f"Redis connected: {settings.REDIS_HOST}:{settings.REDIS_PORT}")
+        logger.info("Redis connected: %s:%s", settings.REDIS_HOST, settings.REDIS_PORT)
         return _redis_client
     except Exception as e:
-        print(f"Redis connection failed: {e}")
+        logger.warning("Redis connection failed: %s", e)
         _redis_client = None
         return None
 
@@ -226,12 +230,12 @@ async def get_weather_by_coords(
         try:
             cached = await redis.get(cache_key)
             if cached:
-                print(f"Cache HIT: {cache_key}")
+                logger.debug("Cache HIT: %s", cache_key)
                 data = json.loads(cached)
                 return WeatherData(**data)
-            print(f"Cache MISS: {cache_key}")
+            logger.debug("Cache MISS: %s", cache_key)
         except Exception as e:
-            print(f"Redis get error: {e}")
+            logger.warning("Redis get error: %s", e)
 
     # OpenWeatherMap API 호출 (날씨 + 역지오코딩 병렬)
     try:
@@ -272,7 +276,7 @@ async def get_weather_by_coords(
             except Exception:
                 pass
     except Exception as e:
-        print(f"Weather API error: {e}")
+        logger.error("Weather API error: %s", e)
         return _get_default_weather()
 
     # 응답 파싱
@@ -303,9 +307,9 @@ async def get_weather_by_coords(
                 WEATHER_CACHE_TTL,
                 json.dumps(weather_data.to_dict(), ensure_ascii=False),
             )
-            print(f"Cache SET: {cache_key} (TTL: {WEATHER_CACHE_TTL}s)")
+            logger.debug("Cache SET: %s (TTL: %ds)", cache_key, WEATHER_CACHE_TTL)
         except Exception as e:
-            print(f"Redis set error: {e}")
+            logger.warning("Redis set error: %s", e)
 
     return weather_data
 
@@ -335,12 +339,12 @@ async def get_weather_by_city(
         try:
             cached = await redis.get(cache_key)
             if cached:
-                print(f"Cache HIT: {cache_key}")
+                logger.debug("Cache HIT: %s", cache_key)
                 data = json.loads(cached)
                 return WeatherData(**data)
-            print(f"Cache MISS: {cache_key}")
+            logger.debug("Cache MISS: %s", cache_key)
         except Exception as e:
-            print(f"Redis get error: {e}")
+            logger.warning("Redis get error: %s", e)
 
     # OpenWeatherMap API 호출
     try:
@@ -358,7 +362,7 @@ async def get_weather_by_city(
             response.raise_for_status()
             data = response.json()
     except Exception as e:
-        print(f"Weather API error: {e}")
+        logger.error("Weather API error: %s", e)
         return _get_default_weather()
 
     weather_code = data["weather"][0]["id"]
@@ -387,9 +391,9 @@ async def get_weather_by_city(
                 WEATHER_CACHE_TTL,
                 json.dumps(weather_data.to_dict(), ensure_ascii=False),
             )
-            print(f"Cache SET: {cache_key} (TTL: {WEATHER_CACHE_TTL}s)")
+            logger.debug("Cache SET: %s (TTL: %ds)", cache_key, WEATHER_CACHE_TTL)
         except Exception as e:
-            print(f"Redis set error: {e}")
+            logger.warning("Redis set error: %s", e)
 
     return weather_data
 

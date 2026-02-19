@@ -1,11 +1,17 @@
 """
 RecFlix FastAPI Application Entry Point
 """
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+
+logging.basicConfig(
+    level=logging.DEBUG if settings.DEBUG else logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
 from app.api.v1.router import api_router
 from app.database import engine, Base
 from app.models import *  # noqa: F401, F403 - Import all models for table creation

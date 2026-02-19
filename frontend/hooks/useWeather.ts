@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { getWeather } from "@/lib/api";
+import { WEATHER_CACHE_KEY, WEATHER_CACHE_DURATION } from "@/lib/constants";
 import type { Weather, WeatherType } from "@/types";
 
 interface UseWeatherOptions {
@@ -19,9 +20,6 @@ interface UseWeatherReturn {
   setManualWeather: (condition: WeatherType) => void;
   resetToRealWeather: () => Promise<void>;
 }
-
-const WEATHER_CACHE_KEY = "recflix_weather_v3";
-const WEATHER_CACHE_DURATION = 30 * 60 * 1000; // 30분
 
 interface CachedWeather {
   data: Weather;

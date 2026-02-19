@@ -18,6 +18,7 @@ import {
   getWeatherContextSubtitle,
 } from "@/lib/curationMessages";
 import { buildUserContext, type UserContext } from "@/lib/contextCuration";
+import { SUBTITLE_COUNT, WEATHER_THEME_CLASSES } from "@/lib/constants";
 
 // Module-level cache: survives component remounts (back navigation)
 let cachedRecommendations: HomeRecommendations | null = null;
@@ -37,7 +38,7 @@ export default function HomePage() {
 
   // 페이지 로드 시 랜덤 서브타이틀 인덱스 결정 (하이드레이션 안전)
   useEffect(() => {
-    setSubtitleIdx(Math.floor(Math.random() * 6));
+    setSubtitleIdx(Math.floor(Math.random() * SUBTITLE_COUNT));
   }, []);
 
   // 로그아웃 감지 시 즉시 추천 데이터 초기화 (캐시 포함)
@@ -64,23 +65,13 @@ export default function HomePage() {
   useEffect(() => {
     if (weather) {
       // Remove all theme classes
-      document.body.classList.remove(
-        "theme-sunny",
-        "theme-rainy",
-        "theme-cloudy",
-        "theme-snowy"
-      );
+      document.body.classList.remove(...WEATHER_THEME_CLASSES);
       // Add current theme class
       document.body.classList.add(`theme-${weather.condition}`);
     }
 
     return () => {
-      document.body.classList.remove(
-        "theme-sunny",
-        "theme-rainy",
-        "theme-cloudy",
-        "theme-snowy"
-      );
+      document.body.classList.remove(...WEATHER_THEME_CLASSES);
     };
   }, [weather]);
 

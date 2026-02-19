@@ -1,11 +1,15 @@
 """
 LLM Service - Anthropic Claude API Integration with Redis Caching
 """
+import logging
+
 import anthropic
 import redis.asyncio as aioredis
 from typing import Optional
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 # Redis 캐시 TTL (24시간)
 CATCHPHRASE_CACHE_TTL = 86400
@@ -28,7 +32,7 @@ async def get_redis_client() -> Optional[aioredis.Redis]:
     try:
         # REDIS_URL이 있으면 사용 (Railway 등 클라우드 환경)
         if settings.REDIS_URL:
-            print(f"Connecting to Redis via URL...")
+            logger.info("Connecting to Redis via URL")
             _redis_client = aioredis.from_url(
                 settings.REDIS_URL,
                 decode_responses=True,
@@ -36,7 +40,7 @@ async def get_redis_client() -> Optional[aioredis.Redis]:
             )
         else:
             # 로컬 개발 환경
-            print(f"Connecting to Redis via host/port...")
+            logger.info("Connecting to Redis via host/port")
             _redis_client = aioredis.Redis(
                 host=settings.REDIS_HOST,
                 port=settings.REDIS_PORT,
@@ -46,10 +50,10 @@ async def get_redis_client() -> Optional[aioredis.Redis]:
                 socket_connect_timeout=5,
             )
         await _redis_client.ping()
-        print("Redis connection successful")
+        logger.info("Redis connection successful")
         return _redis_client
     except Exception as e:
-        print(f"Redis connection failed: {e}")
+        logger.warning("Redis connection failed: %s", e)
         _redis_client = None
         return None
 
@@ -97,15 +101,15 @@ async def generate_catchphrase(
         try:
             cached = await redis.get(cache_key)
             if cached:
-                print(f"Cache HIT: {cache_key}")
+                logger.debug("Cache HIT: %s", cache_key)
                 return cached, True
-            print(f"Cache MISS: {cache_key}")
+            logger.debug("Cache MISS: %s", cache_key)
         except Exception as e:
-            print(f"Redis get error: {e}")
+            logger.warning("Redis get error: %s", e)
 
     # API 키 확인
     if not settings.ANTHROPIC_API_KEY:
-        print("Anthropic API key not configured")
+        logger.warning("Anthropic API key not configured")
         return fallback_tagline or "매력적인 영화", False
 
     # Anthropic Claude API 호출
@@ -131,7 +135,7 @@ async def generate_catchphrase(
         catchphrase = catchphrase.strip('"\'')
 
     except Exception as e:
-        print(f"Anthropic API error: {e}")
+        logger.error("Anthropic API error: %s", e)
         return fallback_tagline or "매력적인 영화", False
 
     # Redis 캐시 저장
@@ -142,8 +146,8 @@ async def generate_catchphrase(
                 CATCHPHRASE_CACHE_TTL,
                 catchphrase,
             )
-            print(f"Cache SET: {cache_key} (TTL: {CATCHPHRASE_CACHE_TTL}s)")
+            logger.debug("Cache SET: %s (TTL: %ds)", cache_key, CATCHPHRASE_CACHE_TTL)
         except Exception as e:
-            print(f"Redis set error: {e}")
+            logger.warning("Redis set error: %s", e)
 
     return catchphrase, False

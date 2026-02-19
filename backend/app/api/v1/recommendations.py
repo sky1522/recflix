@@ -5,7 +5,7 @@ Hybrid recommendation engine combining MBTI, Weather, and Personal preferences
 import random
 from typing import Optional, List, Dict, Tuple
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import text, desc
 from datetime import datetime, timedelta
 
@@ -238,11 +238,14 @@ def get_user_preferences(
         Rating.created_at >= recent_date
     ).all()
 
-    for rating in high_ratings:
-        highly_rated_ids.add(rating.movie_id)
-        # Also count genres from highly rated movies (weighted more)
-        movie = db.query(Movie).filter(Movie.id == rating.movie_id).first()
-        if movie:
+    highly_rated_movie_ids = [r.movie_id for r in high_ratings]
+    highly_rated_ids = set(highly_rated_movie_ids)
+
+    if highly_rated_movie_ids:
+        rated_movies = db.query(Movie).options(selectinload(Movie.genres)).filter(
+            Movie.id.in_(highly_rated_movie_ids)
+        ).all()
+        for movie in rated_movies:
             for genre in movie.genres:
                 genre_name = genre.name if hasattr(genre, 'name') else str(genre)
                 genre_counts[genre_name] = genre_counts.get(genre_name, 0) + 2  # Double weight
@@ -431,7 +434,7 @@ def get_home_recommendations(
     # === HYBRID RECOMMENDATION ROW (Main personalized) ===
     if current_user and (mbti or weather or mood or genre_counts):
         # Get candidate movies (quality filter: weighted_score >= 6.0)
-        candidate_q = db.query(Movie).filter(
+        candidate_q = db.query(Movie).options(selectinload(Movie.genres)).filter(
             Movie.weighted_score >= 6.0,
             ~Movie.id.in_(favorited_ids)  # Exclude already favorited
         )
@@ -607,7 +610,7 @@ def get_hybrid_recommendations(
     similar_ids = get_similar_movie_ids(db, user_movie_ids)
 
     # Get candidate movies (quality filter: weighted_score >= 6.0)
-    candidate_q = db.query(Movie).filter(
+    candidate_q = db.query(Movie).options(selectinload(Movie.genres)).filter(
         Movie.weighted_score >= 6.0,
         ~Movie.id.in_(favorited_ids)
     )
@@ -746,7 +749,7 @@ def get_personalized_recommendations(
     top_genre_names = [g[0] for g in top_genres]
 
     # 해당 장르의 영화 중 찜하지 않은 인기 영화 추천 (품질 필터 적용)
-    q = db.query(Movie).join(Movie.genres).filter(
+    q = db.query(Movie).options(selectinload(Movie.genres)).join(Movie.genres).filter(
         Genre.name.in_(top_genre_names),
         Movie.weighted_score >= 6.0,
         ~Movie.id.in_(favorited_ids)

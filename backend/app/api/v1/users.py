@@ -24,10 +24,12 @@ def update_current_user(
     db: Session = Depends(get_db)
 ):
     """Update current user's information"""
+    ALLOWED_UPDATE_FIELDS = {"nickname", "mbti", "birth_date", "location_consent"}
     update_data = user_data.model_dump(exclude_unset=True)
 
     for field, value in update_data.items():
-        setattr(current_user, field, value)
+        if field in ALLOWED_UPDATE_FIELDS:
+            setattr(current_user, field, value)
 
     db.commit()
     db.refresh(current_user)
