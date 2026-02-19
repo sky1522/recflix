@@ -1,145 +1,102 @@
-# 범용 스킬 추가 & MCP 설정 업데이트
+# 프롬프트 2: movies/[id]/page.tsx 리팩토링 (622줄 → 500줄 이하)
 
-프로젝트의 코드 품질 원칙 스킬과 MCP 설정을 추가한다. 충분히 탐색하고 시작해.
+영화 상세 페이지 컴포넌트 분리. 기능 변경 없이 구조만 분리. 충분히 탐색하고 시작해.
+
+⚠️ 프롬프트 1 (recommendations.py 리팩토링) 완료 후 실행할 것.
 
 먼저 읽을 것:
-- CLAUDE.md (현재 규칙 섹션 확인)
-- .claude/skills/INDEX.md (현재 스킬 목록 확인)
-- .claude/settings.json (현재 MCP 설정 확인)
+- .claude/skills/code-quality.md (파일 크기 규칙, 분리 기준)
+- .claude/skills/frontend-patterns.md (컴포넌트 구조, 훅 패턴)
+- frontend/app/movies/[id]/page.tsx (전체 구조 파악 — grep으로 컴포넌트/섹션부터)
 
-현재 코드 크기 문제 파악용:
-- `find . -name '*.py' -o -name '*.tsx' -o -name '*.ts' | xargs wc -l | sort -rn | head -20`
-- backend/app/api/v1/recommendations.py (770줄, calculate_hybrid_scores 133줄)
-- frontend/app/movies/[id]/page.tsx (622줄)
-- backend/app/services/weather.py (420줄)
-- frontend/app/movies/page.tsx (436줄)
-- frontend/lib/curationMessages.ts (415줄)
-- frontend/components/layout/Header.tsx (373줄)
+```bash
+# 컴포넌트/함수 목록 확인
+grep -n "function \|const .* = " frontend/app/movies/\[id\]/page.tsx | head -30
 
----
+# JSX 섹션 경계 확인
+grep -n "return\|<section\|<div className.*container\|{/\*" frontend/app/movies/\[id\]/page.tsx
 
-=== 1단계: .claude/settings.json 업데이트 ===
+# import 확인
+head -30 frontend/app/movies/\[id\]/page.tsx
 
-security-guidance MCP 추가:
-
-```json
-{
-  "mcpServers": {
-    "context7": {
-      "command": "npx",
-      "args": ["-y", "@anthropic/context7-mcp"]
-    },
-    "security-guidance": {
-      "command": "npx",
-      "args": ["-y", "@anthropic/security-guidance-mcp"]
-    }
-  }
-}
+# 이 페이지에서 사용하는 컴포넌트/훅
+grep -n "import " frontend/app/movies/\[id\]/page.tsx
 ```
 
 ---
 
-=== 2단계: .claude/skills/code-quality.md 생성 ===
+=== 1단계: Research ===
 
-목차형 원칙 유지. 실제 코드베이스를 탐색하여 500줄+ 파일 목록을 정확히 반영.
+page.tsx의 UI 구조를 파악:
 
-```markdown
-# 코드 품질 원칙
-
-## Karpathy 4원칙
-1. **한 번에 하나만**: 각 함수/컴포넌트는 한 가지 역할만 수행
-2. **작게 유지**: 파일 500줄 이하, 함수 50줄 이하
-3. **명확한 이름**: 함수/변수명으로 역할이 드러나야 (약어 지양)
-4. **부작용 최소화**: 순수 함수 선호, 상태 변경은 명시적으로
-
-## 파일 크기 관리
-- 500줄 이상: 분리 필수
-- 300~499줄: 분리 검토
-- 300줄 미만: 양호
-
-### 분리 기준
-- 역할별: 상수/유틸/컴포넌트/로직
-- 도메인별: 추천/날씨/인증/영화
-- 레이어별: UI/비즈니스 로직/데이터
-
-### 현재 500줄+ 파일 (리팩토링 대상)
-→ `find . -name '*.py' -o -name '*.tsx' -o -name '*.ts' | xargs wc -l | sort -rn | head -20` 으로 확인
-- backend/app/api/v1/recommendations.py (770줄)
-  - calculate_hybrid_scores() 133줄 → 스코어별 함수 분리
-  - 가중치 상수, 태그 로직, 개인화 로직 분리 검토
-- frontend/app/movies/[id]/page.tsx (622줄)
-  - 히어로 배너, 상세 정보, 출연진, 유사 영화 → 서브 컴포넌트 분리 검토
-(실제 탐색 결과로 이 목록을 업데이트해줘)
-
-## 중복 제거
-- 두 파일에서 같은 로직 발견 시 → 공통 유틸로 추출
-- 매직넘버 → constants.ts 또는 Python 상수 모듈
-- 캐시 키 → 중앙 관리 (frontend/lib/constants.ts)
-
-## 함수 작성 규칙
-- 함수 50줄 이하 (넘으면 헬퍼 분리)
-- 인자 4개 이하 (넘으면 객체/DTO로 묶기)
-- 중첩 3단계 이하 (넘으면 early return)
-- 주석 대신 함수명으로 의도 표현
-
-## 리팩토링 프로세스
-1. Research: `find + wc -l` 로 500줄+ 파일 식별, 중복 검사
-2. 우선순위: 저위험(유틸 추출) → 중위험(모듈 분리) → 고위험(구조 통합)
-3. 실행: 기능 변경 없음 (순수 리팩토링), 각 단계 빌드 확인, 한 번에 한 파일
-
-## Python 고유
-- logging 사용 (print 금지) → Ruff T201 규칙
-- ruff check + ruff format 통과
-- 타입 힌트 필수 (함수 인자, 반환값)
-- selectinload로 N+1 방지
-
-## TypeScript 고유
-- any 타입 사용 금지 → 구체적 타입 또는 unknown
-- 모듈 레벨 mutable 변수 금지 → useRef/useState
-- ESLint core-web-vitals 통과
-- 상수는 constants.ts에서 import
-```
+1. 렌더링하는 주요 섹션 (히어로 배너, 영화 정보, 출연진, 유사 영화, 캐치프레이즈 등)
+2. 사용하는 state/effect 목록
+3. 내부 헬퍼 함수 목록
+4. 각 섹션의 대략적 줄 범위
 
 ---
 
-=== 3단계: .claude/skills/INDEX.md 업데이트 ===
+=== 2단계: Plan ===
 
-기존 테이블에 code-quality 행을 **workflow 바로 다음에** 추가:
+아래 분리 방향을 기반으로 구체적 계획 수립:
 
-```
-| code-quality | Karpathy 4원칙, 파일 크기 관리, 중복 제거, 리팩토링 프로세스 |
-```
+**새 파일 생성 (frontend/app/movies/[id]/ 하위):**
+- `components/MovieHero.tsx` — 히어로 배너 (포스터, 제목, 캐치프레이즈, 기본 정보, 평점/찜 버튼)
+- `components/MovieInfo.tsx` — 상세 정보 (줄거리, 감독, 제작국, 장르, 등급, 러닝타임 등)
+- `components/MovieCast.tsx` — 출연진 목록
+- `components/SimilarMovies.tsx` — 유사 영화 섹션
+
+또는 실제 코드 구조에 따라 더 자연스러운 경계로 분리. 핵심은:
+- page.tsx에는 데이터 페칭 + 레이아웃 조합만 남김
+- 각 서브 컴포넌트는 props로 데이터 받음
+- 상태 관리(평점, 찜)는 page.tsx에서 관리하고 props로 전달
+
+**목표:** page.tsx 300줄 이하, 서브 컴포넌트 각각 150줄 이하
+
+실제 코드를 확인한 후 자연스러운 경계에서 분리. 억지로 나누지 말 것.
 
 ---
 
-=== 4단계: CLAUDE.md 규칙 섹션 보강 ===
+=== 3단계: Implement ===
 
-기존 규칙에 아래 2개 추가 (기존 규칙 번호 뒤에 이어서):
+계획대로 구현. 주의사항:
 
-```
-N. 코드 품질: Karpathy 4원칙 준수 (파일 500줄↓, 함수 50줄↓, 단일 책임, 명확한 이름) → .claude/skills/code-quality.md 참조
-N+1. any 타입 금지, Python 타입 힌트 필수 (함수 인자/반환값)
-```
-
-기존 규칙 번호 체계에 맞춰서 자연스럽게 삽입해줘.
+1. **기능 변경 절대 금지** — 순수 리팩토링만
+2. **'use client'** 지시문 필요한 컴포넌트에 추가
+3. Framer Motion 애니메이션 유지
+4. 반응형 CSS 클래스 유지 (모바일/데스크톱)
+5. interactionStore 연동 유지 (평점, 찜)
+6. 동적 OG 메타태그는 layout.tsx에 있으므로 건드리지 않음
+7. 에러 바운더리 (error.tsx)도 건드리지 않음
 
 ---
 
 === 건드리지 말 것 ===
-- 모든 소스 코드 파일 (*.py, *.tsx, *.ts, *.css)
-- PROGRESS.md, CHANGELOG.md, PROJECT_CONTEXT.md, README.md, DEPLOYMENT.md, DECISION.md
-- 기존 스킬 파일 7개 (workflow.md, recommendation.md, curation.md, weather.md, database.md, deployment.md, frontend-patterns.md)
-- backend/.env, frontend/.env.local
-- data/, node_modules/, __pycache__/
+- backend/ 전체
+- frontend/app/movies/[id]/layout.tsx (OG 메타태그)
+- frontend/app/movies/[id]/error.tsx (에러 바운더리)
+- frontend/app/ 중 movies/[id]/page.tsx 외 다른 페이지
+- frontend/components/ 기존 컴포넌트 (MovieCard, MovieRow, MovieModal 등)
+- frontend/stores/, hooks/, lib/
+- 모든 .md 문서 파일
 
 ---
 
 === 검증 ===
-- .claude/settings.json에 context7 + security-guidance 2개 MCP 존재 확인
-- .claude/skills/code-quality.md 존재 + 500줄+ 파일 목록이 실제와 일치하는지 확인
-- .claude/skills/INDEX.md에 code-quality 행 존재 확인
-- CLAUDE.md에 Karpathy 원칙 규칙 존재 확인
-- CLAUDE.md가 여전히 500줄 이하인지: `wc -l CLAUDE.md`
+```bash
+# 파일별 줄 수 확인
+wc -l frontend/app/movies/\[id\]/page.tsx
+wc -l frontend/app/movies/\[id\]/components/*.tsx
+
+# TypeScript 타입 체크
+cd frontend && npx tsc --noEmit
+
+# ESLint
+cd frontend && npx next lint
+
+# 빌드 확인
+cd frontend && npm run build
+```
 
 ---
 
@@ -148,7 +105,7 @@ N+1. any 타입 금지, Python 타입 힌트 필수 (함수 인자/반환값)
 ```markdown
 ---
 
-# 범용 스킬 추가 & MCP 설정 업데이트 결과
+# movies/[id]/page.tsx 리팩토링 결과
 
 ## 날짜
 YYYY-MM-DD
@@ -156,26 +113,31 @@ YYYY-MM-DD
 ## 생성된 파일
 | 파일 | 용도 | 줄 수 |
 |------|------|-------|
-| .claude/skills/code-quality.md | Karpathy 원칙, 파일 크기, 중복 제거, 리팩토링 | N줄 |
+| movies/[id]/components/MovieHero.tsx | 히어로 배너 | N줄 |
+| movies/[id]/components/MovieInfo.tsx | 상세 정보 | N줄 |
+| movies/[id]/components/MovieCast.tsx | 출연진 | N줄 |
+| movies/[id]/components/SimilarMovies.tsx | 유사 영화 | N줄 |
 
 ## 수정된 파일
-| 파일 | 변경 내용 |
-|------|----------|
-| .claude/settings.json | security-guidance MCP 추가 |
-| .claude/skills/INDEX.md | code-quality 스킬 추가 |
-| CLAUDE.md | 규칙 섹션에 Karpathy 원칙, 타입 규칙 추가 |
+| 파일 | 변경 내용 | 줄 수 변화 |
+|------|----------|-----------|
+| movies/[id]/page.tsx | 데이터 페칭 + 레이아웃만 남김 | 622줄 → N줄 |
 
-## 500줄+ 파일 현황 (code-quality.md에 기록)
-| 파일 | 줄 수 | 분리 방향 |
-|------|-------|----------|
-| (실제 탐색 결과) | ... | ... |
+## 분리 결과
+| 파일 | 줄 수 | 역할 |
+|------|-------|------|
+| page.tsx | N줄 | 데이터 페칭 + 레이아웃 조합 |
+| MovieHero.tsx | N줄 | 히어로 배너 |
+| MovieInfo.tsx | N줄 | 상세 정보 |
+| MovieCast.tsx | N줄 | 출연진 |
+| SimilarMovies.tsx | N줄 | 유사 영화 |
+| **합계** | N줄 | (622줄에서 변화) |
 
 ## 검증 결과
-- .claude/settings.json: MCP 2개 ✅
-- code-quality.md: 존재 ✅
-- INDEX.md: code-quality 포함 ✅
-- CLAUDE.md: N줄 (500줄 이하 ✅)
-- 소스 코드 변경: 없음 ✅
+- TypeScript: No errors ✅
+- ESLint: No warnings ✅
+- Build: 성공 ✅
+- 기능 변경: 없음 ✅
 ```
 
-git add -A && git commit -m 'docs: code-quality 스킬 추가, security-guidance MCP 설정' && git push origin HEAD:main
+git add -A && git commit -m 'refactor(frontend): movies/[id]/page.tsx 서브 컴포넌트 분리' && git push origin HEAD:main

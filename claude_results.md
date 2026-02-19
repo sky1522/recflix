@@ -91,3 +91,39 @@
 - INDEX.md: code-quality 포함 ✅
 - CLAUDE.md: 175줄 (500줄 이하 ✅)
 - 소스 코드 변경: 없음 ✅
+
+---
+
+# movies/[id]/page.tsx 리팩토링 결과
+
+## 날짜
+2026-02-19
+
+## 생성된 파일
+| 파일 | 용도 | 줄 수 |
+|------|------|-------|
+| movies/[id]/components/MovieHero.tsx | 히어로 배너 | 207줄 |
+| movies/[id]/components/MovieSidebar.tsx | 사이드바 (영화 정보, MBTI, 날씨) | 123줄 |
+| movies/[id]/components/SimilarMovies.tsx | 유사 영화 그리드 | 64줄 |
+| movies/[id]/components/MovieDetailSkeleton.tsx | 로딩 스켈레톤 | 56줄 |
+
+## 수정된 파일
+| 파일 | 변경 내용 | 줄 수 변화 |
+|------|----------|-----------|
+| movies/[id]/page.tsx | 데이터 페칭 + 평점/줄거리/출연진 + 레이아웃만 남김 | 622줄 → 231줄 |
+
+## 분리 결과
+| 파일 | 줄 수 | 역할 |
+|------|-------|------|
+| page.tsx | 231줄 | 데이터 페칭 + 평점/줄거리/출연진 + 레이아웃 조합 |
+| MovieHero.tsx | 207줄 | 히어로 배너 (포스터, 제목, 캐치프레이즈, 메타, 장르, 액션버튼) |
+| MovieSidebar.tsx | 123줄 | 영화 정보 + MBTI 점수 + 날씨 점수 |
+| SimilarMovies.tsx | 64줄 | 유사 영화 그리드 |
+| MovieDetailSkeleton.tsx | 56줄 | 로딩 스켈레톤 |
+| **합계** | **681줄** | (622줄에서 +59줄 = import/interface 오버헤드) |
+
+## 검증 결과
+- TypeScript: No errors ✅
+- ESLint: No warnings ✅
+- Build: 성공 ✅
+- 기능 변경: 없음 ✅
