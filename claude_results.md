@@ -648,7 +648,63 @@ search, search_click, rating, favorite_add, favorite_remove
 - ESLint: No warnings ✅
 
 ## 남은 작업 (OAuth 앱 등록 필요)
-1. **Kakao Developers** 앱 등록 → REST API 키 + Client Secret 획득
-2. **Google Cloud Console** OAuth 2.0 클라이언트 생성 → Client ID + Secret 획득
-3. Frontend: Vercel 대시보드에 `NEXT_PUBLIC_KAKAO_CLIENT_ID`, `NEXT_PUBLIC_KAKAO_REDIRECT_URI`, `NEXT_PUBLIC_GOOGLE_CLIENT_ID`, `NEXT_PUBLIC_GOOGLE_REDIRECT_URI` 등록 → 재빌드
-4. Backend: Railway 대시보드에 `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`, `KAKAO_REDIRECT_URI`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` 등록
+→ **완료됨** (아래 E2E 검증 결과 참조)
+
+---
+
+# 소셜 로그인 E2E 검증 결과
+
+## 날짜
+2026-02-19
+
+## 발견된 문제
+| # | 문제 | 원인 | 수정 |
+|---|------|------|------|
+| 1 | 소셜 버튼 클릭 시 무반응 (silent fail) | `if (clientId && redirectUri)` 가드 + 환경변수 undefined | 가드 반전 + console.error + alert |
+| 2 | Backend 소셜 엔드포인트 404 | Railway 미배포 | `railway up` 재배포 |
+| 3 | Backend 502 크래시 | 루트 `requirements.txt`에 sentry-sdk/slowapi/scipy 누락 | 루트 파일을 backend와 동기화 |
+| 4 | 프로덕션 DB user_events 테이블 없음 | Phase 30 스키마 미마이그레이션 | psql로 CREATE TABLE + 인덱스 5개 |
+| 5 | 카카오 Client ID 잘못 등록 | 최초 키 오입력 (REST API 키 ≠ Client ID) | Vercel/Railway 재등록 + Vercel 재배포 |
+
+## 수정된 파일
+| 파일 | 변경 |
+|------|------|
+| frontend/app/login/page.tsx | 카카오/Google 버튼 silent fail → alert 에러 표시 |
+| frontend/app/signup/page.tsx | 동일 수정 |
+| requirements.txt (루트) | +sentry-sdk, +slowapi, +scipy (backend와 동기화) |
+
+## 환경변수 등록 완료
+| 서비스 | 변수 | 값 확인 |
+|--------|------|---------|
+| Vercel | NEXT_PUBLIC_KAKAO_CLIENT_ID | f5ba90d4... ✅ |
+| Vercel | NEXT_PUBLIC_KAKAO_REDIRECT_URI | .../auth/kakao/callback ✅ |
+| Vercel | NEXT_PUBLIC_GOOGLE_CLIENT_ID | 222719323914-... ✅ |
+| Vercel | NEXT_PUBLIC_GOOGLE_REDIRECT_URI | .../auth/google/callback ✅ |
+| Railway | KAKAO_CLIENT_ID | f5ba90d4... ✅ |
+| Railway | KAKAO_CLIENT_SECRET | xKK3Fa... ✅ |
+| Railway | KAKAO_REDIRECT_URI | .../auth/kakao/callback ✅ |
+| Railway | GOOGLE_CLIENT_ID | 222719323914-... ✅ |
+| Railway | GOOGLE_CLIENT_SECRET | GOCSPX-... ✅ |
+| Railway | GOOGLE_REDIRECT_URI | .../auth/google/callback ✅ |
+
+## E2E 테스트 결과
+| 항목 | 로컬 | 프로덕션 |
+|------|------|---------|
+| 카카오 버튼 → 인증 페이지 이동 | ⚠️ .env.local 없음 (alert 표시) | ✅ 302 → accounts.kakao.com |
+| 카카오 콜백 → JWT 발급 | - | ✅ 콜백 200 + Backend 401 (test code 정상 거부) |
+| Google 버튼 → 인증 페이지 이동 | ⚠️ .env.local 없음 (alert 표시) | ✅ 302 → accounts.google.com |
+| Google 콜백 → JWT 발급 | - | ✅ 콜백 200 + Backend 401 (test code 정상 거부) |
+| 온보딩 리다이렉트 (신규 사용자) | - | ✅ 코드 확인 (isNew ? /onboarding : /) |
+
+## Backend 엔드포인트
+- POST /auth/kakao: HTTP 401 ✅
+- POST /auth/google: HTTP 401 ✅
+- GET /health: HTTP 200 ✅
+- POST /events/batch: HTTP 201 ✅
+
+## JS 번들 검증
+- 카카오 Client ID (f5ba90d4...) 포함 ✅
+- kauth.kakao.com URL 포함 ✅
+- Google Client ID (222719323914...) 포함 ✅
+- accounts.google.com URL 포함 ✅
+- CORS origins에 jnsquery-reflix.vercel.app 포함 ✅
