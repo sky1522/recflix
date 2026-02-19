@@ -47,3 +47,47 @@
 - DECISION.md: 존재 ✅
 - 소스 코드 변경: 없음 ✅
 - 기존 문서 변경: 없음 (PROGRESS.md, CHANGELOG.md, PROJECT_CONTEXT.md, README.md, DEPLOYMENT.md) ✅
+
+---
+
+# 범용 스킬 추가 & MCP 설정 업데이트 결과
+
+## 날짜
+2026-02-19
+
+## 생성된 파일
+| 파일 | 용도 | 줄 수 |
+|------|------|-------|
+| .claude/skills/code-quality.md | Karpathy 원칙, 파일 크기, 중복 제거, 리팩토링 | 63줄 |
+
+## 수정된 파일
+| 파일 | 변경 내용 |
+|------|----------|
+| .claude/settings.json | security-guidance MCP 추가 |
+| .claude/skills/INDEX.md | code-quality 스킬 추가 |
+| CLAUDE.md | 규칙 섹션에 Karpathy 원칙, 타입 규칙 추가 (규칙 9, 10) |
+
+## 500줄+ 파일 현황 (code-quality.md에 기록)
+| 파일 | 줄 수 | 분리 방향 |
+|------|-------|----------|
+| backend/app/api/v1/recommendations.py | 770줄 | calculate_hybrid_scores() 스코어별 분리, 상수/태그/개인화 분리 |
+| frontend/app/movies/[id]/page.tsx | 622줄 | 히어로 배너, 상세 정보, 출연진, 유사 영화 서브 컴포넌트 |
+| backend/scripts/transliterate_foreign_names.py | 520줄 | 일회성 스크립트, 우선순위 낮음 |
+
+## 300~499줄 파일 (분리 검토)
+| 파일 | 줄 수 |
+|------|-------|
+| frontend/app/movies/page.tsx | 436줄 |
+| backend/app/services/weather.py | 420줄 |
+| frontend/lib/curationMessages.ts | 415줄 (상수 파일, 분리 불필요) |
+| frontend/app/ratings/page.tsx | 413줄 |
+| frontend/components/movie/FeaturedBanner.tsx | 407줄 |
+| frontend/components/layout/Header.tsx | 373줄 |
+| frontend/components/search/SearchAutocomplete.tsx | 359줄 |
+
+## 검증 결과
+- .claude/settings.json: MCP 2개 (context7, security-guidance) ✅
+- code-quality.md: 존재 (63줄) ✅
+- INDEX.md: code-quality 포함 ✅
+- CLAUDE.md: 175줄 (500줄 이하 ✅)
+- 소스 코드 변경: 없음 ✅

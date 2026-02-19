@@ -3,6 +3,10 @@
     "context7": {
       "command": "npx",
       "args": ["-y", "@anthropic/context7-mcp"]
+    },
+    "security-guidance": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/security-guidance-mcp"]
     }
   }
 }

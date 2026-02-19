@@ -158,6 +158,8 @@ cd frontend && npm run dev
 6. DB 스키마 변경 시 JSONB GIN 인덱스 확인
 7. 추천 알고리즘 변경 시 `docs/RECOMMENDATION_LOGIC.md` 동기화
 8. 복잡한 작업은 `.claude/skills/workflow.md`의 RPI 프로세스를 따른다
+9. 코드 품질: Karpathy 4원칙 준수 (파일 500줄↓, 함수 50줄↓, 단일 책임, 명확한 이름) → `.claude/skills/code-quality.md` 참조
+10. `any` 타입 금지, Python 타입 힌트 필수 (함수 인자/반환값)
 
 ## 알려진 이슈 패턴
 
