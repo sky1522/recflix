@@ -6,6 +6,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Star, Eye } from "lucide-react";
 import { getImageUrl } from "@/lib/utils";
+import { trackEvent } from "@/lib/eventTracker";
 import MovieModal from "./MovieModal";
 import type { HybridMovie, RecommendationTag } from "@/types";
 
@@ -13,6 +14,7 @@ interface HybridMovieCardProps {
   movie: HybridMovie;
   index?: number;
   showQuickView?: boolean;
+  section?: string;
 }
 
 // Tag color mapping
@@ -36,7 +38,7 @@ function RecommendationTagBadge({ tag }: { tag: RecommendationTag }) {
   );
 }
 
-export default function HybridMovieCard({ movie, index = 0, showQuickView = true }: HybridMovieCardProps) {
+export default function HybridMovieCard({ movie, index = 0, showQuickView = true, section }: HybridMovieCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [imageError, setImageError] = useState(false);
 
@@ -60,7 +62,18 @@ export default function HybridMovieCard({ movie, index = 0, showQuickView = true
         transition={{ delay: index * 0.05, duration: 0.3 }}
         className="flex-shrink-0 w-[160px] sm:w-[180px] group"
       >
-        <Link href={`/movies/${movie.id}`}>
+        <Link
+          href={`/movies/${movie.id}`}
+          onClick={() => {
+            if (section) {
+              trackEvent({
+                event_type: "movie_click",
+                movie_id: movie.id,
+                metadata: { source: "recommendation", section, position: index },
+              });
+            }
+          }}
+        >
           {/* Poster Container */}
           <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-dark-100 ring-2 ring-primary-500/30 group-hover:ring-primary-500/70 transition-all duration-300 cursor-pointer">
             {movie.poster_path && !imageError ? (

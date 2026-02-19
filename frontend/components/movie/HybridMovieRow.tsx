@@ -4,6 +4,7 @@ import { useRef, useState, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Sparkles, RefreshCw } from "lucide-react";
 import HybridMovieCard from "./HybridMovieCard";
+import { useImpressionTracker } from "@/hooks/useImpressionTracker";
 import type { HybridMovie } from "@/types";
 
 interface HybridMovieRowProps {
@@ -12,6 +13,7 @@ interface HybridMovieRowProps {
   subtitle?: string;
   movies: HybridMovie[];
   displayCount?: number;
+  section?: string;
 }
 
 // Fisher-Yates shuffle
@@ -30,8 +32,14 @@ export default function HybridMovieRow({
   subtitle,
   movies,
   displayCount = 20,
+  section,
 }: HybridMovieRowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const impressionRef = useImpressionTracker(
+    section || "",
+    movies.map((m) => m.id),
+    !!section,
+  );
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
   const [shuffleKey, setShuffleKey] = useState(0);
@@ -78,6 +86,7 @@ export default function HybridMovieRow({
 
   return (
     <motion.section
+      ref={impressionRef}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
@@ -140,7 +149,7 @@ export default function HybridMovieRow({
           className="flex space-x-3 overflow-x-auto hide-scrollbar pb-4"
         >
           {displayedMovies.map((movie, index) => (
-            <HybridMovieCard key={movie.id} movie={movie} index={index} />
+            <HybridMovieCard key={movie.id} movie={movie} index={index} section={section} />
           ))}
         </div>
       </div>

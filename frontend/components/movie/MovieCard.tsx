@@ -6,6 +6,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Star, Eye } from "lucide-react";
 import { getImageUrl, formatDate } from "@/lib/utils";
+import { trackEvent } from "@/lib/eventTracker";
 import type { Movie } from "@/types";
 import MovieModal from "./MovieModal";
 import HighlightText from "@/components/ui/HighlightText";
@@ -28,9 +29,10 @@ interface MovieCardProps {
   index?: number;
   showQuickView?: boolean;
   highlightQuery?: string;
+  section?: string;
 }
 
-export default function MovieCard({ movie, index = 0, showQuickView = true, highlightQuery = "" }: MovieCardProps) {
+export default function MovieCard({ movie, index = 0, showQuickView = true, highlightQuery = "", section }: MovieCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [imageError, setImageError] = useState(false);
 
@@ -48,7 +50,18 @@ export default function MovieCard({ movie, index = 0, showQuickView = true, high
         transition={{ duration: 0.3, delay: index * 0.05 }}
         className="flex-shrink-0 w-[160px] md:w-[200px] group"
       >
-        <Link href={`/movies/${movie.id}`}>
+        <Link
+          href={`/movies/${movie.id}`}
+          onClick={() => {
+            if (section) {
+              trackEvent({
+                event_type: "movie_click",
+                movie_id: movie.id,
+                metadata: { source: "recommendation", section, position: index },
+              });
+            }
+          }}
+        >
           {/* Poster */}
           <div className="relative aspect-[2/3] rounded-md overflow-hidden bg-dark-100 cursor-pointer">
             {!imageError && movie.poster_path ? (

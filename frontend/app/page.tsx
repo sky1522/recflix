@@ -20,6 +20,20 @@ import {
 import { buildUserContext, type UserContext } from "@/lib/contextCuration";
 import { SUBTITLE_COUNT, WEATHER_THEME_CLASSES } from "@/lib/constants";
 
+/** 추천 Row 타이틀에서 섹션 이름 추출 (이벤트 트래킹용) */
+function getSectionFromTitle(title: string): string {
+  if (title.includes("인기 영화")) return "popular";
+  if (title.includes("높은 평점")) return "top_rated";
+  if (title.includes("성향 추천")) return "mbti";
+  if (
+    title.includes("맑은") ||
+    title.includes("비 오는") ||
+    title.includes("흐린") ||
+    title.includes("눈 오는")
+  ) return "weather";
+  return "mood";
+}
+
 // Module-level cache: survives component remounts (back navigation)
 let cachedRecommendations: HomeRecommendations | null = null;
 let cachedKey = "";
@@ -250,6 +264,7 @@ export default function HomePage() {
             title={recommendations.hybrid_row.title}
             subtitle={getHybridSubtitle()}
             movies={recommendations.hybrid_row.movies}
+            section="personal"
           />
         )}
 
@@ -269,6 +284,7 @@ export default function HomePage() {
             title={row.title}
             subtitle={getRowSubtitle(row.title)}
             movies={row.movies}
+            section={getSectionFromTitle(row.title)}
           />
         ))}
       </div>

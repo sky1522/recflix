@@ -6,6 +6,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Star, Users } from "lucide-react";
 import { getMovie, getSimilarMovies, getCatchphrase } from "@/lib/api";
+import { trackEvent } from "@/lib/eventTracker";
 import { useInteractionStore } from "@/stores/interactionStore";
 import { useAuthStore } from "@/stores/authStore";
 import type { MovieDetail, Movie } from "@/types";
@@ -31,6 +32,26 @@ export default function MovieDetailPage() {
   const { interactions, fetchInteraction, toggleFavorite, setRating } =
     useInteractionStore();
   const interaction = interactions[movieId];
+
+  // 상세 페이지 진입/이탈 이벤트 추적
+  useEffect(() => {
+    if (!movieId || isNaN(movieId)) return;
+    const enterTime = Date.now();
+
+    trackEvent({
+      event_type: "movie_detail_view",
+      movie_id: movieId,
+      metadata: { referrer: document.referrer },
+    });
+
+    return () => {
+      trackEvent({
+        event_type: "movie_detail_leave",
+        movie_id: movieId,
+        metadata: { duration_ms: Date.now() - enterTime },
+      });
+    };
+  }, [movieId]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -76,6 +97,12 @@ export default function MovieDetailPage() {
       router.push("/login");
       return;
     }
+    const isAdding = !isFavorited;
+    trackEvent({
+      event_type: isAdding ? "favorite_add" : "favorite_remove",
+      movie_id: movieId,
+      metadata: { source: "detail_page" },
+    });
     try {
       await toggleFavorite(movieId);
     } catch (error) {
@@ -88,6 +115,11 @@ export default function MovieDetailPage() {
       router.push("/login");
       return;
     }
+    trackEvent({
+      event_type: "rating",
+      movie_id: movieId,
+      metadata: { rating: score, source: "detail_page" },
+    });
     try {
       await setRating(movieId, score);
     } catch (error) {

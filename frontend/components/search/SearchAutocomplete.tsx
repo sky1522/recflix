@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Search, Film, User, X, Star } from "lucide-react";
 import { useDebounce } from "@/hooks/useDebounce";
 import { searchAutocomplete, type AutocompleteResult } from "@/lib/api";
+import { trackEvent } from "@/lib/eventTracker";
 import { getImageUrl } from "@/lib/utils";
 import HighlightText from "@/components/ui/HighlightText";
 
@@ -64,6 +65,13 @@ export default function SearchAutocomplete({
         const data = await searchAutocomplete(debouncedQuery);
         setResults(data);
         setActiveIndex(-1);
+        trackEvent({
+          event_type: "search",
+          metadata: {
+            query: debouncedQuery,
+            result_count: data.movies.length + data.people.length,
+          },
+        });
       } catch (error) {
         console.error("Autocomplete error:", error);
         setResults(null);
@@ -233,14 +241,21 @@ export default function SearchAutocomplete({
                         영화
                       </span>
                     </div>
-                    {results.movies.map((movie) => {
+                    {results.movies.map((movie, movieIdx) => {
                       itemIndex++;
                       const isActive = itemIndex === activeIndex;
                       return (
                         <button
                           key={movie.id}
                           data-autocomplete-item
-                          onClick={() => handleMovieClick(movie.id)}
+                          onClick={() => {
+                            trackEvent({
+                              event_type: "search_click",
+                              movie_id: movie.id,
+                              metadata: { query, position: movieIdx },
+                            });
+                            handleMovieClick(movie.id);
+                          }}
                           onMouseEnter={() => setActiveIndex(itemIndex)}
                           className={`w-full flex items-center space-x-3 px-4 py-3 transition text-left ${
                             isActive ? "bg-white/10" : "hover:bg-white/5"

@@ -3,6 +3,7 @@
 import { useRef, useState, useMemo, useCallback } from "react";
 import { RefreshCw } from "lucide-react";
 import MovieCard from "./MovieCard";
+import { useImpressionTracker } from "@/hooks/useImpressionTracker";
 import type { Movie } from "@/types";
 
 interface MovieRowProps {
@@ -11,6 +12,7 @@ interface MovieRowProps {
   subtitle?: string;
   movies: Movie[];
   displayCount?: number;
+  section?: string;
 }
 
 // Fisher-Yates shuffle
@@ -23,8 +25,13 @@ function shuffleArray<T>(array: T[]): T[] {
   return shuffled;
 }
 
-export default function MovieRow({ title, description, subtitle, movies, displayCount = 20 }: MovieRowProps) {
+export default function MovieRow({ title, description, subtitle, movies, displayCount = 20, section }: MovieRowProps) {
   const rowRef = useRef<HTMLDivElement>(null);
+  const impressionRef = useImpressionTracker(
+    section || "",
+    movies.map((m) => m.id),
+    !!section,
+  );
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
   const [shuffleKey, setShuffleKey] = useState(0);
@@ -77,7 +84,7 @@ export default function MovieRow({ title, description, subtitle, movies, display
   if (!movies || movies.length === 0) return null;
 
   return (
-    <section className="relative group/row">
+    <section ref={impressionRef} className="relative group/row">
       {/* Header */}
       <div className="mb-3 flex items-baseline gap-3">
         <h2 className="text-xl md:text-2xl font-bold text-white flex-shrink-0">{title}</h2>
@@ -134,7 +141,7 @@ export default function MovieRow({ title, description, subtitle, movies, display
           className="flex space-x-3 overflow-x-auto hide-scrollbar pb-4"
         >
           {displayedMovies.map((movie, index) => (
-            <MovieCard key={movie.id} movie={movie} index={index} />
+            <MovieCard key={movie.id} movie={movie} index={index} section={section} />
           ))}
         </div>
       </div>

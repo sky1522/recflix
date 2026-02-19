@@ -336,3 +336,53 @@ search, search_click, rating, favorite_add, favorite_remove
 - Router: Import OK ✅
 - App: 시작 OK ✅
 - Ruff: All checks passed ✅
+
+---
+
+# Phase 2-2: 사용자 행동 이벤트 전송 (Frontend) 결과
+
+## 날짜
+2026-02-19
+
+## 생성된 파일
+| 파일 | 용도 | 줄 수 |
+|------|------|-------|
+| frontend/lib/eventTracker.ts | 이벤트 배치 전송 싱글톤 (5초 auto-flush, Beacon API) | 100줄 |
+| frontend/hooks/useImpressionTracker.ts | 추천 섹션 뷰포트 노출 감지 훅 (IntersectionObserver) | 44줄 |
+
+## 수정된 파일
+| 파일 | 변경 내용 |
+|------|----------|
+| frontend/components/movie/MovieCard.tsx | section prop 추가, movie_click trackEvent 호출 |
+| frontend/components/movie/HybridMovieCard.tsx | section prop 추가, movie_click trackEvent 호출 |
+| frontend/components/movie/MovieRow.tsx | section prop 추가, useImpressionTracker 연동, MovieCard에 section 전달 |
+| frontend/components/movie/HybridMovieRow.tsx | section prop 추가, useImpressionTracker 연동, HybridMovieCard에 section 전달 |
+| frontend/app/page.tsx | getSectionFromTitle 헬퍼, section prop을 Row 컴포넌트에 전달 |
+| frontend/app/movies/[id]/page.tsx | movie_detail_view/leave useEffect, rating/favorite trackEvent 호출 |
+| frontend/components/search/SearchAutocomplete.tsx | search 이벤트 (결과 도착 시), search_click 이벤트 (영화 선택 시) |
+
+## 이벤트 삽입 지점
+| 이벤트 | 컴포넌트 | 트리거 |
+|--------|---------|--------|
+| movie_click | MovieCard / HybridMovieCard | 카드 클릭 (section 있을 때만) |
+| movie_detail_view | movies/[id]/page.tsx | useEffect mount |
+| movie_detail_leave | movies/[id]/page.tsx | useEffect cleanup (duration_ms 포함) |
+| recommendation_impression | MovieRow / HybridMovieRow | IntersectionObserver (30% threshold) |
+| search | SearchAutocomplete | 자동완성 결과 도착 |
+| search_click | SearchAutocomplete | 영화 결과 클릭 |
+| rating | movies/[id]/page.tsx | 별점 등록 |
+| favorite_add/remove | movies/[id]/page.tsx | 찜 토글 |
+
+## 설계 특징
+- **배치 전송**: 5초마다 큐의 이벤트를 `/events/batch`로 일괄 전송
+- **Beacon API**: 페이지 이탈 시 `navigator.sendBeacon`으로 잔여 이벤트 전송
+- **세션 ID**: `sessionStorage`에 탭 단위 세션 ID 관리
+- **SSR 안전**: `typeof window !== "undefined"` 체크, 서버에서는 null 싱글톤
+- **실패 무시**: 전송 실패 시 `console.warn`만, UX 영향 없음
+- **중복 방지**: Impression은 `tracked.current` ref로 섹션당 1회만 기록
+
+## 검증 결과
+- TypeScript: No errors ✅
+- ESLint: No warnings ✅
+- Build: 성공 ✅
+- 기존 기능: 변경 없음 ✅
