@@ -25,6 +25,12 @@ email-validator==2.1.0.post1
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 
+# Error Tracking
+sentry-sdk[fastapi]==2.19.2
+
+# Rate Limiting
+slowapi==0.1.9
+
 # HTTP Client
 httpx==0.26.0
 
@@ -34,6 +40,7 @@ anthropic==0.42.0
 # Data Processing
 pandas==2.1.4
 numpy==1.26.3
+scipy==1.14.1
 
 # Utilities
 python-dotenv==1.0.0

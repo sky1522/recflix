@@ -599,3 +599,56 @@ search, search_click, rating, favorite_add, favorite_remove
 - Backend 라우트: signup, login, refresh_token, kakao_login, google_login ✅
 - Frontend TypeScript: ✅
 - Frontend Build: 성공 (13 pages) ✅
+
+---
+
+# 긴급 수정: 소셜 로그인 디버깅 결과
+
+## 날짜
+2026-02-19
+
+## 원인
+**2가지 원인 동시 발생:**
+
+### 원인 1: Frontend - 환경변수 미설정 + Silent Fail (체크 A)
+- `frontend/.env.local` 파일이 **존재하지 않음**
+- `NEXT_PUBLIC_KAKAO_CLIENT_ID`, `NEXT_PUBLIC_GOOGLE_CLIENT_ID` 등 모두 undefined
+- `if (clientId && redirectUri)` 가드 조건에서 **아무 동작 없이 종료** (silent fail)
+- login/page.tsx, signup/page.tsx 양쪽 모두 동일한 문제
+
+### 원인 2: Backend - 미배포 + 의존성 누락
+- `/api/v1/auth/kakao`, `/api/v1/auth/google` → **404 Not Found** (배포 안 됨)
+- `/api/v1/events/batch` → **404 Not Found** (배포 안 됨)
+- `railway up` 후 **502 크래시** → `ModuleNotFoundError: No module named 'sentry_sdk'`
+- 원인: **루트 `requirements.txt`에 `sentry-sdk`, `slowapi`, `scipy` 누락** (backend/requirements.txt와 비동기)
+- 추가: 프로덕션 DB에 `user_events` 테이블 미생성
+
+## 수정 내용
+| 파일 | 변경 |
+|------|------|
+| frontend/app/login/page.tsx | 카카오/Google 버튼 가드 조건 반전 (`if (!clientId \|\| !redirectUri)` → console.error + alert) |
+| frontend/app/signup/page.tsx | 동일한 수정 (silent fail → 에러 표시) |
+| requirements.txt (루트) | backend/requirements.txt와 동기화 (+sentry-sdk, +slowapi, +scipy) |
+| 프로덕션 DB | `user_events` 테이블 + 인덱스 5개 생성 (ALTER TABLE via psql) |
+
+## Backend 배포 상태
+- Railway 재배포: 2026-02-19 완료
+- /health: 200 OK ✅
+- /auth/login: 401 (정상) ✅
+- /auth/kakao: 401 "카카오 인증에 실패했습니다" (엔드포인트 존재 확인) ✅
+- /auth/google: 401 "구글 인증에 실패했습니다" (엔드포인트 존재 확인) ✅
+- /events/batch: 201 OK ✅
+
+## 검증 결과
+- 로컬 카카오 버튼: ⚠️ .env.local 없어서 alert 표시 (정상 동작 - silent fail 방지됨)
+- 프로덕션 카카오 버튼: ⚠️ Vercel에 NEXT_PUBLIC_KAKAO_CLIENT_ID 미등록 시 alert 표시
+- 로컬 Google 버튼: ⚠️ .env.local 없어서 alert 표시 (정상 동작 - silent fail 방지됨)
+- 프로덕션 Google 버튼: ⚠️ Vercel에 NEXT_PUBLIC_GOOGLE_CLIENT_ID 미등록 시 alert 표시
+- Backend 엔드포인트: 모두 정상 ✅
+- ESLint: No warnings ✅
+
+## 남은 작업 (OAuth 앱 등록 필요)
+1. **Kakao Developers** 앱 등록 → REST API 키 + Client Secret 획득
+2. **Google Cloud Console** OAuth 2.0 클라이언트 생성 → Client ID + Secret 획득
+3. Frontend: Vercel 대시보드에 `NEXT_PUBLIC_KAKAO_CLIENT_ID`, `NEXT_PUBLIC_KAKAO_REDIRECT_URI`, `NEXT_PUBLIC_GOOGLE_CLIENT_ID`, `NEXT_PUBLIC_GOOGLE_REDIRECT_URI` 등록 → 재빌드
+4. Backend: Railway 대시보드에 `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`, `KAKAO_REDIRECT_URI`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` 등록

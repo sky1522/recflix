@@ -143,9 +143,12 @@ export default function LoginPage() {
               onClick={() => {
                 const clientId = process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID;
                 const redirectUri = process.env.NEXT_PUBLIC_KAKAO_REDIRECT_URI;
-                if (clientId && redirectUri) {
-                  window.location.href = `https://kauth.kakao.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code`;
+                if (!clientId || !redirectUri) {
+                  console.error("Kakao OAuth 환경변수 미설정:", { clientId, redirectUri });
+                  alert("카카오 로그인 설정이 필요합니다.");
+                  return;
                 }
+                window.location.href = `https://kauth.kakao.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code`;
               }}
               className="w-full py-3 bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] font-medium rounded-lg transition flex items-center justify-center gap-2"
             >
@@ -160,9 +163,12 @@ export default function LoginPage() {
               onClick={() => {
                 const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
                 const redirectUri = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI;
-                if (clientId && redirectUri) {
-                  window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid%20email%20profile`;
+                if (!clientId || !redirectUri) {
+                  console.error("Google OAuth 환경변수 미설정:", { clientId, redirectUri });
+                  alert("Google 로그인 설정이 필요합니다.");
+                  return;
                 }
+                window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid%20email%20profile`;
               }}
               className="w-full py-3 bg-white hover:bg-gray-100 text-gray-700 font-medium rounded-lg transition flex items-center justify-center gap-2 border border-white/20"
             >
