@@ -516,3 +516,48 @@ search, search_click, rating, favorite_add, favorite_remove
 - CF 모듈: Import OK ✅
 - 기존 추천 API: 동작 OK ✅
 - Ruff: All checks passed ✅
+
+---
+
+# Phase 4-1: A/B 테스트 프레임워크 + 추천 품질 대시보드 결과
+
+## 날짜
+2026-02-19
+
+## 수정된 파일
+| 파일 | 변경 내용 |
+|------|----------|
+| backend/app/models/user.py | experiment_group 컬럼 추가 (String(10), default="control", server_default="control") |
+| backend/app/api/v1/auth.py | 회원가입 시 랜덤 그룹 배정 (random.choice) |
+| backend/app/api/v1/recommendation_engine.py | get_weights_for_group() + _get_control_weights() 함수 추가, experiment_group 파라미터 |
+| backend/app/api/v1/recommendation_constants.py | WEIGHTS_HYBRID_A/B, WEIGHTS_HYBRID_A/B_NO_MOOD 상수 4개 추가 |
+| backend/app/api/v1/recommendations.py | calculate_hybrid_scores()에 experiment_group 전달 |
+| backend/app/api/v1/events.py | AB report 엔드포인트 + experiment_group 메타데이터 자동 주입 |
+| backend/app/schemas/user_event.py | not_interested 이벤트 타입 + ABGroupStats, ABReport 스키마 추가 |
+
+## 실험 그룹 가중치
+| 그룹 | MBTI | Weather | Mood | Personal | CF | 설명 |
+|------|------|---------|------|----------|-----|------|
+| control | 0.20/0.25 | 0.15/0.20 | 0.25/- | 0.15/0.30 | 0.25 | 기존 Rule-based + CF 25% |
+| test_a | 0.12/0.17 | 0.10/0.13 | 0.15/- | 0.13/0.20 | 0.50 | CF 50% |
+| test_b | 0.08/0.10 | 0.07/0.08 | 0.10/- | 0.05/0.12 | 0.70 | CF 70% |
+
+## API 엔드포인트
+| 메서드 | 경로 | Rate Limit | 인증 | 용도 |
+|--------|------|-----------|------|------|
+| GET | /api/v1/events/ab-report | 30/분 | 필수 | A/B 테스트 그룹별 리포트 |
+
+## AB Report 응답 구조
+- groups: 그룹별 users, total_clicks, total_impressions, ctr, avg_detail_duration_ms, rating_conversion, favorite_conversion, by_section
+- winner: CTR 기준 최고 그룹
+- confidence_note: 통계적 유의성 안내
+
+## 이벤트 확장
+- `not_interested` 이벤트 타입 추가 (총 10종)
+- 이벤트 기록 시 로그인 사용자의 experiment_group 자동 메타데이터 주입
+
+## 검증 결과
+- experiment_group: 모델 OK ✅
+- 가중치 분기: control/test_a/test_b 모두 정상 반환 ✅
+- not_interested 이벤트: OK ✅
+- Ruff: All checks passed ✅

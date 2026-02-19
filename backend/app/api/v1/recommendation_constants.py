@@ -32,6 +32,22 @@ WEIGHT_WEATHER_NO_MOOD_CF = 0.20
 WEIGHT_PERSONAL_NO_MOOD_CF = 0.30
 WEIGHT_CF_NO_MOOD = 0.25
 
+# A/B 테스트 가중치: test_a (Rule 50% + CF 50%)
+WEIGHTS_HYBRID_A = {
+    "mbti": 0.12, "weather": 0.10, "mood": 0.15, "personal": 0.13, "cf": 0.50,
+}
+WEIGHTS_HYBRID_A_NO_MOOD = {
+    "mbti": 0.17, "weather": 0.13, "personal": 0.20, "cf": 0.50,
+}
+
+# A/B 테스트 가중치: test_b (Rule 30% + CF 70%)
+WEIGHTS_HYBRID_B = {
+    "mbti": 0.08, "weather": 0.07, "mood": 0.10, "personal": 0.05, "cf": 0.70,
+}
+WEIGHTS_HYBRID_B_NO_MOOD = {
+    "mbti": 0.10, "weather": 0.08, "personal": 0.12, "cf": 0.70,
+}
+
 # Quality correction range (weighted_score based)
 QUALITY_BOOST_MIN = 0.85  # floor multiplier for ws=6.0
 QUALITY_BOOST_MAX = 1.00  # ceiling multiplier for ws=max

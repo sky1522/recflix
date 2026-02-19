@@ -65,7 +65,8 @@ def get_home_recommendations(
 
         scored = calculate_hybrid_scores(
             db, candidate_movies, mbti, weather,
-            genre_counts, favorited_ids, similar_ids, mood
+            genre_counts, favorited_ids, similar_ids, mood,
+            experiment_group=current_user.experiment_group,
         )
 
         top_pool = scored[:60]
@@ -221,7 +222,8 @@ def get_hybrid_recommendations(
 
     scored = calculate_hybrid_scores(
         db, candidate_movies, mbti, weather,
-        genre_counts, favorited_ids, similar_ids
+        genre_counts, favorited_ids, similar_ids,
+        experiment_group=current_user.experiment_group,
     )
 
     top_movies = scored[:limit]

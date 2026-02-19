@@ -2,7 +2,8 @@
 User Model
 """
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Date
+
+from sqlalchemy import Boolean, Column, Date, DateTime, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -19,6 +20,7 @@ class User(Base):
     mbti = Column(String(4), nullable=True)
     birth_date = Column(Date, nullable=True)
     location_consent = Column(Boolean, default=False)
+    experiment_group = Column(String(10), nullable=False, default="control", server_default="control")
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

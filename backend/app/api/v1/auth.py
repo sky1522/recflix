@@ -1,17 +1,24 @@
 """
 Authentication API endpoints
 """
+import random
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_db
 from app.core.rate_limit import limiter
 from app.core.security import (
-    verify_password, get_password_hash,
-    create_access_token, create_refresh_token, decode_token
+    create_access_token,
+    create_refresh_token,
+    decode_token,
+    get_password_hash,
+    verify_password,
 )
 from app.models import User
-from app.schemas import UserCreate, UserResponse, UserLogin, Token, TokenRefresh
+from app.schemas import Token, TokenRefresh, UserCreate, UserLogin, UserResponse
+
+EXPERIMENT_GROUPS = ["control", "test_a", "test_b"]
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -27,14 +34,15 @@ def signup(request: Request, user_data: UserCreate, db: Session = Depends(get_db
             detail="Email already registered"
         )
 
-    # Create user
+    # Create user with random experiment group
     user = User(
         email=user_data.email,
         password=get_password_hash(user_data.password),
         nickname=user_data.nickname,
         mbti=user_data.mbti,
         birth_date=user_data.birth_date,
-        location_consent=user_data.location_consent
+        location_consent=user_data.location_consent,
+        experiment_group=random.choice(EXPERIMENT_GROUPS),
     )
     db.add(user)
     db.commit()

@@ -32,9 +32,40 @@ from app.api.v1.recommendation_constants import (
     WEIGHT_WEATHER_CF,
     WEIGHT_WEATHER_NO_MOOD,
     WEIGHT_WEATHER_NO_MOOD_CF,
+    WEIGHTS_HYBRID_A,
+    WEIGHTS_HYBRID_A_NO_MOOD,
+    WEIGHTS_HYBRID_B,
+    WEIGHTS_HYBRID_B_NO_MOOD,
 )
 from app.models import Collection, Movie, Rating, User
 from app.schemas.recommendation import RecommendationTag
+
+
+def get_weights_for_group(
+    experiment_group: str, use_mood: bool,
+) -> tuple[float, float, float, float, float]:
+    """실험 그룹별 가중치 반환: (mbti, weather, mood, personal, cf)"""
+    if experiment_group == "test_a":
+        w = WEIGHTS_HYBRID_A if use_mood else WEIGHTS_HYBRID_A_NO_MOOD
+    elif experiment_group == "test_b":
+        w = WEIGHTS_HYBRID_B if use_mood else WEIGHTS_HYBRID_B_NO_MOOD
+    else:
+        return _get_control_weights(use_mood)
+    return (w["mbti"], w["weather"], w.get("mood", 0.0), w["personal"], w["cf"])
+
+
+def _get_control_weights(
+    use_mood: bool,
+) -> tuple[float, float, float, float, float]:
+    """control 그룹 가중치 (기존 로직)"""
+    cf_available = is_cf_available()
+    if use_mood and cf_available:
+        return (WEIGHT_MBTI_CF, WEIGHT_WEATHER_CF, WEIGHT_MOOD_CF, WEIGHT_PERSONAL_CF, WEIGHT_CF)
+    if use_mood:
+        return (WEIGHT_MBTI, WEIGHT_WEATHER, WEIGHT_MOOD, WEIGHT_PERSONAL, 0.0)
+    if cf_available:
+        return (WEIGHT_MBTI_NO_MOOD_CF, WEIGHT_WEATHER_NO_MOOD_CF, 0.0, WEIGHT_PERSONAL_NO_MOOD_CF, WEIGHT_CF_NO_MOOD)
+    return (WEIGHT_MBTI_NO_MOOD, WEIGHT_WEATHER_NO_MOOD, 0.0, WEIGHT_PERSONAL_NO_MOOD, 0.0)
 
 
 def apply_age_rating_filter(query, age_rating: str | None):
@@ -216,12 +247,12 @@ def calculate_hybrid_scores(
     genre_counts: dict[str, int],
     favorited_ids: set,
     similar_ids: set,
-    mood: str | None = None
+    mood: str | None = None,
+    experiment_group: str = "control",
 ) -> list[tuple[Movie, float, list[RecommendationTag]]]:
     """
     Calculate hybrid scores for movies.
-    With mood: (0.25 × MBTI) + (0.20 × Weather) + (0.30 × Mood) + (0.25 × Personal)
-    Without mood: (0.35 × MBTI) + (0.25 × Weather) + (0.40 × Personal)
+    Weights are determined by experiment_group (control/test_a/test_b).
     Final score is multiplied by a quality factor based on weighted_score (0.85~1.0).
     """
     scored_movies: list[tuple[Movie, float, list[RecommendationTag]]] = []
@@ -229,24 +260,7 @@ def calculate_hybrid_scores(
     top_genre_names = {g[0] for g in top_genres}
 
     use_mood = mood is not None and mood in MOOD_EMOTION_MAPPING
-    cf_available = is_cf_available()
-
-    if use_mood and cf_available:
-        w_mbti, w_weather, w_mood, w_personal, w_cf = (
-            WEIGHT_MBTI_CF, WEIGHT_WEATHER_CF, WEIGHT_MOOD_CF, WEIGHT_PERSONAL_CF, WEIGHT_CF,
-        )
-    elif use_mood:
-        w_mbti, w_weather, w_mood, w_personal, w_cf = (
-            WEIGHT_MBTI, WEIGHT_WEATHER, WEIGHT_MOOD, WEIGHT_PERSONAL, 0.0,
-        )
-    elif cf_available:
-        w_mbti, w_weather, w_mood, w_personal, w_cf = (
-            WEIGHT_MBTI_NO_MOOD_CF, WEIGHT_WEATHER_NO_MOOD_CF, 0.0, WEIGHT_PERSONAL_NO_MOOD_CF, WEIGHT_CF_NO_MOOD,
-        )
-    else:
-        w_mbti, w_weather, w_mood, w_personal, w_cf = (
-            WEIGHT_MBTI_NO_MOOD, WEIGHT_WEATHER_NO_MOOD, 0.0, WEIGHT_PERSONAL_NO_MOOD, 0.0,
-        )
+    w_mbti, w_weather, w_mood, w_personal, w_cf = get_weights_for_group(experiment_group, use_mood)
 
     for movie in movies:
         tags: list[RecommendationTag] = []

@@ -13,6 +13,7 @@ ALLOWED_EVENT_TYPES = {
     "rating",
     "favorite_add",
     "favorite_remove",
+    "not_interested",
 }
 
 
@@ -56,3 +57,23 @@ class EventStats(BaseModel):
     recommendation_ctr: dict
     unique_users: int
     unique_movies_clicked: int
+
+
+class ABGroupStats(BaseModel):
+    """A/B 그룹별 통계"""
+    users: int
+    total_clicks: int
+    total_impressions: int
+    ctr: float
+    avg_detail_duration_ms: float | None
+    rating_conversion: float
+    favorite_conversion: float
+    by_section: dict[str, dict[str, float | int]]
+
+
+class ABReport(BaseModel):
+    """A/B 테스트 리포트"""
+    period: str
+    groups: dict[str, ABGroupStats]
+    winner: str | None
+    confidence_note: str
