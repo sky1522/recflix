@@ -285,3 +285,54 @@ Weather API: enabled/disabled
 - Config 검증: DB=True, JWT=True ✅
 - 앱 시작: OK ✅
 - Ruff (rate_limit.py, exceptions.py): All checks passed ✅
+
+---
+
+# Phase 2-1: 사용자 행동 이벤트 로깅 (Backend) 결과
+
+## 날짜
+2026-02-19
+
+## 생성된 파일
+| 파일 | 용도 | 줄 수 |
+|------|------|-------|
+| backend/app/models/user_event.py | UserEvent 모델 + 복합 인덱스 3개 | 33줄 |
+| backend/app/schemas/user_event.py | EventCreate, EventBatch, EventResponse, EventStats | 56줄 |
+| backend/app/api/v1/events.py | 이벤트 API (단일, 배치, 통계) | 161줄 |
+
+## 수정된 파일
+| 파일 | 변경 내용 |
+|------|----------|
+| backend/app/models/__init__.py | UserEvent import 추가 |
+| backend/app/api/v1/router.py | events 라우터 등록 |
+
+## API 엔드포인트
+| 메서드 | 경로 | Rate Limit | 인증 |
+|--------|------|-----------|------|
+| POST | /api/v1/events | 60/분 | 선택적 |
+| POST | /api/v1/events/batch | 30/분 | 선택적 |
+| GET | /api/v1/events/stats | 30/분 | 필수 |
+
+## 이벤트 타입 (9종)
+movie_click, movie_detail_view, movie_detail_leave, recommendation_impression,
+search, search_click, rating, favorite_add, favorite_remove
+
+## DB 인덱스
+| 인덱스 | 컬럼 | 용도 |
+|--------|------|------|
+| idx_events_user_time | user_id, created_at | 사용자별 시간순 조회 |
+| idx_events_type_time | event_type, created_at | 타입별 집계 |
+| idx_events_movie | movie_id, event_type | 영화별 이벤트 집계 |
+
+## 설계 원칙
+- 실패해도 200 반환 (이벤트 로깅이 UX에 영향 없음)
+- 비로그인 사용자는 session_id로 추적
+- 배치 전송 지원 (최대 50개/요청)
+- 통계 엔드포인트에서 추천 CTR (섹션별) 집계
+
+## 검증 결과
+- Model: Import OK ✅
+- Schema: Import OK ✅
+- Router: Import OK ✅
+- App: 시작 OK ✅
+- Ruff: All checks passed ✅

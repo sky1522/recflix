@@ -7,6 +7,7 @@ from app.models.country import Country
 from app.models.user import User
 from app.models.collection import Collection, collection_movies
 from app.models.rating import Rating
+from app.models.user_event import UserEvent
 
 __all__ = [
     'Movie',
@@ -17,6 +18,7 @@ __all__ = [
     'User',
     'Collection',
     'Rating',
+    'UserEvent',
     'GENRE_MAPPING',
     'movie_genres',
     'movie_cast',
