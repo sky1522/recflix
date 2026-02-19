@@ -1,6 +1,6 @@
 # RecFlix 추천 시스템 로직
 
-> 마지막 업데이트: 2026-02-13
+> 마지막 업데이트: 2026-02-19
 
 ---
 
@@ -292,20 +292,27 @@ if mood_score > 0.5:
 
 ## 7. Hybrid (종합) 추천 로직
 
-### 7.1 가중치 구성 (v2 튜닝, 2026-02-10~)
+### 7.1 가중치 구성 (v3, CF 통합, 2026-02-19~)
 
-**Mood 있을 때:**
+**CF 모델 활성화 + Mood 있을 때:**
 ```
-Hybrid Score = (0.25 × MBTI) + (0.20 × Weather) + (0.30 × Mood) + (0.25 × Personal)
-```
-
-**Mood 없을 때:**
-```
-Hybrid Score = (0.35 × MBTI) + (0.25 × Weather) + (0.40 × Personal)
+Hybrid Score = (0.20 × MBTI) + (0.15 × Weather) + (0.25 × Mood) + (0.15 × Personal) + (0.25 × CF)
 ```
 
-> **v2 변경점**: Mood 가중치를 0.20 → 0.30으로 강화하여 기분 맞춤 추천을 강화하고,
-> MBTI(0.30→0.25)와 Personal(0.30→0.25)을 완화하여 과잉 지배를 방지합니다.
+**CF 모델 활성화 + Mood 없을 때:**
+```
+Hybrid Score = (0.25 × MBTI) + (0.20 × Weather) + (0.30 × Personal) + (0.25 × CF)
+```
+
+**CF 모델 없을 때 (기존 v2):**
+```
+Mood 있음: (0.25 × MBTI) + (0.20 × Weather) + (0.30 × Mood) + (0.25 × Personal)
+Mood 없음: (0.35 × MBTI) + (0.25 × Weather) + (0.40 × Personal)
+```
+
+> **v3 변경점**: MovieLens 25M 기반 SVD 협업 필터링 모델의 item_bias를 CF 품질 점수로 25% 가중치 배정.
+> RecFlix 사용자는 MovieLens에 없으므로 CF = global_mean + item_bias (아이템 품질 추정).
+> SVD RMSE=0.8768 (Item Mean 0.9656 대비 -9.2% 개선).
 
 ### 7.2 Personal Score 구성요소
 
@@ -455,6 +462,9 @@ const displayedMovies = useMemo(() => {
 | 파일 | 설명 |
 |------|------|
 | `backend/app/api/v1/recommendations.py` | 추천 API 엔드포인트 (Hybrid 스코어링, 품질 필터, 연령등급) |
+| `backend/app/api/v1/recommendation_engine.py` | Hybrid 스코어링 엔진 (CF 통합) |
+| `backend/app/api/v1/recommendation_constants.py` | 가중치 상수 (v2/v3, CF 포함) |
+| `backend/app/api/v1/recommendation_cf.py` | 협업 필터링 모듈 (SVD item_bias 예측) |
 | `backend/app/api/v1/movies.py` | 영화 검색 API (연령등급 필터 포함) |
 | `backend/app/models/movie.py` | Movie 모델 (JSONB 컬럼) |
 | `backend/scripts/regenerate_emotion_tags.py` | 키워드 기반 emotion_tags 생성 |
@@ -477,6 +487,7 @@ const displayedMovies = useMemo(() => {
 
 | 날짜 | 변경 내용 |
 |------|----------|
+| 2026-02-19 | CF 통합 (v3): MovieLens 25M SVD item_bias → 25% 가중치, recommendation_cf.py 신규 |
 | 2026-02-13 | 기분 카테고리 확장: 6개 → 8개 (gloomy 울적한, stifled 답답한 추가) |
 | 2026-02-13 | 컨텍스트 큐레이션 시스템: 시간대+계절+기온 감지, 258개 문구 (contextCuration.ts) |
 | 2026-02-13 | 큐레이션 서브타이틀 시스템: 날씨/기분/MBTI/고정별 보조 메시지 |

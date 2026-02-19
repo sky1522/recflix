@@ -118,6 +118,7 @@ data/processed/*
 backend/data/movielens/ml-25m/
 backend/data/movielens/ml-25m.zip
 backend/data/movielens/mapped_ratings.csv
+backend/data/movielens/svd_model.pkl
 
 # ----------------------------------------------
 # Docker

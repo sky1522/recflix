@@ -19,6 +19,19 @@ WEIGHT_MBTI_NO_MOOD = 0.35
 WEIGHT_WEATHER_NO_MOOD = 0.25
 WEIGHT_PERSONAL_NO_MOOD = 0.40
 
+# CF 모델 사용 시 가중치 (with mood + CF)
+WEIGHT_MBTI_CF = 0.20
+WEIGHT_WEATHER_CF = 0.15
+WEIGHT_MOOD_CF = 0.25
+WEIGHT_PERSONAL_CF = 0.15
+WEIGHT_CF = 0.25
+
+# CF 모델 사용 시 가중치 (without mood + CF)
+WEIGHT_MBTI_NO_MOOD_CF = 0.25
+WEIGHT_WEATHER_NO_MOOD_CF = 0.20
+WEIGHT_PERSONAL_NO_MOOD_CF = 0.30
+WEIGHT_CF_NO_MOOD = 0.25
+
 # Quality correction range (weighted_score based)
 QUALITY_BOOST_MIN = 0.85  # floor multiplier for ws=6.0
 QUALITY_BOOST_MAX = 1.00  # ceiling multiplier for ws=max

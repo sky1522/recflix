@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import text
 from sqlalchemy.orm import Session, selectinload
 
+from app.api.v1.recommendation_cf import is_cf_available, normalize_cf_score, predict_cf_score
 from app.api.v1.recommendation_constants import (
     AGE_RATING_MAP,
     MOOD_EMOTION_MAPPING,
@@ -15,13 +16,22 @@ from app.api.v1.recommendation_constants import (
     QUALITY_BOOST_MAX,
     QUALITY_BOOST_MIN,
     WEATHER_LABELS,
+    WEIGHT_CF,
+    WEIGHT_CF_NO_MOOD,
     WEIGHT_MBTI,
+    WEIGHT_MBTI_CF,
     WEIGHT_MBTI_NO_MOOD,
+    WEIGHT_MBTI_NO_MOOD_CF,
     WEIGHT_MOOD,
+    WEIGHT_MOOD_CF,
     WEIGHT_PERSONAL,
+    WEIGHT_PERSONAL_CF,
     WEIGHT_PERSONAL_NO_MOOD,
+    WEIGHT_PERSONAL_NO_MOOD_CF,
     WEIGHT_WEATHER,
+    WEIGHT_WEATHER_CF,
     WEIGHT_WEATHER_NO_MOOD,
+    WEIGHT_WEATHER_NO_MOOD_CF,
 )
 from app.models import Collection, Movie, Rating, User
 from app.schemas.recommendation import RecommendationTag
@@ -219,10 +229,24 @@ def calculate_hybrid_scores(
     top_genre_names = {g[0] for g in top_genres}
 
     use_mood = mood is not None and mood in MOOD_EMOTION_MAPPING
-    if use_mood:
-        w_mbti, w_weather, w_mood, w_personal = WEIGHT_MBTI, WEIGHT_WEATHER, WEIGHT_MOOD, WEIGHT_PERSONAL
+    cf_available = is_cf_available()
+
+    if use_mood and cf_available:
+        w_mbti, w_weather, w_mood, w_personal, w_cf = (
+            WEIGHT_MBTI_CF, WEIGHT_WEATHER_CF, WEIGHT_MOOD_CF, WEIGHT_PERSONAL_CF, WEIGHT_CF,
+        )
+    elif use_mood:
+        w_mbti, w_weather, w_mood, w_personal, w_cf = (
+            WEIGHT_MBTI, WEIGHT_WEATHER, WEIGHT_MOOD, WEIGHT_PERSONAL, 0.0,
+        )
+    elif cf_available:
+        w_mbti, w_weather, w_mood, w_personal, w_cf = (
+            WEIGHT_MBTI_NO_MOOD_CF, WEIGHT_WEATHER_NO_MOOD_CF, 0.0, WEIGHT_PERSONAL_NO_MOOD_CF, WEIGHT_CF_NO_MOOD,
+        )
     else:
-        w_mbti, w_weather, w_mood, w_personal = WEIGHT_MBTI_NO_MOOD, WEIGHT_WEATHER_NO_MOOD, 0.0, WEIGHT_PERSONAL_NO_MOOD
+        w_mbti, w_weather, w_mood, w_personal, w_cf = (
+            WEIGHT_MBTI_NO_MOOD, WEIGHT_WEATHER_NO_MOOD, 0.0, WEIGHT_PERSONAL_NO_MOOD, 0.0,
+        )
 
     for movie in movies:
         tags: list[RecommendationTag] = []
@@ -303,12 +327,20 @@ def calculate_hybrid_scores(
                 score=0.2
             ))
 
+        # 5. CF Score
+        cf_score = 0.0
+        if w_cf > 0:
+            raw_cf = predict_cf_score(movie.id)
+            if raw_cf is not None:
+                cf_score = normalize_cf_score(raw_cf)
+
         # Calculate hybrid score
         hybrid_score = (
             (w_mbti * mbti_score) +
             (w_weather * weather_score) +
             (w_mood * mood_score) +
-            (w_personal * personal_score)
+            (w_personal * personal_score) +
+            (w_cf * cf_score)
         )
 
         # Popularity boost (small)

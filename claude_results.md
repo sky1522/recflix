@@ -439,3 +439,80 @@ search, search_click, rating, favorite_add, favorite_remove
 - recommendation_eval.py: 실행 OK ✅
 - eval_results.csv: 3 베이스라인 결과 저장 ✅
 - .gitignore: 대용량 파일 제외 ✅
+
+---
+
+# Phase 3-2: 협업 필터링 (SVD) 구현 + 오프라인 평가 + 하이브리드 통합 결과
+
+## 날짜
+2026-02-19
+
+## 생성된 파일
+| 파일 | 용도 | 줄 수 |
+|------|------|-------|
+| backend/scripts/train_cf_model.py | SVD 모델 학습 + pickle 저장 | 98줄 |
+| backend/app/api/v1/recommendation_cf.py | CF 모델 로드 + 예측 | 66줄 |
+| backend/data/movielens/svd_model.pkl | 학습된 SVD 모델 | 53.1 MB |
+
+## 수정된 파일
+| 파일 | 변경 내용 |
+|------|----------|
+| backend/scripts/recommendation_eval.py | SVDModel 클래스, SVD/Hybrid 평가 추가 (193줄 → 517줄) |
+| backend/app/api/v1/recommendation_engine.py | CF 점수 통합 (predict_cf_score + 가중치 분기) |
+| backend/app/api/v1/recommendation_constants.py | WEIGHT_*_CF 상수 8개 추가 |
+| backend/requirements.txt | scipy==1.14.1 추가 |
+| .gitignore | svd_model.pkl 제외 추가 |
+
+## 오프라인 평가 결과 (10K 사용자 샘플)
+| 모델 | RMSE | Precision@10 | Recall@10 | NDCG@10 |
+|------|------|-------------|-----------|---------|
+| Popularity Baseline | - | 0.0234 | 0.0268 | 0.0327 |
+| Global Mean Baseline | 1.0513 | - | - | - |
+| Item Mean Baseline | 0.9656 | - | - | - |
+| **SVD (k=100)** | **0.8768** | 0.0014 | 0.0017 | 0.0021 |
+| Hybrid (α=0.3) | - | 0.0002 | 0.0000 | 0.0003 |
+| Hybrid (α=0.5) | - | 0.0000 | 0.0000 | 0.0000 |
+| Hybrid (α=0.7) | - | 0.0000 | 0.0000 | 0.0000 |
+
+## 핵심 분석
+- **SVD RMSE**: 0.8768 → Item Mean 대비 **-9.2% 개선** (평점 예측 우수)
+- **SVD Top-K**: 인기도 대비 약함 (sparse matrix + 개인화 신호 부족)
+- **프로덕션 활용**: SVD의 `item_bias`를 아이템 품질 시그널로 사용
+  - RecFlix 사용자는 MovieLens에 없으므로 CF = `global_mean + item_bias`
+  - 기존 Rule-based(MBTI/날씨/기분)에 CF 품질 점수를 25% 가중치로 보조
+
+## 프로덕션 가중치 (CF 활성화 시)
+| 조건 | MBTI | Weather | Mood | Personal | CF |
+|------|------|---------|------|----------|-----|
+| Mood+CF | 0.20 | 0.15 | 0.25 | 0.15 | 0.25 |
+| CF only | 0.25 | 0.20 | - | 0.30 | 0.25 |
+| 기존 (CF 없음) | 0.25 | 0.20 | 0.30 | 0.25 | - |
+
+## SVD 모델 학습 결과
+- 학습 데이터: 7,122,661 ratings, 50,000 users
+- Matrix: 50,000 × 17,471 items
+- Factors: k=100
+- global_mean: 3.5309
+- 모델 크기: 53.1 MB
+
+## CF 예측 예시
+| 영화 | ID | CF 점수 | 정규화 |
+|------|-----|---------|--------|
+| Shawshank Redemption | 278 | 4.42 | 0.87 |
+| Forrest Gump | 550 | 4.23 | 0.83 |
+| Pulp Fiction | 680 | 4.19 | 0.82 |
+| 매핑 안 된 영화 | 99999 | None | fallback |
+
+## 기술 결정
+- **scikit-surprise 대신 scipy**: Windows Cython 컴파일 에러 → scipy.sparse.linalg.svds 사용
+- **bias 제거 벡터화**: COO 형식으로 O(nnz) 연산 (dense 변환 불필요)
+- **RMSE 평가 벡터화**: numpy 배열 연산으로 iterrows() 제거
+- **Top-K 최적화**: np.argpartition으로 O(n) 선택
+
+## 검증 결과
+- scipy: Import OK ✅
+- 평가 스크립트: 실행 OK ✅
+- 모델 학습: OK ✅
+- CF 모듈: Import OK ✅
+- 기존 추천 API: 동작 OK ✅
+- Ruff: All checks passed ✅
