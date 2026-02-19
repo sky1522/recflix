@@ -54,6 +54,16 @@ All notable changes to RecFlix will be documented in this file.
   - GET /movies/onboarding, PUT /users/me/onboarding-complete
   - `frontend/app/onboarding/page.tsx`
 
+### Fixed
+- **소셜 로그인 OAuth 400 에러 수정**: Vercel 환경변수 `\n` 문제 + Pydantic 이메일 검증 실패
+  - **근본 원인**: Vercel 환경변수 4개 값 끝에 `\n` (줄바꿈 문자) 포함 → URLSearchParams가 `%0A`로 인코딩 → OAuth 제공자 값 불일치로 400 에러
+  - Frontend: 환경변수 읽기에 `.trim()` 안전장치 추가 (login, signup 페이지)
+  - Frontend: OAuth 에러 상세 정보를 콜백→로그인 페이지로 전달 (detail 파라미터)
+  - Backend: 이메일 없는 소셜 사용자 `@recflix.local` → `@noreply.example.com` (Pydantic EmailStr `.local` 도메인 거부 해결)
+  - Vercel 환경변수: 4개 삭제 후 `printf`(줄바꿈 없이)로 재등록
+  - `frontend/.env.local` 로컬 개발용 신규 생성
+  - 카카오 로그인 ✅, Google 로그인 ✅ 프로덕션 검증 완료
+
 ### Changed
 - **movies/[id]/page.tsx 리팩토링**: 622줄 → 231줄 + 4개 서브 컴포넌트
   - `MovieHero.tsx` (207줄), `MovieSidebar.tsx` (123줄), `SimilarMovies.tsx` (64줄), `MovieDetailSkeleton.tsx` (56줄)

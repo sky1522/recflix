@@ -415,6 +415,10 @@
 | Google OAuth 로그인 | ✅ | POST /auth/google + 콜백 페이지 |
 | 온보딩 2단계 | ✅ | 장르 선택(3~5개) + 영화 평가(40편 중 5편 이상), /onboarding |
 | DB 마이그레이션 SQL | ✅ | migrate_phase4.sql (experiment_group + 소셜/온보딩 컬럼) |
+| **OAuth 400 에러 수정** | ✅ | Vercel 환경변수 `\n` 제거 + `.trim()` 안전장치 |
+| **Pydantic 이메일 수정** | ✅ | `@recflix.local` → `@noreply.example.com` |
+| **OAuth 콜백 에러 전달** | ✅ | 카카오/Google 콜백에서 detail 파라미터로 에러 상세 전달 |
+| **프로덕션 검증** | ✅ | 카카오 로그인 ✅, Google 로그인 ✅ |
 
 ---
 
@@ -632,7 +636,7 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 - [ ] PWA 지원
 - [ ] CI/CD 파이프라인 (GitHub Actions)
 - [ ] 프로덕션 DB 마이그레이션 (Phase 31-32 스키마)
-- [ ] OAuth 앱 등록 (Kakao/Google Developer Console)
+- [x] **소셜 로그인 OAuth 수정** (Vercel 환경변수 `\n` + Pydantic 이메일) (2026-02-19)
 - [ ] SVD 모델 프로덕션 배포 (Railway에 pickle 파일)
 
 ---
@@ -658,3 +662,5 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 17. **날씨 "dong" 영어 표시**: OpenWeatherMap `name` 필드는 `lang` 파라미터 무관 → Reverse Geocoding API `local_names.ko`로 한글 도시명 추출 (2026-02-11)
 18. **날씨 캐시 이전 데이터 잔존**: Redis + localStorage 캐시 키 버전업 (`v2`→`v3`)으로 무효화 (2026-02-11)
 19. **CORS 500 에러 (overview_ko 제거 후)**: DB에서 컬럼 삭제 후 코드 미배포 → 500 에러 응답에 CORS 헤더 누락 → Railway 재배포로 해결 (2026-02-12)
+20. **소셜 로그인 OAuth 400**: Vercel 환경변수 값 끝에 `\n` 포함 → URLSearchParams가 `%0A`로 인코딩 → OAuth 제공자 400 에러. `.trim()` 추가 + Vercel 환경변수 `printf`로 재등록 (2026-02-19)
+21. **Pydantic EmailStr `.local` 도메인 거부**: 이메일 없는 소셜 사용자 `@recflix.local` → `@noreply.example.com` 변경 (2026-02-19)
