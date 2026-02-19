@@ -127,3 +127,35 @@
 - ESLint: No warnings ✅
 - Build: 성공 ✅
 - 기능 변경: 없음 ✅
+
+---
+
+# recommendations.py 리팩토링 결과
+
+## 날짜
+2026-02-19
+
+## 생성된 파일
+| 파일 | 용도 | 줄 수 |
+|------|------|-------|
+| recommendation_engine.py | 순수 계산 로직 (스코어링, 쿼리 헬퍼) | 330줄 |
+| recommendation_constants.py | 상수/매핑 데이터 | 76줄 |
+
+## 수정된 파일
+| 파일 | 변경 내용 | 줄 수 변화 |
+|------|----------|-----------|
+| recommendations.py | API 라우터만 남김, engine/constants import | 770줄 → 347줄 |
+
+## 분리 결과
+| 파일 | 줄 수 | 역할 |
+|------|-------|------|
+| recommendations.py | 347줄 | API 엔드포인트 (DB 쿼리 + 응답) |
+| recommendation_engine.py | 330줄 | 하이브리드 스코어링 (순수 계산) |
+| recommendation_constants.py | 76줄 | 매핑/가중치 상수 |
+| **합계** | **753줄** | (770줄에서 -17줄, ruff 자동 수정 반영) |
+
+## 검증 결과
+- Python AST: 3개 파일 모두 OK ✅
+- Import: router OK, engine OK ✅
+- Ruff: All checks passed ✅
+- 기능 변경: 없음 ✅

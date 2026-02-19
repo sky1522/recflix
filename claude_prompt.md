@@ -1,38 +1,36 @@
-# 프롬프트 2: movies/[id]/page.tsx 리팩토링 (622줄 → 500줄 이하)
+# 프롬프트 1: recommendations.py 리팩토링 (770줄 → 500줄 이하)
 
-영화 상세 페이지 컴포넌트 분리. 기능 변경 없이 구조만 분리. 충분히 탐색하고 시작해.
-
-⚠️ 프롬프트 1 (recommendations.py 리팩토링) 완료 후 실행할 것.
+핵심 비즈니스 로직 리팩토링. 기능 변경 없이 구조만 분리. 충분히 탐색하고 시작해.
 
 먼저 읽을 것:
 - .claude/skills/code-quality.md (파일 크기 규칙, 분리 기준)
-- .claude/skills/frontend-patterns.md (컴포넌트 구조, 훅 패턴)
-- frontend/app/movies/[id]/page.tsx (전체 구조 파악 — grep으로 컴포넌트/섹션부터)
+- .claude/skills/recommendation.md (추천 엔진 도메인 지식)
+- backend/app/api/v1/recommendations.py (전체 구조 파악 — 770줄이므로 grep으로 함수 목록부터)
 
 ```bash
-# 컴포넌트/함수 목록 확인
-grep -n "function \|const .* = " frontend/app/movies/\[id\]/page.tsx | head -30
+# 함수 목록 확인
+grep -n "^def \|^async def " backend/app/api/v1/recommendations.py
 
-# JSX 섹션 경계 확인
-grep -n "return\|<section\|<div className.*container\|{/\*" frontend/app/movies/\[id\]/page.tsx
+# calculate_hybrid_scores 범위 확인
+grep -n "calculate_hybrid_scores\|def _calc" backend/app/api/v1/recommendations.py
+
+# 상수/매핑 확인
+grep -n "MOOD_EMOTION_MAP\|AGE_RATING_MAP\|WEATHER_\|MBTI_" backend/app/api/v1/recommendations.py
 
 # import 확인
-head -30 frontend/app/movies/\[id\]/page.tsx
-
-# 이 페이지에서 사용하는 컴포넌트/훅
-grep -n "import " frontend/app/movies/\[id\]/page.tsx
+head -30 backend/app/api/v1/recommendations.py
 ```
 
 ---
 
 === 1단계: Research ===
 
-page.tsx의 UI 구조를 파악:
+recommendations.py의 구조를 파악하고 분리 계획을 세워줘:
 
-1. 렌더링하는 주요 섹션 (히어로 배너, 영화 정보, 출연진, 유사 영화, 캐치프레이즈 등)
-2. 사용하는 state/effect 목록
-3. 내부 헬퍼 함수 목록
-4. 각 섹션의 대략적 줄 범위
+1. 모든 함수와 줄 범위 정리
+2. 상수/매핑 데이터 위치 파악 (MOOD_EMOTION_MAP, AGE_RATING_MAP 등)
+3. calculate_hybrid_scores() 내부 로직 파악 (133줄 중 어디서 나눌 수 있는지)
+4. 함수 간 의존관계 확인 (어떤 함수가 어떤 함수를 호출하는지)
 
 ---
 
@@ -40,20 +38,30 @@ page.tsx의 UI 구조를 파악:
 
 아래 분리 방향을 기반으로 구체적 계획 수립:
 
-**새 파일 생성 (frontend/app/movies/[id]/ 하위):**
-- `components/MovieHero.tsx` — 히어로 배너 (포스터, 제목, 캐치프레이즈, 기본 정보, 평점/찜 버튼)
-- `components/MovieInfo.tsx` — 상세 정보 (줄거리, 감독, 제작국, 장르, 등급, 러닝타임 등)
-- `components/MovieCast.tsx` — 출연진 목록
-- `components/SimilarMovies.tsx` — 유사 영화 섹션
+**새 파일 생성:**
+- `backend/app/api/v1/recommendation_engine.py` — 순수 계산 로직
+  - `calculate_mbti_score(movie, mbti)` 
+  - `calculate_weather_score(movie, weather)`
+  - `calculate_mood_score(movie, mood, mood_emotion_map)`
+  - `calculate_personal_score(movie, user_genres, similar_ids, ...)`
+  - `calculate_hybrid_scores(movies, ...)` → 위 4개를 조합하는 오케스트레이터
+  - 추천 태그 부여 함수
+  - 품질 보정 함수
 
-또는 실제 코드 구조에 따라 더 자연스러운 경계로 분리. 핵심은:
-- page.tsx에는 데이터 페칭 + 레이아웃 조합만 남김
-- 각 서브 컴포넌트는 props로 데이터 받음
-- 상태 관리(평점, 찜)는 page.tsx에서 관리하고 props로 전달
+- `backend/app/api/v1/recommendation_constants.py` — 상수/매핑
+  - MOOD_EMOTION_MAP
+  - AGE_RATING_MAP  
+  - 날씨/MBTI 매핑 상수
+  - 가중치 상수 (WEIGHTS_WITH_MOOD, WEIGHTS_WITHOUT_MOOD 등)
 
-**목표:** page.tsx 300줄 이하, 서브 컴포넌트 각각 150줄 이하
+**기존 파일 수정:**
+- `backend/app/api/v1/recommendations.py` — API 라우터만 남김
+  - 엔드포인트 함수들 (DB 쿼리 + engine 호출 + 응답 반환)
+  - import 추가
 
-실제 코드를 확인한 후 자연스러운 경계에서 분리. 억지로 나누지 말 것.
+**목표:** recommendations.py 500줄 이하, recommendation_engine.py 300줄 이하, recommendation_constants.py 100줄 이하
+
+실제 코드를 확인한 후 이 계획을 조정해줘. 무리하게 나누지 말고, 자연스러운 경계에서 분리.
 
 ---
 
@@ -62,40 +70,41 @@ page.tsx의 UI 구조를 파악:
 계획대로 구현. 주의사항:
 
 1. **기능 변경 절대 금지** — 순수 리팩토링만
-2. **'use client'** 지시문 필요한 컴포넌트에 추가
-3. Framer Motion 애니메이션 유지
-4. 반응형 CSS 클래스 유지 (모바일/데스크톱)
-5. interactionStore 연동 유지 (평점, 찜)
-6. 동적 OG 메타태그는 layout.tsx에 있으므로 건드리지 않음
-7. 에러 바운더리 (error.tsx)도 건드리지 않음
+2. 모든 import 경로 정확히 (router.py에서 recommendations를 import하는 부분 확인)
+3. 타입 힌트 유지/보강
+4. selectinload 등 기존 최적화 유지
+5. 기존 테스트가 없으므로, 수동 검증:
+   - `cd backend && python -c "from app.api.v1 import recommendations; print('OK')"`
+   - `cd backend && python -c "from app.api.v1.recommendation_engine import calculate_hybrid_scores; print('OK')"`
+   - `ruff check backend/app/api/v1/recommendation*.py`
 
 ---
 
 === 건드리지 말 것 ===
-- backend/ 전체
-- frontend/app/movies/[id]/layout.tsx (OG 메타태그)
-- frontend/app/movies/[id]/error.tsx (에러 바운더리)
-- frontend/app/ 중 movies/[id]/page.tsx 외 다른 페이지
-- frontend/components/ 기존 컴포넌트 (MovieCard, MovieRow, MovieModal 등)
-- frontend/stores/, hooks/, lib/
-- 모든 .md 문서 파일
+- frontend/ 전체
+- backend/app/api/v1/ 중 recommendations.py 외 다른 라우터 파일
+- backend/app/models/, schemas/, services/
+- backend/app/core/
+- 모든 .md 문서 파일 (CLAUDE.md, 스킬 등은 나중에 별도 업데이트)
+- backend/.env
 
 ---
 
 === 검증 ===
 ```bash
 # 파일별 줄 수 확인
-wc -l frontend/app/movies/\[id\]/page.tsx
-wc -l frontend/app/movies/\[id\]/components/*.tsx
+wc -l backend/app/api/v1/recommendation*.py
 
-# TypeScript 타입 체크
-cd frontend && npx tsc --noEmit
+# Python 파싱 확인
+python -c "import ast; ast.parse(open('backend/app/api/v1/recommendations.py').read()); print('recommendations.py OK')"
+python -c "import ast; ast.parse(open('backend/app/api/v1/recommendation_engine.py').read()); print('engine OK')"
+python -c "import ast; ast.parse(open('backend/app/api/v1/recommendation_constants.py').read()); print('constants OK')"
 
-# ESLint
-cd frontend && npx next lint
+# import 확인
+cd backend && python -c "from app.api.v1.recommendations import router; print('router OK')"
 
-# 빌드 확인
-cd frontend && npm run build
+# Ruff 린트
+ruff check backend/app/api/v1/recommendation*.py
 ```
 
 ---
@@ -105,7 +114,7 @@ cd frontend && npm run build
 ```markdown
 ---
 
-# movies/[id]/page.tsx 리팩토링 결과
+# recommendations.py 리팩토링 결과
 
 ## 날짜
 YYYY-MM-DD
@@ -113,31 +122,27 @@ YYYY-MM-DD
 ## 생성된 파일
 | 파일 | 용도 | 줄 수 |
 |------|------|-------|
-| movies/[id]/components/MovieHero.tsx | 히어로 배너 | N줄 |
-| movies/[id]/components/MovieInfo.tsx | 상세 정보 | N줄 |
-| movies/[id]/components/MovieCast.tsx | 출연진 | N줄 |
-| movies/[id]/components/SimilarMovies.tsx | 유사 영화 | N줄 |
+| recommendation_engine.py | 순수 계산 로직 (스코어링, 태그, 보정) | N줄 |
+| recommendation_constants.py | 상수/매핑 데이터 | N줄 |
 
 ## 수정된 파일
 | 파일 | 변경 내용 | 줄 수 변화 |
 |------|----------|-----------|
-| movies/[id]/page.tsx | 데이터 페칭 + 레이아웃만 남김 | 622줄 → N줄 |
+| recommendations.py | API 라우터만 남김, engine/constants import | 770줄 → N줄 |
 
 ## 분리 결과
 | 파일 | 줄 수 | 역할 |
 |------|-------|------|
-| page.tsx | N줄 | 데이터 페칭 + 레이아웃 조합 |
-| MovieHero.tsx | N줄 | 히어로 배너 |
-| MovieInfo.tsx | N줄 | 상세 정보 |
-| MovieCast.tsx | N줄 | 출연진 |
-| SimilarMovies.tsx | N줄 | 유사 영화 |
-| **합계** | N줄 | (622줄에서 변화) |
+| recommendations.py | N줄 | API 엔드포인트 (DB 쿼리 + 응답) |
+| recommendation_engine.py | N줄 | 하이브리드 스코어링 (순수 계산) |
+| recommendation_constants.py | N줄 | 매핑/가중치 상수 |
+| **합계** | N줄 | (770줄에서 변화) |
 
 ## 검증 결과
-- TypeScript: No errors ✅
-- ESLint: No warnings ✅
-- Build: 성공 ✅
+- Python AST: 3개 파일 모두 OK ✅
+- Import: router OK ✅
+- Ruff: No errors ✅
 - 기능 변경: 없음 ✅
 ```
 
-git add -A && git commit -m 'refactor(frontend): movies/[id]/page.tsx 서브 컴포넌트 분리' && git push origin HEAD:main
+git add -A && git commit -m 'refactor(backend): recommendations.py 모듈 분리 (engine, constants)' && git push origin HEAD:main
