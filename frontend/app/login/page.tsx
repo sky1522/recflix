@@ -168,7 +168,13 @@ export default function LoginPage() {
                   alert("Google 로그인 설정이 필요합니다.");
                   return;
                 }
-                window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid%20email%20profile`;
+                const params = new URLSearchParams({
+                  client_id: clientId,
+                  redirect_uri: redirectUri,
+                  response_type: "code",
+                  scope: "openid email profile",
+                });
+                window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
               }}
               className="w-full py-3 bg-white hover:bg-gray-100 text-gray-700 font-medium rounded-lg transition flex items-center justify-center gap-2 border border-white/20"
             >
