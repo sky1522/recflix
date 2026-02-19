@@ -19,7 +19,9 @@ function GoogleCallbackContent() {
     const error = searchParams.get("error");
 
     if (error || !code) {
-      router.replace("/login?error=google_failed");
+      const errorDesc = searchParams.get("error_description") || error || "no_code";
+      console.error("Google OAuth error:", { error, errorDesc, code });
+      router.replace(`/login?error=google_failed&detail=${encodeURIComponent(errorDesc)}`);
       return;
     }
 
@@ -29,8 +31,10 @@ function GoogleCallbackContent() {
         const isNew = socialLogin(response);
         router.replace(isNew ? "/onboarding" : "/");
       })
-      .catch(() => {
-        router.replace("/login?error=google_failed");
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : "token_exchange_failed";
+        console.error("Google login API error:", msg);
+        router.replace(`/login?error=google_failed&detail=${encodeURIComponent(msg)}`);
       });
   }, [searchParams, socialLogin, router]);
 

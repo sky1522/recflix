@@ -1,19 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Mail, Lock, X } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login, isLoading } = useAuthStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const oauthError = searchParams.get("error");
+    const detail = searchParams.get("detail");
+    if (oauthError) {
+      const provider = oauthError.includes("kakao") ? "카카오" : "Google";
+      setError(`${provider} 로그인 실패: ${detail || oauthError}`);
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,14 +151,19 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => {
-                const clientId = process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID;
-                const redirectUri = process.env.NEXT_PUBLIC_KAKAO_REDIRECT_URI;
+                const clientId = process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID?.trim();
+                const redirectUri = process.env.NEXT_PUBLIC_KAKAO_REDIRECT_URI?.trim();
                 if (!clientId || !redirectUri) {
                   console.error("Kakao OAuth 환경변수 미설정:", { clientId, redirectUri });
                   alert("카카오 로그인 설정이 필요합니다.");
                   return;
                 }
-                window.location.href = `https://kauth.kakao.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code`;
+                const params = new URLSearchParams({
+                  client_id: clientId,
+                  redirect_uri: redirectUri,
+                  response_type: "code",
+                });
+                window.location.href = `https://kauth.kakao.com/oauth/authorize?${params.toString()}`;
               }}
               className="w-full py-3 bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] font-medium rounded-lg transition flex items-center justify-center gap-2"
             >
@@ -161,8 +176,8 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => {
-                const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-                const redirectUri = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI;
+                const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim();
+                const redirectUri = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI?.trim();
                 if (!clientId || !redirectUri) {
                   console.error("Google OAuth 환경변수 미설정:", { clientId, redirectUri });
                   alert("Google 로그인 설정이 필요합니다.");
@@ -197,5 +212,13 @@ export default function LoginPage() {
         </div>
       </motion.div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-dark-200" />}>
+      <LoginContent />
+    </Suspense>
   );
 }
