@@ -1,42 +1,55 @@
-claude "CI/CD Railway 배포 실패 디버깅.
+claude "Phase 37: LLM 추천 이유 생성 — Research + 설계.
 
 === Research ===
-1. .github/workflows/ci.yml 전체 읽기 — deploy-backend job 구조 확인
-2. GitHub Actions 로그에서 deploy-backend 실패 원인 확인:
-   - 'RAILWAY_TOKEN 미설정'인지 'project not found'인지 'service not found'인지
-3. 로컬에서 railway 프로젝트 정보 확인:
-   - cat .railway/config.json 또는 cat backend/.railway/config.json (있으면)
-   - railway status (로컬에서 연결된 프로젝트/서비스 ID 확인)
+먼저 다음 파일들을 읽을 것:
+- CLAUDE.md
+- backend/app/services/llm.py (기존 Claude API 호출 + Redis 캐싱 패턴)
+- backend/app/api/v1/recommendation_engine.py (RecommendationTag 구조, 추천 태그 생성)
+- backend/app/api/v1/recommendations.py (추천 응답 구조)
+- backend/app/api/v1/movies.py (semantic-search 응답 구조, match_reason)
+- backend/app/core/config.py (ANTHROPIC_API_KEY 등)
+- frontend/components/home/MovieRow.tsx 또는 HybridMovieRow.tsx (추천 카드 UI)
+- frontend/components/movies/MovieCard.tsx (영화 카드 컴포넌트)
 
-=== 문제 분석 ===
-railway up은 프로젝트/서비스 컨텍스트가 필요함.
-로컬에서는 railway link로 연결되어 있지만, GitHub Actions에서는:
-- RAILWAY_TOKEN만으로는 어떤 프로젝트에 배포할지 모름
-- --service 또는 RAILWAY_PROJECT_ID + RAILWAY_SERVICE_ID 환경변수 필요
+=== 설계 목표 ===
+추천된 영화에 '이 영화를 추천하는 이유'를 1~2문장으로 자연스럽게 보여주기.
 
-=== 수정 ===
-deploy-backend job에 프로젝트/서비스 ID 추가:
-env:
-  RAILWAY_TOKEN: \${{ secrets.RAILWAY_TOKEN }}
-  RAILWAY_PROJECT_ID: 실제_프로젝트_ID
-  RAILWAY_SERVICE_ID: 실제_서비스_ID
+예시:
+- '비 오는 날 잔잔한 드라마를 좋아하시는 분께 딱 맞는 힐링 영화예요'
+- 'INTJ 유형이 좋아하는 지적 스릴러, 반전이 인상적입니다'
+- '최근 찜한 영화와 비슷한 감성의 가족 영화입니다'
 
-프로젝트/서비스 ID 확인 방법:
-- railway status 출력에서 확인
-- 또는 Railway Dashboard URL에서 추출 (railway.com/project/PROJECT_ID/service/SERVICE_ID)
+=== 설계 산출물 (claude_results.md에 덮어쓰기) ===
 
-Vercel 이중 배포도 정리:
-- deploy-frontend job 제거 (Vercel GitHub 연동이 이미 자동 배포)
+1. 추천 이유 생성 방식 결정
+   - 옵션 A: LLM(Claude)으로 매번 생성 (비용 높음, 품질 높음)
+   - 옵션 B: 템플릿 기반 생성 (비용 0, 즉시 응답, 일관성)
+   - 옵션 C: 하이브리드 — 기본은 템플릿, 특별한 경우만 LLM
+   - 각 방식의 장단점 + RecFlix에 최적인 방식 선택
 
-=== 검증 ===
-1. ci.yml 수정 후 push
-2. GitHub Actions에서 deploy-backend 성공 확인
-3. 프로덕션 헬스체크: curl https://backend-production-cff2.up.railway.app/api/v1/health
+2. 템플릿 기반이면:
+   - RecommendationTag의 type별 (mbti, weather, mood, personal, similar, quality, serendipity) 한국어 문장 템플릿
+   - 영화 데이터(장르, 평점, emotion_tags)를 활용한 동적 문장 조합
+   - 예시 30개 이상
 
-git add -A && git commit -m 'fix: Railway CD 프로젝트/서비스 ID 추가 + Vercel 이중 배포 제거' && git push origin HEAD:main
+3. LLM 기반이면:
+   - 프롬프트 설계
+   - 캐싱 전략 (Redis, TTL)
+   - 비용 예측
+   - 폴백 (LLM 실패 시 템플릿)
 
-결과를 claude_results.md에 기존 내용을 전부 지우고 새로 작성 (덮어쓰기):
-- 실패 원인 분석
-- 수정 내용
-- GitHub Actions 실행 결과
-- 추가 필요한 GitHub Secrets (있으면)"
+4. 적용 위치
+   - Backend: 추천 응답에 reason 필드 추가
+   - Frontend: 어디에 어떻게 표시할지 (카드 하단? 호버? 별도 섹션?)
+
+5. 구현 계획
+   - 수정할 파일 목록
+   - 단계별 실행 순서
+
+=== 규칙 ===
+- 코드 수정 하지 말 것. 설계 문서만 작성.
+- 기존 추천 로직/다양성 정책 수정 금지
+- 비용 효율성 최우선 (무료 또는 최소 비용)
+- 기존 캐치프레이즈(llm.py) 인프라 최대 재활용
+
+결과를 claude_results.md에 기존 내용을 전부 지우고 새로 작성 (덮어쓰기)"
