@@ -8,9 +8,15 @@ from datetime import datetime, timedelta
 from sqlalchemy import text
 from sqlalchemy.orm import Session, selectinload
 
+from app.api.v1.diversity import apply_genre_cap, diversify_by_genre, ensure_freshness
 from app.api.v1.recommendation_cf import is_cf_available, normalize_cf_score, predict_cf_score
 from app.api.v1.recommendation_constants import (
     AGE_RATING_MAP,
+    DIVERSITY_ENABLED,
+    FRESHNESS_CLASSIC_RATIO,
+    FRESHNESS_RECENT_RATIO,
+    GENRE_MAX_CONSECUTIVE,
+    GENRE_MAX_RATIO,
     MOOD_EMOTION_MAPPING,
     MOOD_LABELS,
     QUALITY_BOOST_MAX,
@@ -373,4 +379,18 @@ def calculate_hybrid_scores(
         scored_movies.append((movie, hybrid_score, tags))
 
     scored_movies.sort(key=lambda x: x[1], reverse=True)
+
+    # Diversity post-processing (does not modify scores, only reorders)
+    if DIVERSITY_ENABLED:
+        pool = len(scored_movies)
+        scored_movies = apply_genre_cap(scored_movies, pool, GENRE_MAX_RATIO)
+        scored_movies = diversify_by_genre(
+            scored_movies, pool, GENRE_MAX_CONSECUTIVE,
+        )
+        scored_movies = ensure_freshness(
+            scored_movies, pool,
+            recent_ratio=FRESHNESS_RECENT_RATIO,
+            classic_ratio=FRESHNESS_CLASSIC_RATIO,
+        )
+
     return scored_movies

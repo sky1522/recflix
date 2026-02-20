@@ -8,9 +8,13 @@ from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import desc
 from sqlalchemy.orm import Session, selectinload
 
+from app.api.v1.diversity import deduplicate_section, inject_serendipity
 from app.api.v1.recommendation_constants import (
+    DIVERSITY_ENABLED,
     MOOD_EMOTION_MAPPING,
     MOOD_SECTION_CONFIG,
+    SERENDIPITY_MIN_QUALITY,
+    SERENDIPITY_RATIO,
     WEATHER_TITLES,
 )
 from app.api.v1.recommendation_engine import (
@@ -107,13 +111,24 @@ def get_home_recommendations(
                 movies=hybrid_movies
             )
 
+    # === SECTION DEDUP: track seen movie IDs ===
+    seen_ids: set[int] = set()
+
+    if DIVERSITY_ENABLED and hybrid_row:
+        for hm in hybrid_row.movies:
+            seen_ids.add(hm.id)
+
     # === REGULAR RECOMMENDATION ROWS ===
 
     # MBTI-based recommendations
     mbti_row = None
     if mbti:
-        mbti_movies = get_movies_by_score(db, "mbti_scores", mbti, limit=50, pool_size=100, age_rating=age_rating)
+        mbti_movies = get_movies_by_score(db, "mbti_scores", mbti, limit=50, pool_size=120, age_rating=age_rating)
+        if DIVERSITY_ENABLED:
+            mbti_movies = deduplicate_section(mbti_movies, seen_ids)
         if mbti_movies:
+            for m in mbti_movies:
+                seen_ids.add(m.id)
             mbti_row = RecommendationRow(
                 title=f"💜 {mbti} 성향 추천",
                 description=f"{mbti} 유형에게 어울리는 영화",
@@ -123,8 +138,12 @@ def get_home_recommendations(
     # Weather-based recommendations
     weather_row = None
     if weather:
-        weather_movies = get_movies_by_score(db, "weather_scores", weather, limit=50, pool_size=100, age_rating=age_rating)
+        weather_movies = get_movies_by_score(db, "weather_scores", weather, limit=50, pool_size=120, age_rating=age_rating)
+        if DIVERSITY_ENABLED:
+            weather_movies = deduplicate_section(weather_movies, seen_ids)
         if weather_movies:
+            for m in weather_movies:
+                seen_ids.add(m.id)
             weather_row = RecommendationRow(
                 title=WEATHER_TITLES.get(weather, f"{weather} 날씨 추천"),
                 description=f"{weather} 날씨에 어울리는 영화",
@@ -135,9 +154,13 @@ def get_home_recommendations(
     current_mood = mood if mood else "relaxed"
     mood_emotion_keys = MOOD_EMOTION_MAPPING.get(current_mood, ["healing"])
     primary_emotion = mood_emotion_keys[0]
-    mood_movies = get_movies_by_score(db, "emotion_tags", primary_emotion, limit=50, pool_size=100, age_rating=age_rating)
+    mood_movies = get_movies_by_score(db, "emotion_tags", primary_emotion, limit=50, pool_size=120, age_rating=age_rating)
+    if DIVERSITY_ENABLED:
+        mood_movies = deduplicate_section(mood_movies, seen_ids)
     mood_row = None
     if mood_movies:
+        for m in mood_movies:
+            seen_ids.add(m.id)
         mood_config = MOOD_SECTION_CONFIG.get(current_mood, {"title": "😌 편안한 기분일 때", "desc": "마음이 따뜻해지는 영화"})
         mood_row = RecommendationRow(
             title=mood_config["title"],
@@ -149,8 +172,12 @@ def get_home_recommendations(
     popular_q = db.query(Movie).filter(Movie.weighted_score >= 6.0)
     popular_q = apply_age_rating_filter(popular_q, age_rating)
     popular_pool = popular_q.order_by(Movie.popularity.desc(), Movie.weighted_score.desc()).limit(100).all()
+    if DIVERSITY_ENABLED:
+        popular_pool = deduplicate_section(popular_pool, seen_ids)
     popular = random.sample(popular_pool, min(50, len(popular_pool))) if popular_pool else []
     random.shuffle(popular)
+    for m in popular:
+        seen_ids.add(m.id)
     popular_row = RecommendationRow(
         title="🔥 인기 영화",
         description="지금 가장 핫한 영화들",
@@ -161,6 +188,8 @@ def get_home_recommendations(
     top_rated_q = db.query(Movie).filter(Movie.weighted_score >= 6.0, Movie.vote_count >= 100)
     top_rated_q = apply_age_rating_filter(top_rated_q, age_rating)
     top_rated_pool = top_rated_q.order_by(Movie.weighted_score.desc(), Movie.vote_average.desc()).limit(100).all()
+    if DIVERSITY_ENABLED:
+        top_rated_pool = deduplicate_section(top_rated_pool, seen_ids)
     top_rated = random.sample(top_rated_pool, min(50, len(top_rated_pool))) if top_rated_pool else []
     random.shuffle(top_rated)
     top_rated_row = RecommendationRow(
@@ -352,7 +381,7 @@ def get_personalized_recommendations(
         ~Movie.id.in_(favorited_ids)
     )
     q = apply_age_rating_filter(q, age_rating)
-    movies = q.order_by(Movie.popularity.desc(), Movie.weighted_score.desc()).limit(limit * 2).all()
+    movies = q.order_by(Movie.popularity.desc(), Movie.weighted_score.desc()).limit(limit * 3).all()
 
     seen: set = set()
     result = []
@@ -360,7 +389,17 @@ def get_personalized_recommendations(
         if m.id not in seen:
             seen.add(m.id)
             result.append(m)
-            if len(result) >= limit:
-                break
+
+    # Serendipity injection
+    if DIVERSITY_ENABLED and result:
+        scored = [(m, 0.0, []) for m in result]
+        scored = inject_serendipity(
+            scored, limit, set(top_genre_names), db,
+            serendipity_ratio=SERENDIPITY_RATIO,
+            min_quality=SERENDIPITY_MIN_QUALITY,
+        )
+        result = [item[0] for item in scored[:limit]]
+    else:
+        result = result[:limit]
 
     return [MovieListItem.from_orm_with_genres(m) for m in result]

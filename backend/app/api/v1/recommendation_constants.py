@@ -103,3 +103,13 @@ WEATHER_TITLES = {
     "cloudy": "☁️ 흐린 날 추천",
     "snowy": "❄️ 눈 오는 날 추천"
 }
+
+# === Diversity Policy Config ===
+DIVERSITY_ENABLED = True
+GENRE_MAX_CONSECUTIVE = 3        # 같은 장르 연속 최대 N개
+GENRE_MAX_RATIO = 0.35           # 단일 장르 최대 비율
+FRESHNESS_RECENT_RATIO = 0.20    # 최신작(3년) 최소 비율
+FRESHNESS_CLASSIC_RATIO = 0.10   # 클래식(10년+) 최소 비율
+SERENDIPITY_RATIO = 0.10         # 의외의 발견 비율
+SERENDIPITY_MIN_QUALITY = 7.0    # 의외의 발견 최소 weighted_score
+SEMANTIC_GENRE_MAX = 5           # 시맨틱 검색 같은 장르 최대 편수

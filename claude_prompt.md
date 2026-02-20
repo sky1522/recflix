@@ -1,110 +1,113 @@
-claude "Phase 33-5: 시맨틱 검색 품질 개선 — 재랭킹 + 인기도 반영.
+claude "Phase 34: 추천 다양성/신선도 정책 구현.
 
 === Research ===
-먼저 다음 파일들을 읽고 현재 로직을 파악할 것:
-- backend/app/api/v1/movies.py (semantic-search 엔드포인트 전체)
-- backend/app/api/v1/semantic_search.py (search_similar 함수)
-- backend/app/api/v1/recommendation_engine.py (기존 하이브리드 스코어링 참고)
-- backend/app/models/movie.py (weighted_score, vote_count 등 필드)
+먼저 다음 파일들을 읽고 현재 구조를 파악할 것:
+- CLAUDE.md
+- backend/app/api/v1/recommendation_engine.py (전체)
+- backend/app/api/v1/recommendations.py (전체)
+- backend/app/api/v1/recommendation_constants.py (전체)
+- backend/app/api/v1/movies.py (semantic-search 엔드포인트)
+- backend/app/models/movie.py (Movie 모델, genres 관계)
 
-그리고 현재 문제를 확인:
-- curl 'https://backend-production-cff2.up.railway.app/api/v1/movies/semantic-search?q=비오는+날+혼자+보기+좋은+잔잔한+영화&limit=10'
-- curl 'https://backend-production-cff2.up.railway.app/api/v1/movies/semantic-search?q=감동적인+가족+영화+추천&limit=10'
-- curl 'https://backend-production-cff2.up.railway.app/api/v1/movies/semantic-search?q=스릴+넘치는+반전+영화&limit=10'
-결과에서 무명 영화가 상위에 오고, 쇼생크 탈출/인셉션/인터스텔라 같은 명작이 안 나오는지 확인.
+=== 1단계: diversity.py 생성 ===
+backend/app/api/v1/diversity.py 신규 생성. 4개 함수:
 
-=== 문제 분석 ===
-현재 시맨틱 검색이 semantic_score(벡터 유사도)만으로 정렬하면:
-- 제목이나 줄거리에 '비', '혼자', '잔잔' 같은 단어가 직접 들어간 무명 영화가 상위
-- 실제로 분위기가 맞지만 다른 표현을 쓰는 명작은 하위
+1. diversify_by_genre(scored_movies, limit, max_consecutive=3)
+   - 같은 primary genre가 max_consecutive개 연속 불가
+   - genre_window로 최근 장르 추적
+   - 조건 불만족 시 제약 완화 후 최고점 선택 (graceful)
+   - 입력/출력: [(movie, score, tags)] 형식 유지
 
-사용자가 기대하는 건: 분위기가 맞으면서 + 잘 알려진 + 평점 높은 영화
+2. apply_genre_cap(scored_movies, limit, max_genre_ratio=0.35)
+   - 단일 장르가 전체의 35% 초과 불가
+   - 5편 이하일 때는 제한 없음
+   - 부족하면 스킵된 영화로 채움
 
-=== 수정 사항: 재랭킹 공식 개선 ===
+3. ensure_freshness(scored_movies, limit, recent_years=3, classic_years=10, recent_ratio=0.20, classic_ratio=0.10)
+   - 최신작(3년 이내) 최소 20%, 클래식(10년+) 최소 10% 보장
+   - 나머지는 스코어 순 채움
+   - release_date 없는 영화는 middle로 분류
 
-현재: semantic_score만으로 정렬 (또는 단순 필터)
-변경: 복합 점수로 재랭킹
+4. inject_serendipity(scored_movies, limit, user_top_genres, db, serendipity_ratio=0.10, min_quality=7.0)
+   - 추천 리스트의 10%를 사용자 선호 장르 외의 고품질 영화로
+   - DB에서 랜덤 선택 (func.random())
+   - 리스트 70% 지점에 삽입
+   - 태그: RecommendationTag(type='serendipity', label='#의외의발견', score=0.0)
+   - user_top_genres가 비어있으면 스킵
+
+모든 함수는 입력이 부족하거나 빈 리스트일 때 원본 그대로 반환 (안전).
+
+=== 2단계: recommendation_constants.py 수정 ===
+다양성 설정 상수 추가:
+DIVERSITY_ENABLED = True
+GENRE_MAX_CONSECUTIVE = 3
+GENRE_MAX_RATIO = 0.35
+FRESHNESS_RECENT_RATIO = 0.20
+FRESHNESS_CLASSIC_RATIO = 0.10
+SERENDIPITY_RATIO = 0.10
+SERENDIPITY_MIN_QUALITY = 7.0
+SEMANTIC_GENRE_MAX = 5
+
+=== 3단계: recommendation_engine.py 수정 ===
+calculate_hybrid_scores() 함수의 최종 정렬 후, 리턴 전에 다양성 파이프라인 적용:
 ```python
-# 최종 점수 = semantic_score * 0.5 + popularity_score * 0.3 + quality_score * 0.2
+from .diversity import diversify_by_genre, apply_genre_cap, ensure_freshness
+from .recommendation_constants import DIVERSITY_ENABLED, GENRE_MAX_CONSECUTIVE, GENRE_MAX_RATIO, FRESHNESS_RECENT_RATIO, FRESHNESS_CLASSIC_RATIO
 
-def calculate_relevance_score(semantic_score: float, movie: Movie) -> float:
-    # 1. semantic_score (0~1): 벡터 유사도 — 이미 있음
-    
-    # 2. popularity_score (0~1): 인기도 (로그 스케일)
-    #    vote_count가 높을수록 많은 사람이 본 영화
-    #    log 스케일로 정규화 (vote_count 0~50000 → 0~1)
-    import math
-    vote_count = movie.vote_count or 0
-    popularity_score = min(math.log1p(vote_count) / math.log1p(50000), 1.0)
-    
-    # 3. quality_score (0~1): 평점 품질
-    #    weighted_score를 0~10 → 0~1로 정규화
-    weighted_score = movie.weighted_score or 0
-    quality_score = min(max(weighted_score / 10.0, 0), 1.0)
-    
-    # 4. 최종 복합 점수
-    relevance = (
-        semantic_score * 0.50 +
-        popularity_score * 0.30 +
-        quality_score * 0.20
-    )
-    return relevance
+# 기존 스코어 계산 + 정렬 (변경 없음)
+# ...
+
+# 다양성 후처리 (기존 로직 다음에 추가)
+if DIVERSITY_ENABLED:
+    scored = apply_genre_cap(scored, pool_size, GENRE_MAX_RATIO)
+    scored = diversify_by_genre(scored, pool_size, GENRE_MAX_CONSECUTIVE)
+    scored = ensure_freshness(scored, pool_size, recent_ratio=FRESHNESS_RECENT_RATIO, classic_ratio=FRESHNESS_CLASSIC_RATIO)
 ```
 
-=== 적용 위치 ===
-backend/app/api/v1/movies.py의 semantic-search 엔드포인트에서:
-1. search_similar()로 Top 100 후보 추출 (기존)
-2. DB에서 후보 영화 조회 (기존)
-3. ★ 각 영화에 calculate_relevance_score 적용
-4. ★ relevance_score 기준으로 재정렬
-5. 상위 limit개 반환
+⚠️ calculate_hybrid_scores의 실제 반환 형식을 먼저 확인하고 그에 맞게 적용할 것.
+⚠️ scored_movies가 [(movie, score, tags)] 형식이 아닐 수 있음 — 실제 형식에 맞게 diversity.py 함수 시그니처 조정.
 
-=== 추가 개선: weighted_score 필터 완화 ===
-현재 weighted_score >= 5.0 또는 6.0 필터가 있으면:
-- >= 5.0으로 완화 (너무 높으면 후보가 줄어듦)
-- 단, relevance_score 재랭킹으로 저품질은 자연스럽게 하위로 밀림
+=== 4단계: recommendations.py 수정 ===
+홈 추천 엔드포인트에서 섹션 간 중복 제거:
+- seen_ids: set[int] = set()
+- 각 섹션 빌드 후 seen_ids에 추가
+- 다음 섹션에서 seen_ids에 있는 영화 제외
+- 우선순위: hybrid > MBTI > 날씨 > 기분 > 인기 > 높은평점
 
-=== 응답에 match_reason 추가 ===
-각 결과에 왜 이 영화가 추천됐는지 간단한 이유 태그:
-```python
-def get_match_reason(semantic_score: float, popularity_score: float, quality_score: float) -> str:
-    reasons = []
-    if semantic_score >= 0.45:
-        reasons.append("분위기 일치")
-    if quality_score >= 0.75:
-        reasons.append("높은 평점")
-    if popularity_score >= 0.5:
-        reasons.append("많은 관객")
-    if not reasons:
-        reasons.append("AI 추천")
-    return " · ".join(reasons)
-```
+for-you 엔드포인트에 serendipity 적용:
+- 사용자 찜/평점에서 top_genres 추출
+- inject_serendipity() 호출
+
+=== 5단계: movies.py 시맨틱 검색 다양성 ===
+semantic-search 엔드포인트의 재랭킹 후에 장르 다양성 적용:
+- 같은 장르 최대 5편 (SEMANTIC_GENRE_MAX)
+- diversify_by_genre 또는 별도 간단 함수 사용
 
 === 규칙 ===
-- semantic_search.py의 search_similar 함수 수정 금지 (벡터 검색 자체는 정상)
-- 기존 추천 엔진(recommendation_engine.py) 수정 금지
-- movies.py의 기존 키워드 검색 엔드포인트 수정 금지
-- 시맨틱 검색 엔드포인트 내부 재랭킹 로직만 수정
+- calculate_hybrid_scores의 스코어 계산 로직 자체는 수정 금지
+- 가중치(WEIGHTS 딕셔너리 등) 수정 금지
+- 다양성은 스코어 계산 '후'에 후처리로만 적용
+- DIVERSITY_ENABLED = False로 즉시 비활성화 가능해야 함
+- 기존 weighted_score >= 6.0 품질 필터 유지
+- popular, top-rated 섹션에는 다양성 미적용
+- 모든 함수에 타입 힌트 + docstring
+- 모든 .md 문서 파일 건드리지 말 것
 
 === 검증 ===
-1. 로컬 서버 재시작 후 테스트:
-   curl 'http://localhost:8000/api/v1/movies/semantic-search?q=비오는+날+혼자+보기+좋은+잔잔한+영화&limit=10'
-   → 쇼생크 탈출, 어바웃 타임, 굿 윌 헌팅 등 명작이 상위 5위 안에 있어야 함
-
-2. curl 'http://localhost:8000/api/v1/movies/semantic-search?q=스릴+넘치는+반전+영화&limit=10'
-   → 인셉션, 올드보이, 파이트 클럽 등 유명 스릴러가 상위에 있어야 함
-
-3. curl 'http://localhost:8000/api/v1/movies/semantic-search?q=감동적인+가족+영화+추천&limit=10'
-   → 인생은 아름다워, 코코, 소울 등이 상위에 있어야 함
-
-4. 응답에 match_reason 필드 포함 확인
-
-5. cd backend && ruff check app/api/v1/movies.py
-
-6. git add -A && git commit -m 'feat: 시맨틱 검색 재랭킹 개선 (인기도+품질 복합점수 + match_reason)' && git push origin HEAD:main
+1. cd backend && ruff check app/api/v1/diversity.py
+2. cd backend && python -c 'from app.api.v1.diversity import diversify_by_genre, apply_genre_cap, ensure_freshness, inject_serendipity; print(\"import OK\")'
+3. 로컬 서버 시작 후 다양성 전/후 비교:
+   curl 'http://localhost:8000/api/v1/recommendations/for-you?weather=rainy&mood=calm&mbti=INTJ&limit=20'
+   → Top 3 장르 집중도가 62.9% → 55% 이하로 감소 확인
+   → 같은 장르 3개 연속 없는지 확인
+4. 시맨틱 검색 다양성:
+   curl 'http://localhost:8000/api/v1/movies/semantic-search?q=비오는+날+좋은+영화&limit=20'
+   → 같은 장르 5편 초과 없는지 확인
+5. cd backend && ruff check app/api/v1/
+6. git add -A && git commit -m 'feat: Phase 34 추천 다양성/신선도 정책 (장르 다양성 + 신선도 + serendipity + 중복 제거)' && git push origin HEAD:main
 
 결과를 claude_results.md에 기존 내용을 전부 지우고 새로 작성 (덮어쓰기):
-- 수정 전/후 검색 결과 비교 (3개 쿼리)
-- 재랭킹 공식 설명
-- match_reason 예시
+- diversity.py 함수 목록
+- 다양성 전/후 비교 (장르 분포, 연도 분포)
+- 적용된 엔드포인트 매트릭스
 - 프로덕션 재배포 필요 여부"

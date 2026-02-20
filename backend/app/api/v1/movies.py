@@ -7,20 +7,23 @@ import logging
 import math
 import random as random_mod
 import time
-from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy.orm import Session, selectinload
-from sqlalchemy import or_, extract, distinct, select, func
+from typing import List, Optional
 
-from app.api.v1.recommendation_constants import AGE_RATING_MAP
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy import distinct, extract, func, or_, select
+from sqlalchemy.orm import Session, selectinload
+
+from app.api.v1.recommendation_constants import (
+    AGE_RATING_MAP,
+    DIVERSITY_ENABLED,
+    SEMANTIC_GENRE_MAX,
+)
 from app.api.v1.semantic_search import is_semantic_search_available, search_similar
 from app.core.deps import get_db
 from app.core.rate_limit import limiter
-from app.models import Movie, Genre, Person
+from app.models import Genre, Movie, Person
 from app.models.movie import movie_cast
-from app.schemas import (
-    MovieListItem, MovieDetail, PaginatedMovies, GenreResponse
-)
+from app.schemas import GenreResponse, MovieDetail, MovieListItem, PaginatedMovies
 from app.services.embedding import get_query_embedding
 from app.services.llm import get_redis_client
 
@@ -281,6 +284,37 @@ def _get_match_reason(
     return " · ".join(reasons) if reasons else "AI 추천"
 
 
+def _diversify_semantic(
+    scored_items: list[tuple[Movie, float, float]],
+    limit: int,
+    max_same_genre: int,
+) -> list[tuple[Movie, float, float]]:
+    """시맨틱 검색 결과에 장르 다양성 적용."""
+    result: list[tuple[Movie, float, float]] = []
+    skipped: list[tuple[Movie, float, float]] = []
+    genre_count: dict[str, int] = {}
+
+    for item in scored_items:
+        movie = item[0]
+        genres = [g.name for g in movie.genres] if movie.genres else []
+        primary = genres[0] if genres else "기타"
+
+        if genre_count.get(primary, 0) >= max_same_genre:
+            skipped.append(item)
+            continue
+
+        result.append(item)
+        genre_count[primary] = genre_count.get(primary, 0) + 1
+
+        if len(result) >= limit:
+            break
+
+    while len(result) < limit and skipped:
+        result.append(skipped.pop(0))
+
+    return result
+
+
 @router.get("/semantic-search")
 @limiter.limit("10/minute")
 async def semantic_search(
@@ -360,6 +394,10 @@ async def semantic_search(
 
     # relevance 기준 내림차순 정렬
     scored_items.sort(key=lambda x: x[2], reverse=True)
+
+    # 장르 다양성 후처리: 같은 장르 최대 SEMANTIC_GENRE_MAX편
+    if DIVERSITY_ENABLED:
+        scored_items = _diversify_semantic(scored_items, limit, SEMANTIC_GENRE_MAX)
 
     results = []
     for m, sem, relevance in scored_items[:limit]:

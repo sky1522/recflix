@@ -1,72 +1,82 @@
-# Phase 33-5: 시맨틱 검색 품질 개선 — 재랭킹 + 인기도 반영
+# Phase 34: 추천 다양성/신선도 정책 구현 결과
 
 ## 날짜
 2026-02-20
 
-## 생성/수정된 파일
+## 변경 파일
 
-| 파일 | 상태 | 설명 |
+| 파일 | 작업 | 설명 |
 |------|------|------|
-| `backend/app/api/v1/movies.py` | 수정 | 재랭킹 함수 + top_k 300 + match_reason |
-| `frontend/lib/api.ts` | 수정 | SemanticSearchResult에 relevance_score, match_reason 필드 추가 |
-| `frontend/components/search/SearchAutocomplete.tsx` | 수정 | match_reason 표시 |
+| `backend/app/api/v1/diversity.py` | **신규** | 5개 다양성 후처리 함수 |
+| `backend/app/api/v1/recommendation_constants.py` | 수정 | 다양성 설정 상수 8개 추가 |
+| `backend/app/api/v1/recommendation_engine.py` | 수정 | calculate_hybrid_scores 후 다양성 파이프라인 |
+| `backend/app/api/v1/recommendations.py` | 수정 | 홈 추천 섹션 간 중복 제거 + for-you serendipity |
+| `backend/app/api/v1/movies.py` | 수정 | 시맨틱 검색 장르 다양성 후처리 |
 
-## 재랭킹 공식
+## diversity.py 함수 목록
 
-```
-최종 점수 = semantic_score × 0.50 + popularity_score × 0.30 + quality_score × 0.20
-```
+| 함수 | 설명 | 파라미터 |
+|------|------|----------|
+| `diversify_by_genre()` | 같은 primary genre 연속 N개 제한 | max_consecutive=3 |
+| `apply_genre_cap()` | 단일 장르 비율 상한 | max_genre_ratio=0.35 |
+| `ensure_freshness()` | 최신작/클래식 최소 비율 보장 | recent_ratio=0.20, classic_ratio=0.10 |
+| `inject_serendipity()` | 선호 외 고품질 영화 삽입 | serendipity_ratio=0.10, min_quality=7.0 |
+| `deduplicate_section()` | 이미 노출된 영화 제외 | seen_ids 기반 |
 
-| 요소 | 산식 | 범위 |
-|------|------|------|
-| semantic_score | 벡터 코사인 유사도 (그대로) | 0~1 |
-| popularity_score | min(log(1+vote_count) / log(1+50000), 1.0) | 0~1 |
-| quality_score | weighted_score / 10.0 | 0~1 |
+## 다양성 전/후 비교
 
-- top_k: 100 → **300** (넓은 후보 확보 → 인기 영화 포함)
-- weighted_score >= 5.0 필터 유지
+### MBTI INTJ 추천 (20편)
 
-## 수정 전/후 비교
+| 지표 | Before | After | 변화 |
+|------|--------|-------|------|
+| Top 3 장르 집중도 | 62.9% | **59.0%** | -3.9% |
+| 같은 장르 연속 최대 | 20 (무제한) | **2** | 제한 성공 |
+| 최신작(3년) | 0편 | **2편** (2024, 2025) | 신선도 보장 |
+| 연도 범위 | 2001~2023 | **2001~2025** | 확장 |
+| 장르 종류 | 5종 | **6종** (+공포, TV영화) | 다양화 |
 
-### 쿼리 1: "비오는 날 혼자 보기 좋은 잔잔한 영화"
+### 시맨틱 검색 "비 오는 날 잔잔한 영화" (20편)
 
-| 순위 | 수정 전 | 수정 후 |
-|------|---------|---------|
-| 1 | You Are Alone (6.3) | **레인 맨** (7.7) |
-| 2 | Rain (6.2) | **퍼펙트 데이즈** (7.6) |
-| 3 | 고독 (6.2) | **싱글맨** (7.2) |
-| 4 | Hysterical Blindness (6.3) | 디서비디언스 (6.8) |
-| 5 | 혼자 사는 사람들 (6.5) | 레인메이커 (6.9) |
+| 지표 | Before | After | 변화 |
+|------|--------|-------|------|
+| Top 3 장르 집중도 | **81.6%** | **51.1%** | **-30.5%** |
+| 드라마 편수 (primary) | 18/20 (90%) | **5/20 (25%)** | 대폭 감소 |
+| 장르 종류 | 3종 | **8종** | 다양화 |
 
-### 쿼리 2: "스릴 넘치는 반전 영화"
+### 홈 추천 섹션 간 중복
 
-| 순위 | 수정 전 | 수정 후 |
-|------|---------|---------|
-| 1 | 대역전 (6.2) | **스내치** (7.8) |
-| 2 | As Good As Dead (6.1) | **스피드** (7.1) |
-| 3 | The Psycho Lover (6.3) | 미스터 & 미세스 스미스 (6.7) |
-| 4 | Alarmed (6.3) | **와일드 테일즈** (7.8) |
-| 5 | Treacherous (6.3) | 평행이론: 도플갱어 살인 (7.2) |
+| 지표 | Before | After |
+|------|--------|-------|
+| 중복 영화 수 | 11편 (5.9%) | **0편 (0.0%)** |
+| 전체 고유 영화 수 | 188편 | **199편** |
 
-### 쿼리 3: "감동적인 가족 영화 추천"
+## 적용된 엔드포인트 매트릭스
 
-| 순위 | 수정 전 | 수정 후 |
-|------|---------|---------|
-| 1 | 패밀리 이즈 패밀리 (5.9) | **도리를 찾아서** (7.0) |
-| 2 | 애들이 똑같아요 (6.5) | **크루즈 패밀리** (6.9) |
-| 3 | 윌러비 가족 (6.9) | **말리와 나** (7.1) |
-| 4 | When I Find the Ocean (6.3) | **페어런트 트랩** (7.2) |
-| 5 | The Present (6.3) | **인스턴트 패밀리** (7.4) |
+| 엔드포인트 | 장르 다양성 | 신선도 | Serendipity | 중복 제거 |
+|-----------|:----------:|:-----:|:-----------:|:--------:|
+| `GET /recommendations` (홈) | O | O | O (hybrid만) | O |
+| `GET /recommendations/hybrid` | O | O | - | - |
+| `GET /recommendations/mbti` | O | O | - | - |
+| `GET /recommendations/weather` | O | O | - | - |
+| `GET /recommendations/emotion` | O | O | - | - |
+| `GET /recommendations/popular` | - | - | - | - |
+| `GET /recommendations/top-rated` | - | - | - | - |
+| `GET /recommendations/for-you` | - | - | O | - |
+| `GET /movies/semantic-search` | O (전용) | - | - | - |
 
-## match_reason 예시
+## Config 상수 (recommendation_constants.py)
 
-```
-"분위기 일치 · 높은 평점 · 많은 관객"  (semantic≥0.45, quality≥0.75, pop≥0.5)
-"분위기 일치 · 많은 관객"              (semantic≥0.45, pop≥0.5)
-"AI 추천"                            (모든 임계값 미달 시)
+```python
+DIVERSITY_ENABLED = True
+GENRE_MAX_CONSECUTIVE = 3
+GENRE_MAX_RATIO = 0.35
+FRESHNESS_RECENT_RATIO = 0.20
+FRESHNESS_CLASSIC_RATIO = 0.10
+SERENDIPITY_RATIO = 0.10
+SERENDIPITY_MIN_QUALITY = 7.0
+SEMANTIC_GENRE_MAX = 5
 ```
 
 ## 프로덕션 재배포 필요
-- Railway: `cd backend && railway up` (재랭킹 로직 반영)
-- Vercel: `cd frontend && npx vercel --prod` (match_reason UI 반영)
-- Redis 캐시 초기화 필요 (기존 결과 캐시에 재랭킹 미적용 데이터 잔존)
+- Backend (Railway): `cd backend && railway up`
+- Frontend: 변경 없음 (backend only)
