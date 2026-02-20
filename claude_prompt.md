@@ -1,33 +1,42 @@
-claude "CI/CD 파이프라인 수정.
+claude "CI/CD Railway 배포 실패 디버깅.
 
 === Research ===
-- .github/workflows/ci.yml 전체 읽기
-- deploy-backend job에서 RAILWAY_TOKEN 사용 방식 확인
-- deploy-frontend job 확인
+1. .github/workflows/ci.yml 전체 읽기 — deploy-backend job 구조 확인
+2. GitHub Actions 로그에서 deploy-backend 실패 원인 확인:
+   - 'RAILWAY_TOKEN 미설정'인지 'project not found'인지 'service not found'인지
+3. 로컬에서 railway 프로젝트 정보 확인:
+   - cat .railway/config.json 또는 cat backend/.railway/config.json (있으면)
+   - railway status (로컬에서 연결된 프로젝트/서비스 ID 확인)
 
-=== 수정 1: deploy-backend Railway 토큰 설정 확인 ===
-deploy-backend job에서 RAILWAY_TOKEN 환경변수가 올바르게 참조되는지 확인:
-- env 또는 steps 내에서 RAILWAY_TOKEN: \${{ secrets.RAILWAY_TOKEN }} 설정 확인
-- railway up 명령에 --service 옵션이 올바른지 확인
-- Railway CLI 인증 방식: RAILWAY_TOKEN 환경변수로 자동 인증되는지 확인
+=== 문제 분석 ===
+railway up은 프로젝트/서비스 컨텍스트가 필요함.
+로컬에서는 railway link로 연결되어 있지만, GitHub Actions에서는:
+- RAILWAY_TOKEN만으로는 어떤 프로젝트에 배포할지 모름
+- --service 또는 RAILWAY_PROJECT_ID + RAILWAY_SERVICE_ID 환경변수 필요
 
-만약 railway up에 프로젝트/서비스 ID가 필요하면:
-- railway link 또는 --project, --service 플래그 확인
-- 필요한 추가 시크릿 (RAILWAY_PROJECT_ID, RAILWAY_SERVICE_ID) 식별
+=== 수정 ===
+deploy-backend job에 프로젝트/서비스 ID 추가:
+env:
+  RAILWAY_TOKEN: \${{ secrets.RAILWAY_TOKEN }}
+  RAILWAY_PROJECT_ID: 실제_프로젝트_ID
+  RAILWAY_SERVICE_ID: 실제_서비스_ID
 
-=== 수정 2: Vercel 이중 배포 제거 ===
-Vercel이 GitHub 연동으로 이미 자동 배포하므로 deploy-frontend job 제거.
-- deploy-frontend job 전체 삭제
-- 또는 Vercel GitHub 자동 배포를 끄고 Actions만 사용
-- Vercel 자동 배포가 더 간단하므로 job 제거 방향으로
+프로젝트/서비스 ID 확인 방법:
+- railway status 출력에서 확인
+- 또는 Railway Dashboard URL에서 추출 (railway.com/project/PROJECT_ID/service/SERVICE_ID)
+
+Vercel 이중 배포도 정리:
+- deploy-frontend job 제거 (Vercel GitHub 연동이 이미 자동 배포)
 
 === 검증 ===
-1. ci.yml 문법 검증
-2. git add -A && git commit -m 'fix: CI/CD Railway 토큰 설정 수정 + Vercel 이중 배포 제거' && git push origin HEAD:main
-3. GitHub Actions에서 deploy-backend 성공 확인
+1. ci.yml 수정 후 push
+2. GitHub Actions에서 deploy-backend 성공 확인
+3. 프로덕션 헬스체크: curl https://backend-production-cff2.up.railway.app/api/v1/health
+
+git add -A && git commit -m 'fix: Railway CD 프로젝트/서비스 ID 추가 + Vercel 이중 배포 제거' && git push origin HEAD:main
 
 결과를 claude_results.md에 기존 내용을 전부 지우고 새로 작성 (덮어쓰기):
+- 실패 원인 분석
 - 수정 내용
-- GitHub Actions 실행 결과 (5개 job 상태)
-- deploy-backend 성공/실패 + 로그
-- 실패 시 원인 + 추가 필요 시크릿 안내"
+- GitHub Actions 실행 결과
+- 추가 필요한 GitHub Secrets (있으면)"
