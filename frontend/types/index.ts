@@ -48,6 +48,7 @@ export interface RecommendationTag {
 export interface HybridMovie extends Movie {
   recommendation_tags: RecommendationTag[];
   hybrid_score: number;
+  recommendation_reason?: string;
 }
 
 export interface RecommendationRow {

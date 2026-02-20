@@ -151,6 +151,13 @@ export default function HybridMovieCard({ movie, index = 0, showQuickView = true
                 ))}
               </div>
             )}
+
+            {/* Recommendation Reason */}
+            {movie.recommendation_reason && (
+              <p className="text-xs text-white/50 italic line-clamp-2 mt-1">
+                {movie.recommendation_reason}
+              </p>
+            )}
           </div>
         </Link>
       </motion.div>

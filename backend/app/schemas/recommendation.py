@@ -26,9 +26,13 @@ class HybridMovieItem(MovieListItem):
     """Movie item with recommendation tags"""
     recommendation_tags: List[RecommendationTag] = []
     hybrid_score: float = 0.0  # Combined recommendation score
+    recommendation_reason: str = ""  # Template-based reason sentence
 
     @classmethod
-    def from_movie_with_tags(cls, movie, tags: List[RecommendationTag], hybrid_score: float = 0.0):
+    def from_movie_with_tags(
+        cls, movie, tags: List[RecommendationTag],
+        hybrid_score: float = 0.0, reason: str = "",
+    ):
         return cls(
             id=movie.id,
             title=movie.title,
@@ -43,7 +47,8 @@ class HybridMovieItem(MovieListItem):
             is_adult=movie.is_adult,
             genres=[g.name for g in movie.genres],
             recommendation_tags=tags,
-            hybrid_score=hybrid_score
+            hybrid_score=hybrid_score,
+            recommendation_reason=reason,
         )
 
 

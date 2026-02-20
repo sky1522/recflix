@@ -9,6 +9,7 @@ from sqlalchemy import desc
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.v1.diversity import deduplicate_section, inject_serendipity
+from app.api.v1.recommendation_reason import generate_reason
 from app.api.v1.recommendation_constants import (
     DIVERSITY_ENABLED,
     MOOD_EMOTION_MAPPING,
@@ -78,7 +79,10 @@ def get_home_recommendations(
 
         if top_recommendations:
             hybrid_movies = [
-                HybridMovieItem.from_movie_with_tags(m, tags, score)
+                HybridMovieItem.from_movie_with_tags(
+                    m, tags, score,
+                    reason=generate_reason(tags, m, mbti, weather, mood),
+                )
                 for m, score, tags in top_recommendations
             ]
 
@@ -257,7 +261,10 @@ def get_hybrid_recommendations(
 
     top_movies = scored[:limit]
     return [
-        HybridMovieItem.from_movie_with_tags(m, tags, score)
+        HybridMovieItem.from_movie_with_tags(
+            m, tags, score,
+            reason=generate_reason(tags, m, current_user.mbti, weather),
+        )
         for m, score, tags in top_movies
     ]
 
