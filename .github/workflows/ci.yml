@@ -66,8 +66,8 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: https://backend-production-cff2.up.railway.app/api/v1
 
-  # ===== CD: Deploy Backend (only on push to main, after CI passes) =====
-  # Frontend: Vercel GitHub 연동으로 자동 배포 (별도 job 불필요)
+  # ===== CD: Deploy Backend (main push only, after CI passes) =====
+  # Frontend: Vercel GitHub 연동으로 자동 배포
 
   deploy-backend:
     name: Deploy Backend (Railway)
