@@ -3,10 +3,23 @@ API v1 Router
 """
 from fastapi import APIRouter
 
-from app.api.v1 import auth, users, movies, recommendations, collections, ratings, weather, interactions, llm, events
+from app.api.v1 import (
+    auth,
+    collections,
+    events,
+    health,
+    interactions,
+    llm,
+    movies,
+    ratings,
+    recommendations,
+    users,
+    weather,
+)
 
 api_router = APIRouter()
 
+api_router.include_router(health.router)
 api_router.include_router(auth.router)
 api_router.include_router(users.router)
 api_router.include_router(movies.router)
