@@ -3,8 +3,9 @@
 import { Suspense, useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Film, RefreshCw } from "lucide-react";
-import { getMovies, getGenres, getPopularMovies } from "@/lib/api";
+import { Film, RefreshCw, Sparkles } from "lucide-react";
+import { getMovies, getGenres, getPopularMovies, semanticSearch, type SemanticSearchResult } from "@/lib/api";
+import { isNaturalLanguageQuery } from "@/lib/searchUtils";
 import type { Movie, Genre } from "@/types";
 import MovieCard from "@/components/movie/MovieCard";
 import MovieModal from "@/components/movie/MovieModal";
@@ -36,6 +37,12 @@ function MoviesPageContent() {
   const [totalPages, setTotalPages] = useState(1);
   const [recommendedMovies, setRecommendedMovies] = useState<Movie[]>([]);
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
+
+  // Semantic search state
+  const [semanticMovies, setSemanticMovies] = useState<SemanticSearchResult[]>([]);
+  const [isSemanticSearch, setIsSemanticSearch] = useState(false);
+  const [semanticLoading, setSemanticLoading] = useState(false);
+  const [semanticSearchTime, setSemanticSearchTime] = useState(0);
 
   // URL params
   const query = searchParams.get("query") || "";
@@ -115,6 +122,36 @@ function MoviesPageContent() {
     fetchMovies();
     window.scrollTo(0, 0);
   }, [query, selectedGenre, selectedAgeRating, sortBy, currentPage]);
+
+  // Semantic search for natural language queries
+  useEffect(() => {
+    if (!query || !isNaturalLanguageQuery(query)) {
+      setIsSemanticSearch(false);
+      setSemanticMovies([]);
+      return;
+    }
+
+    const fetchSemantic = async () => {
+      setSemanticLoading(true);
+      setIsSemanticSearch(true);
+      try {
+        const data = await semanticSearch(query, 20);
+        if (!data.fallback) {
+          setSemanticMovies(data.results);
+          setSemanticSearchTime(data.search_time_ms);
+        } else {
+          setSemanticMovies([]);
+          setIsSemanticSearch(false);
+        }
+      } catch {
+        setSemanticMovies([]);
+        setIsSemanticSearch(false);
+      } finally {
+        setSemanticLoading(false);
+      }
+    };
+    fetchSemantic();
+  }, [query]);
 
   // Load more function for infinite scroll (uses internal infinitePage state)
   const loadMore = useCallback(async () => {
@@ -254,6 +291,64 @@ function MoviesPageContent() {
             </motion.div>
           )}
         </div>
+
+        {/* Semantic Search Results */}
+        {isSemanticSearch && (
+          <div className="mb-10">
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center gap-3 mb-6"
+            >
+              <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-900/40 to-purple-800/20 rounded-lg border border-purple-500/20">
+                <Sparkles className="w-5 h-5 text-purple-400" />
+                <span className="text-purple-300 font-medium">AI가 찾은 영화</span>
+              </div>
+              <span className="text-white/40 text-sm">
+                &quot;{query}&quot;
+                {semanticSearchTime > 0 && ` (${(semanticSearchTime / 1000).toFixed(2)}초)`}
+              </span>
+            </motion.div>
+
+            {semanticLoading ? (
+              <MovieGridSkeleton count={8} />
+            ) : semanticMovies.length > 0 ? (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
+              >
+                {semanticMovies.map((movie, index) => (
+                  <MovieCard
+                    key={`sem-${movie.id}`}
+                    movie={{
+                      id: movie.id,
+                      title: movie.title,
+                      title_ko: movie.title_ko,
+                      poster_path: movie.poster_path,
+                      release_date: movie.release_date,
+                      genres: movie.genres,
+                      vote_average: movie.weighted_score ?? 0,
+                      vote_count: 0,
+                      popularity: 0,
+                      certification: null,
+                      runtime: null,
+                      is_adult: false,
+                    }}
+                    index={index}
+                  />
+                ))}
+              </motion.div>
+            ) : null}
+
+            {/* Separator */}
+            {movies.length > 0 && semanticMovies.length > 0 && (
+              <div className="mt-8 border-t border-white/10 pt-6">
+                <h3 className="text-lg font-semibold text-white/70">키워드 검색 결과</h3>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Results */}
         <AnimatePresence mode="wait">

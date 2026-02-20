@@ -233,6 +233,34 @@ export async function getPersonalizedRecommendations(limit = 20): Promise<Movie[
   return fetchAPI<Movie[]>(`/recommendations/for-you?limit=${limit}`);
 }
 
+// Semantic Search
+export interface SemanticSearchResult {
+  id: number;
+  title: string;
+  title_ko: string | null;
+  poster_path: string | null;
+  release_date: string | null;
+  weighted_score: number | null;
+  genres: string[];
+  semantic_score: number;
+}
+
+export interface SemanticSearchResponse {
+  query: string;
+  results: SemanticSearchResult[];
+  total: number;
+  search_time_ms: number;
+  fallback: boolean;
+}
+
+export async function semanticSearch(
+  query: string,
+  limit: number = 20
+): Promise<SemanticSearchResponse> {
+  const params = new URLSearchParams({ q: query, limit: String(limit) });
+  return fetchAPI<SemanticSearchResponse>(`/movies/semantic-search?${params}`);
+}
+
 // Search Autocomplete
 export interface AutocompleteResult {
   movies: Array<{
