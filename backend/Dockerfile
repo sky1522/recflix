@@ -24,6 +24,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
+# Download SVD model from GitHub LFS (excluded from upload via .dockerignore)
+RUN mkdir -p data/movielens && \
+    curl -fSL -o data/movielens/svd_model.pkl \
+    "https://media.githubusercontent.com/media/sky1522/recflix/main/backend/data/movielens/svd_model.pkl"
+
 # Create non-root user for security
 RUN adduser --disabled-password --gecos '' appuser && \
     chown -R appuser:appuser /app

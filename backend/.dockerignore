@@ -1,0 +1,14 @@
+venv/
+__pycache__/
+*.pyc
+.env
+.pytest_cache/
+.ruff_cache/
+scripts/
+
+# MovieLens data (SVD model downloaded at build time)
+data/movielens/
+
+# Embedding temp files
+data/embeddings/progress.json
+data/embeddings/*_partial.npy
