@@ -363,6 +363,9 @@ export default function SearchAutocomplete({
                                   </span>
                                 )}
                               </div>
+                              {movie.match_reason && (
+                                <p className="text-purple-400/70 text-xs mt-0.5">{movie.match_reason}</p>
+                              )}
                             </div>
                           </button>
                         );

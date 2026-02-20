@@ -4,6 +4,7 @@ Movie API endpoints
 import hashlib
 import json
 import logging
+import math
 import random as random_mod
 import time
 from typing import Optional, List
@@ -255,6 +256,31 @@ def get_onboarding_movies(
 SEMANTIC_RESULT_CACHE_TTL = 1800  # 30분
 
 
+def _calculate_relevance(semantic_score: float, movie: Movie) -> float:
+    """시맨틱 유사도 + 인기도 + 품질을 결합한 복합 점수."""
+    vote_count = movie.vote_count or 0
+    popularity_score = min(math.log1p(vote_count) / math.log1p(50000), 1.0)
+
+    weighted = movie.weighted_score or 0.0
+    quality_score = min(max(weighted / 10.0, 0), 1.0)
+
+    return semantic_score * 0.50 + popularity_score * 0.30 + quality_score * 0.20
+
+
+def _get_match_reason(
+    semantic_score: float, popularity_score: float, quality_score: float,
+) -> str:
+    """추천 이유 태그 생성."""
+    reasons: list[str] = []
+    if semantic_score >= 0.45:
+        reasons.append("분위기 일치")
+    if quality_score >= 0.75:
+        reasons.append("높은 평점")
+    if popularity_score >= 0.5:
+        reasons.append("많은 관객")
+    return " · ".join(reasons) if reasons else "AI 추천"
+
+
 @router.get("/semantic-search")
 @limiter.limit("10/minute")
 async def semantic_search(
@@ -298,9 +324,9 @@ async def semantic_search(
     if embedding is None:
         return _keyword_fallback(q, limit, t_start, db)
 
-    # 4. 벡터 유사도 검색 (Top 100)
+    # 4. 벡터 유사도 검색 (Top 300 — 재랭킹용 넓은 후보)
     t_search = time.time()
-    candidates = search_similar(embedding, top_k=100)
+    candidates = search_similar(embedding, top_k=300)
     t_search_done = time.time()
     if not candidates:
         return _keyword_fallback(q, limit, t_start, db)
@@ -318,8 +344,8 @@ async def semantic_search(
     )
     movie_map = {m.id: m for m in movies}
 
-    # 6. 점수 정렬 + 품질 필터
-    results = []
+    # 6. 복합 점수 재랭킹 + 품질 필터
+    scored_items = []
     for mid in candidate_ids:
         m = movie_map.get(mid)
         if not m:
@@ -328,7 +354,19 @@ async def semantic_search(
         if ws < 5.0:
             continue
 
-        semantic_score = score_map.get(mid, 0.0)
+        sem = score_map.get(mid, 0.0)
+        relevance = _calculate_relevance(sem, m)
+        scored_items.append((m, sem, relevance))
+
+    # relevance 기준 내림차순 정렬
+    scored_items.sort(key=lambda x: x[2], reverse=True)
+
+    results = []
+    for m, sem, relevance in scored_items[:limit]:
+        ws = m.weighted_score or 0.0
+        vote_count = m.vote_count or 0
+        pop = min(math.log1p(vote_count) / math.log1p(50000), 1.0)
+        qual = min(max(ws / 10.0, 0), 1.0)
         genres = [g.name for g in m.genres] if m.genres else []
 
         results.append({
@@ -339,11 +377,10 @@ async def semantic_search(
             "release_date": str(m.release_date) if m.release_date else None,
             "weighted_score": round(ws, 1),
             "genres": genres,
-            "semantic_score": round(semantic_score, 4),
+            "semantic_score": round(sem, 4),
+            "relevance_score": round(relevance, 4),
+            "match_reason": _get_match_reason(sem, pop, qual),
         })
-
-        if len(results) >= limit:
-            break
 
     t_db_done = time.time()
     logger.info(

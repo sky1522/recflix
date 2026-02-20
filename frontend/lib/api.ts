@@ -243,6 +243,8 @@ export interface SemanticSearchResult {
   weighted_score: number | null;
   genres: string[];
   semantic_score: number;
+  relevance_score?: number;
+  match_reason?: string;
 }
 
 export interface SemanticSearchResponse {
