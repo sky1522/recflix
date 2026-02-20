@@ -24,10 +24,16 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Download SVD model from GitHub LFS (excluded from upload via .dockerignore)
-RUN mkdir -p data/movielens && \
+# Download large data files from GitHub LFS (excluded from upload via .dockerignore)
+RUN mkdir -p data/movielens data/embeddings && \
     curl -fSL -o data/movielens/svd_model.pkl \
-    "https://media.githubusercontent.com/media/sky1522/recflix/main/backend/data/movielens/svd_model.pkl"
+    "https://media.githubusercontent.com/media/sky1522/recflix/main/backend/data/movielens/svd_model.pkl" && \
+    curl -fSL -o data/embeddings/movie_embeddings.npy \
+    "https://media.githubusercontent.com/media/sky1522/recflix/main/backend/data/embeddings/movie_embeddings.npy" && \
+    curl -fSL -o data/embeddings/embedding_metadata.json \
+    "https://raw.githubusercontent.com/sky1522/recflix/main/backend/data/embeddings/embedding_metadata.json" && \
+    curl -fSL -o data/embeddings/movie_id_index.json \
+    "https://raw.githubusercontent.com/sky1522/recflix/main/backend/data/embeddings/movie_id_index.json"
 
 # Create non-root user for security
 RUN adduser --disabled-password --gecos '' appuser && \
