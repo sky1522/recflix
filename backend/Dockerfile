@@ -1,4 +1,5 @@
 # RecFlix Backend Dockerfile
+# Build context: repo root (via railway.toml dockerfilePath)
 FROM python:3.11-slim
 
 # Set working directory
@@ -21,18 +22,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
-COPY . .
+# Copy backend application code only
+COPY backend/ ./backend/
 
-# Download large data files from GitHub LFS (excluded from upload via .dockerignore)
-RUN mkdir -p data/movielens data/embeddings && \
-    curl -fSL -o data/movielens/svd_model.pkl \
+# Download large data files from GitHub LFS (not included in upload)
+RUN mkdir -p backend/data/movielens backend/data/embeddings && \
+    curl -fSL -o backend/data/movielens/svd_model.pkl \
     "https://media.githubusercontent.com/media/sky1522/recflix/main/backend/data/movielens/svd_model.pkl" && \
-    curl -fSL -o data/embeddings/movie_embeddings.npy \
+    curl -fSL -o backend/data/embeddings/movie_embeddings.npy \
     "https://media.githubusercontent.com/media/sky1522/recflix/main/backend/data/embeddings/movie_embeddings.npy" && \
-    curl -fSL -o data/embeddings/embedding_metadata.json \
+    curl -fSL -o backend/data/embeddings/embedding_metadata.json \
     "https://raw.githubusercontent.com/sky1522/recflix/main/backend/data/embeddings/embedding_metadata.json" && \
-    curl -fSL -o data/embeddings/movie_id_index.json \
+    curl -fSL -o backend/data/embeddings/movie_id_index.json \
     "https://raw.githubusercontent.com/sky1522/recflix/main/backend/data/embeddings/movie_id_index.json"
 
 # Create non-root user for security
@@ -48,4 +49,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Start the application
+WORKDIR /app/backend
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

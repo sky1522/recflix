@@ -1,0 +1,35 @@
+# Frontend (not needed for backend build)
+frontend/
+
+# Docs
+docs/
+
+# Git
+.git/
+.gitattributes
+
+# Config files
+.claude/
+claude_prompt.md
+claude_results.md
+CLAUDE.md
+PROGRESS.md
+CHANGELOG.md
+DECISION.md
+*.md
+
+# Backend large data (downloaded from GitHub LFS at build time)
+backend/data/movielens/
+backend/data/embeddings/
+
+# Backend dev files
+backend/venv/
+backend/__pycache__/
+backend/.env
+backend/.pytest_cache/
+backend/.ruff_cache/
+backend/scripts/
+
+# OS files
+.DS_Store
+Thumbs.db
