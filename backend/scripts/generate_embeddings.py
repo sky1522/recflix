@@ -275,8 +275,8 @@ def main() -> None:
         if done % 1000 == 0:
             _save_progress(done, all_embeddings, total)
 
-        # Rate limit: Voyage AI 300 RPM
-        time.sleep(0.25)
+        # Rate limit: Voyage AI 3 RPM (free tier)
+        time.sleep(21)
 
     # 최종 저장
     embeddings_array = np.array(all_embeddings, dtype=np.float32)
