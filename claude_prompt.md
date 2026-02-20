@@ -1,125 +1,68 @@
-claude "Phase 33-2: 시맨틱 검색 Frontend UI 구현.
+claude "Phase 33-4: 시맨틱 검색 프로덕션 배포 + 최적화.
 
 === Research ===
-먼저 다음 파일들을 읽고 현재 구조를 파악할 것:
-- CLAUDE.md
-- frontend/components/search/SearchAutocomplete.tsx (현재 검색 UI 전체)
-- frontend/lib/api.ts (API 함수 패턴)
-- frontend/app/movies/page.tsx (영화 검색/목록 페이지)
-- frontend/types/index.ts (타입 정의)
-- frontend/app/layout.tsx (검색바 위치 확인)
+먼저 다음을 확인할 것:
+- backend/data/embeddings/movie_embeddings.npy 파일 크기 확인 (ls -la)
+- backend/data/embeddings/movie_id_index.json 존재 확인
+- backend/data/embeddings/embedding_metadata.json 존재 확인
+- backend/app/api/v1/semantic_search.py (load_embeddings 함수)
+- backend/app/api/v1/movies.py (semantic-search 엔드포인트)
+- backend/app/services/embedding.py (get_query_embedding — Redis 캐싱 확인)
 
-=== 1. API 함수 추가 ===
-frontend/lib/api.ts에 추가:
-```typescript
-export interface SemanticSearchResult {
-  id: number;
-  title: string;
-  title_ko: string | null;
-  poster_path: string | null;
-  release_date: string | null;
-  weighted_score: number | null;
-  genres: string[];
-  semantic_score: number;
-}
+=== 1단계: 검색 시간 최적화 확인 ===
+로컬에서 같은 쿼리 2번 연속 테스트:
+- curl 'http://localhost:8000/api/v1/movies/semantic-search?q=비오는날혼자보기좋은잔잔한영화&limit=5'
+- 1초 대기 후 같은 쿼리 재실행
+- 두 번째 응답의 search_time_ms가 100ms 이하인지 확인 (Redis 캐시 히트)
+- 안 되면 embedding.py의 Redis 캐싱 코드 확인
 
-export interface SemanticSearchResponse {
-  query: string;
-  results: SemanticSearchResult[];
-  total: number;
-  search_time_ms: number;
-  fallback: boolean;
-}
-
-export async function semanticSearch(
-  query: string,
-  limit: number = 20
-): Promise<SemanticSearchResponse> {
-  const params = new URLSearchParams({ q: query, limit: String(limit) });
-  return fetchAPI(`/movies/semantic-search?${params}`);
-}
+=== 2단계: Voyage API 응답 시간 분석 ===
+semantic-search 엔드포인트에서 각 단계별 시간을 로깅하고 있는지 확인:
+- Voyage API 호출 시간
+- NumPy 검색 시간
+- DB 조회 시간
+만약 로깅이 없으면 추가:
+```python
+import time
+t0 = time.time()
+embedding = await get_query_embedding(q)
+t1 = time.time()
+results = search_similar(embedding, top_k=100)
+t2 = time.time()
+# DB 조회
+t3 = time.time()
+logger.info("Semantic search timing: embedding=%.0fms search=%.0fms db=%.0fms", 
+            (t1-t0)*1000, (t2-t1)*1000, (t3-t2)*1000)
 ```
 
-=== 2. 자연어 감지 유틸 ===
-frontend/lib/searchUtils.ts 생성:
-```typescript
-export function isNaturalLanguageQuery(query: string): boolean {
-  const words = query.trim().split(/\s+/);
-  if (words.length <= 2) return false;
+=== 3단계: Railway 배포 ===
+- railway up 실행 (로컬 파일 직접 업로드)
+- 176MB .npy 포함되므로 업로드 시간 좀 걸릴 수 있음
+- 배포 후 서버 로그에서 'Loaded XXXXX movie embeddings' 확인
+- curl https://backend-production-cff2.up.railway.app/api/v1/movies/semantic-search?q=비오는날좋은영화&limit=3
+- 응답 확인
 
-  const nlPatterns = [
-    /좋은|어울리는|볼만한|추천|찾아/,
-    /기분|분위기|느낌|감성|무드/,
-    /날씨|비|눈|맑은|흐린|추운|더운/,
-    /혼자|같이|연인|가족|친구|데이트/,
-    /잔잔한|긴장감|무서운|재밌는|슬픈|감동|웃긴|따뜻한|시원한/,
-    /싶|때|날|영화|보기/,
-  ];
-
-  return nlPatterns.some(p => p.test(query));
-}
-```
-
-=== 3. SearchAutocomplete 수정 ===
-기존 검색 UI에 시맨틱 결과 섹션을 추가. 기존 키워드 검색은 그대로 유지.
-
-동작 흐름:
-- 사용자 입력 → debounce (기존 로직)
-- isNaturalLanguageQuery(query) === true이면:
-  - 키워드 검색과 동시에 semanticSearch(query, 8) 호출
-  - 드롭다운 상단에 '✨ AI 추천 결과' 섹션 표시
-  - 각 결과: 포스터 썸네일 + 제목 + 평점 + 장르 (기존 검색 결과와 비슷한 레이아웃)
-  - 클릭 시 /movies/{id}로 이동
-- isNaturalLanguageQuery === false이면:
-  - 기존 키워드 검색만 표시 (변경 없음)
-
-드롭다운 구조:
-┌──────────────────────────────────────────┐
-│ ✨ AI 추천 결과                            │ ← 시맨틱 결과 (자연어일 때만)
-│  🎬 쇼생크 탈출        ⭐ 9.1  드라마      │
-│  🎬 인생은 아름다워     ⭐ 8.6  드라마      │
-│  🎬 굿 윌 헌팅        ⭐ 8.3  드라마       │
-├──────────────────────────────────────────┤
-│ 🎬 검색 결과                               │ ← 기존 키워드 결과
-│  ...                                     │
-├──────────────────────────────────────────┤
-│ 전체 검색 결과 보기 →                       │
-└──────────────────────────────────────────┘
-
-주의사항:
-- semanticSearch 로딩 중일 때 '✨ AI 추천 검색 중...' 스피너 표시
-- semanticSearch 실패해도 기존 키워드 결과는 정상 표시 (독립적)
-- fallback: true이면 AI 섹션 표시하지 않음
-- 키보드 네비게이션 기존 동작 유지 (시맨틱 결과도 키보드로 선택 가능)
-
-=== 4. /movies 페이지 시맨틱 검색 모드 ===
-frontend/app/movies/page.tsx 수정:
-- URL 쿼리 파라미터 q가 자연어이면 (isNaturalLanguageQuery):
-  - semanticSearch API 호출
-  - 결과를 기존 MovieCard 그리드로 렌더링
-  - 상단에 '✨ AI가 찾은 영화' 배너 + 검색 소요 시간 표시
-  - 예: '✨ AI가 찾은 영화 — "비오는 날 혼자 보기 좋은 잔잔한 영화" (0.15초)'
-- 자연어가 아니면:
-  - 기존 키워드 검색 로직 그대로
+=== 4단계: Vercel 배포 ===
+- cd frontend && npx vercel --prod
+- 배포 완료 후 https://jnsquery-reflix.vercel.app 접속
+- 검색창에 '비오는 날 혼자 보기 좋은 잔잔한 영화' 입력
+- ✨ AI 추천 결과 섹션 표시되는지 확인
 
 === 규칙 ===
-- 기존 키워드 검색 로직 수정 금지 (추가만)
-- 기존 SearchAutocomplete의 키보드 네비게이션, 하이라이팅 등 기존 기능 유지
-- 시맨틱 검색 실패 시 기존 검색으로 graceful fallback
-- 스타일은 기존 디자인 시스템 (Tailwind) 따를 것
-- 모든 .md 문서 파일 건드리지 말 것
-- 추천 관련 코드 건드리지 말 것
+- 기존 검색/추천 코드 수정 금지
+- 디버그 로깅 추가만 허용 (기존 로직 변경 X)
+- Railway 배포 실패 시 원인 분석 후 결과에 기록
 
 === 검증 ===
-1. cd frontend && npm run build — 빌드 성공
-2. TypeScript 에러 없음
-3. 기존 검색 기능 정상 동작 (2글자 이하 키워드 → 기존 검색만)
-4. 자연어 쿼리 감지 정상 동작 (isNaturalLanguageQuery 테스트)
-5. semanticSearch API 함수 타입 정상
-6. git add -A && git commit -m 'feat: Phase 33-2 시맨틱 검색 Frontend UI (자연어 감지 + AI 추천 섹션)' && git push origin HEAD:main
+1. 로컬 시맨틱 검색 — 캐시 히트 시 100ms 이하
+2. Railway 배포 성공 + 임베딩 로드 로그 확인
+3. 프로덕션 시맨틱 검색 API 응답 정상
+4. Vercel 배포 + 프론트엔드 UI 동작 확인
+5. git add -A && git commit -m 'feat: Phase 33-4 시맨틱 검색 프로덕션 배포 + 타이밍 로그' && git push origin HEAD:main
 
 결과를 claude_results.md에 기존 내용을 전부 지우고 새로 작성 (덮어쓰기):
-- 생성/수정된 파일 목록
-- 검증 결과
-- UI 동작 설명
-- 다음 단계 (임베딩 생성 완료 후 통합 테스트)"
+- 검색 시간 분석 (단계별)
+- Redis 캐시 히트 시 응답 시간
+- Railway 배포 결과
+- Vercel 배포 결과
+- 프로덕션 E2E 테스트 결과"

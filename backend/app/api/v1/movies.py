@@ -292,12 +292,16 @@ async def semantic_search(
         return _keyword_fallback(q, limit, t_start, db)
 
     # 3. 쿼리 임베딩
+    t_emb = time.time()
     embedding = await get_query_embedding(q)
+    t_emb_done = time.time()
     if embedding is None:
         return _keyword_fallback(q, limit, t_start, db)
 
     # 4. 벡터 유사도 검색 (Top 100)
+    t_search = time.time()
     candidates = search_similar(embedding, top_k=100)
+    t_search_done = time.time()
     if not candidates:
         return _keyword_fallback(q, limit, t_start, db)
 
@@ -305,6 +309,7 @@ async def semantic_search(
     score_map = {mid: score for mid, score in candidates}
 
     # 5. DB에서 후보 영화 조회
+    t_db = time.time()
     movies = (
         db.query(Movie)
         .options(selectinload(Movie.genres))
@@ -339,6 +344,15 @@ async def semantic_search(
 
         if len(results) >= limit:
             break
+
+    t_db_done = time.time()
+    logger.info(
+        "Semantic search timing: embedding=%.0fms search=%.0fms db=%.0fms total=%.0fms",
+        (t_emb_done - t_emb) * 1000,
+        (t_search_done - t_search) * 1000,
+        (t_db_done - t_db) * 1000,
+        (t_db_done - t_start) * 1000,
+    )
 
     elapsed_ms = round((time.time() - t_start) * 1000, 1)
     response = {
