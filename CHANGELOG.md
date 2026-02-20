@@ -6,6 +6,56 @@ All notable changes to RecFlix will be documented in this file.
 
 ---
 
+## [2026-02-20]
+
+### Added
+- **시맨틱 검색 (Phase 33)**: 자연어 질의 기반 영화 검색
+  - Voyage AI `voyage-multilingual-2`로 42,917편 임베딩 생성 (git-lfs 저장)
+  - `GET /movies/search/semantic` — NumPy 인메모리 코사인 유사도
+  - 재랭킹: 인기도+품질 복합점수 + `match_reason` 필드
+  - Frontend: 자연어 감지 자동 전환 + AI 추천 섹션 UI
+  - 프로덕션 배포 + 응답시간 타이밍 로그
+- **추천 다양성/신선도 정책 (Phase 34)**
+  - 장르 다양성 보장 (동일 장르 연속 제한)
+  - 신선도 가중치 (최신 영화 우대)
+  - Serendipity 삽입 (의외의 발견 영화 혼합)
+  - 섹션 간 영화 중복 제거
+- **SVD 모델 프로덕션 배포 (Phase 35)**
+  - Dockerfile에서 git-lfs로 SVD 모델 + 임베딩 다운로드
+  - `.dockerignore` 최적화 (빌드 속도 개선)
+  - `railway.toml` 루트 레벨 배치 + startCommand `sh -c` 래퍼
+  - numpy 2.x 호환성 (SVD pickle + pandas/scipy 버전 제약 완화)
+- **헬스체크 + CI/CD 파이프라인 (Phase 36)**
+  - `GET /health` 엔드포인트 (DB, Redis, SVD, 임베딩 상태 체크)
+  - GitHub Actions CI: Backend Lint (ruff 0.1.13) + Frontend Build (next build)
+  - GitHub Actions CD: `railway up --service backend --environment production --detach`
+  - Vercel: GitHub 연동 자동 배포 (Actions 불필요)
+  - Railway Project Token GitHub Secrets 등록
+- **추천 이유 생성 (Phase 37)**: 템플릿 기반 한국어 추천 이유
+  - `backend/app/api/v1/recommendation_reason.py` 신규 (228줄, 43개 템플릿)
+  - 카테고리: MBTI 11 + Weather 12 + Mood 10 + Quality 4 + Compound 6
+  - 우선순위: 복합조건 > Mood/Personal > MBTI > Weather > Quality
+  - 비용 $0, 지연 0ms (순수 문자열 조합)
+  - `HybridMovieItem` 스키마에 `recommendation_reason` 필드 추가
+  - `HybridMovieCard` 컴포넌트에 추천 이유 텍스트 표시
+
+### Changed
+- **`.github/workflows/ci.yml`**: deploy-frontend 제거 (Vercel 자동 배포), deploy-backend Railway CD 추가
+- **Dockerfile**: git-lfs 설치 + LFS 파일 다운로드 단계 추가
+
+### Fixed
+- **Railway CD "Invalid RAILWAY_TOKEN"**: Account Token → Project Token으로 교체
+- **numpy 2.x pickle 호환성**: SVD 모델 로드 실패 → numpy/pandas/scipy 버전 업데이트
+
+### Technical Details
+- 신규 파일: `recommendation_reason.py`, `health.py`, `.github/workflows/ci.yml`
+- 신규 의존성: `voyageai` (임베딩)
+- 임베딩 데이터: `backend/data/embeddings/` (git-lfs)
+- CI/CD: GitHub Actions (lint + build + Railway deploy)
+- 총 33개 커밋 (Phase 33~37 + CI/CD 디버깅)
+
+---
+
 ## [2026-02-19]
 
 ### Added

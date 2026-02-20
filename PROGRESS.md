@@ -1,6 +1,6 @@
 # RecFlix 개발 진행 상황
 
-**최종 업데이트**: 2026-02-19
+**최종 업데이트**: 2026-02-20
 
 ---
 
@@ -420,6 +420,59 @@
 | **OAuth 콜백 에러 전달** | ✅ | 카카오/Google 콜백에서 detail 파라미터로 에러 상세 전달 |
 | **프로덕션 검증** | ✅ | 카카오 로그인 ✅, Google 로그인 ✅ |
 
+### Phase 33: 시맨틱 검색 (2026-02-20)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| Voyage AI 임베딩 생성 | ✅ | voyage-multilingual-2, 42,917편, git-lfs 저장 |
+| 시맨틱 검색 Backend API | ✅ | NumPy 인메모리 코사인 유사도, `/movies/search/semantic` |
+| 시맨틱 검색 Frontend UI | ✅ | 자연어 감지 + AI 추천 섹션 (검색 페이지 통합) |
+| 프로덕션 배포 + 타이밍 로그 | ✅ | Railway 배포, 응답시간 측정 로그 추가 |
+| 재랭킹 개선 | ✅ | 인기도+품질 복합점수 + match_reason 필드 추가 |
+| Voyage AI RPM 제한 대응 | ✅ | 3 RPM 제한에 맞춘 딜레이 조정 |
+
+### Phase 34: 추천 다양성/신선도 정책 (2026-02-20)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 장르 다양성 보장 | ✅ | 동일 장르 연속 제한 알고리즘 |
+| 신선도 가중치 | ✅ | 최신 영화 우대 보정 |
+| Serendipity 삽입 | ✅ | 의외의 발견 영화 혼합 |
+| 중복 제거 | ✅ | 섹션 간 영화 중복 방지 |
+
+### Phase 35: SVD 모델 프로덕션 배포 (2026-02-20)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| Dockerfile LFS 다운로드 | ✅ | git-lfs로 SVD 모델 + 임베딩 다운로드 |
+| .dockerignore 최적화 | ✅ | 불필요 파일 제외 (빌드 속도 개선) |
+| Railway 빌드 설정 수정 | ✅ | 루트 railway.toml + Dockerfile 경로 보정 |
+| startCommand 수정 | ✅ | `sh -c` 래퍼 (PORT 변수 확장) |
+| numpy 2.x 호환성 | ✅ | SVD 모델 pickle 호환 + pandas/scipy 버전 제약 완화 |
+| 프로덕션 검증 | ✅ | Railway 배포 + 헬스체크 정상 |
+
+### Phase 36: 헬스체크 + CI/CD 파이프라인 (2026-02-20)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 헬스체크 엔드포인트 | ✅ | `GET /health` (DB, Redis, SVD, 임베딩 상태 체크) |
+| GitHub Actions CI | ✅ | Backend Lint (ruff) + Frontend Build (next build) |
+| CD 자동 배포 (Railway) | ✅ | `railway up --service backend --environment production --detach` |
+| Vercel 자동 배포 | ✅ | GitHub 연동으로 push 시 자동 배포 (Actions 불필요) |
+| Railway Project Token 설정 | ✅ | GitHub Secrets 등록 + 프로덕션 배포 검증 |
+| ruff 버전 고정 | ✅ | 0.1.13, critical 규칙만 체크 |
+
+### Phase 37: 추천 이유 생성 (2026-02-20)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 템플릿 기반 추천 이유 모듈 | ✅ | `recommendation_reason.py` (228줄, 43개 템플릿) |
+| HybridMovieItem 스키마 확장 | ✅ | `recommendation_reason: str = ""` 필드 추가 |
+| 추천 API 연동 | ✅ | `generate_reason()` 호출, 홈/hybrid 엔드포인트 |
+| Frontend 타입 확장 | ✅ | `HybridMovie.recommendation_reason?: string` |
+| HybridMovieCard 추천 이유 표시 | ✅ | 태그 아래 이탤릭 텍스트 (line-clamp-2) |
+| 프로덕션 배포 + 검증 | ✅ | CI/CD 자동 배포 성공, 헬스체크 정상 |
+
 ---
 
 ## 프로젝트 구조
@@ -436,10 +489,12 @@ C:\dev\recflix\
 │   │   │   ├── recommendation_engine.py
 │   │   │   ├── recommendation_constants.py
 │   │   │   ├── recommendation_cf.py
+│   │   │   ├── recommendation_reason.py
 │   │   │   ├── events.py
 │   │   │   ├── ratings.py
 │   │   │   ├── collections.py
 │   │   │   ├── weather.py
+│   │   │   ├── health.py
 │   │   │   ├── interactions.py
 │   │   │   └── router.py
 │   │   ├── core/
@@ -631,13 +686,22 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 - [x] **A/B 테스트 프레임워크** (3그룹 분기, AB Report) (2026-02-19)
 - [x] **소셜 로그인** (Kakao/Google OAuth + 콜백) (2026-02-19)
 - [x] **온보딩** (장르 선택 + 영화 평가 2단계) (2026-02-19)
+- [x] **시맨틱 검색** (Voyage AI 임베딩 + NumPy 코사인 유사도 + 재랭킹) (2026-02-20)
+- [x] **추천 다양성/신선도** (장르 다양성 + 신선도 + serendipity + 중복 제거) (2026-02-20)
+- [x] **SVD 모델 프로덕션 배포** (Dockerfile LFS + numpy 2.x 호환) (2026-02-20)
+- [x] **헬스체크 엔드포인트** (`GET /health`, DB/Redis/SVD/임베딩 상태) (2026-02-20)
+- [x] **CI/CD 파이프라인** (GitHub Actions CI + Railway CD 자동 배포) (2026-02-20)
+- [x] **추천 이유 생성** (템플릿 기반 43개 패턴, $0 비용) (2026-02-20)
 
 ### 향후 개선사항
 - [ ] PWA 지원
-- [ ] CI/CD 파이프라인 (GitHub Actions)
-- [ ] 프로덕션 DB 마이그레이션 (Phase 31-32 스키마)
+- [x] **CI/CD 파이프라인** (GitHub Actions CI + Railway CD) (2026-02-20)
+- [ ] 프로덕션 DB 마이그레이션 (Phase 29-32 스키마: user_events, users 컬럼 추가)
 - [x] **소셜 로그인 OAuth 수정** (Vercel 환경변수 `\n` + Pydantic 이메일) (2026-02-19)
-- [ ] SVD 모델 프로덕션 배포 (Railway에 pickle 파일)
+- [x] **SVD 모델 프로덕션 배포** (Dockerfile LFS 다운로드 + numpy 2.x) (2026-02-20)
+- [x] **시맨틱 검색** (Voyage AI 임베딩 + NumPy 코사인 유사도) (2026-02-20)
+- [x] **추천 다양성 정책** (장르 다양성 + 신선도 + serendipity) (2026-02-20)
+- [x] **추천 이유 생성** (템플릿 기반 43개 패턴, $0 비용) (2026-02-20)
 
 ---
 
@@ -664,3 +728,5 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 19. **CORS 500 에러 (overview_ko 제거 후)**: DB에서 컬럼 삭제 후 코드 미배포 → 500 에러 응답에 CORS 헤더 누락 → Railway 재배포로 해결 (2026-02-12)
 20. **소셜 로그인 OAuth 400**: Vercel 환경변수 값 끝에 `\n` 포함 → URLSearchParams가 `%0A`로 인코딩 → OAuth 제공자 400 에러. `.trim()` 추가 + Vercel 환경변수 `printf`로 재등록 (2026-02-19)
 21. **Pydantic EmailStr `.local` 도메인 거부**: 이메일 없는 소셜 사용자 `@recflix.local` → `@noreply.example.com` 변경 (2026-02-19)
+22. **Railway CD "Invalid RAILWAY_TOKEN"**: Account Token이 아닌 **Project Token** 필요 → Railway Dashboard에서 프로젝트 설정 > Tokens에서 생성 (2026-02-20)
+23. **numpy 2.x pickle 호환성**: SVD 모델(numpy 1.x로 학습)이 numpy 2.x에서 로드 실패 → numpy/pandas/scipy 버전 업데이트로 해결 (2026-02-20)
