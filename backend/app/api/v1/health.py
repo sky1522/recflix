@@ -54,5 +54,5 @@ async def health_check() -> dict:
         "redis": _check_redis(),
         "semantic_search": "enabled" if is_semantic_search_available() else "disabled",
         "cf_model": "loaded" if is_cf_available() else "not_loaded",
-        "version": os.environ.get("GIT_SHA", os.environ.get("APP_VERSION", "unknown")),
+        "version": os.environ.get("GIT_SHA", os.environ.get("APP_VERSION", "v1.0.0")),
     }
