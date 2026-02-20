@@ -1,14 +1,18 @@
 """
 Movie API endpoints
 """
+import hashlib
 import json
+import logging
 import random as random_mod
+import time
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import or_, extract, distinct, select, func
 
 from app.api.v1.recommendation_constants import AGE_RATING_MAP
+from app.api.v1.semantic_search import is_semantic_search_available, search_similar
 from app.core.deps import get_db
 from app.core.rate_limit import limiter
 from app.models import Movie, Genre, Person
@@ -16,7 +20,10 @@ from app.models.movie import movie_cast
 from app.schemas import (
     MovieListItem, MovieDetail, PaginatedMovies, GenreResponse
 )
+from app.services.embedding import get_query_embedding
 from app.services.llm import get_redis_client
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/movies", tags=["Movies"])
 
@@ -243,6 +250,159 @@ def get_onboarding_movies(
     random_mod.shuffle(all_movies)
     selected = all_movies[:40]
     return [MovieListItem.from_orm_with_genres(m) for m in selected]
+
+
+SEMANTIC_RESULT_CACHE_TTL = 1800  # 30분
+
+
+@router.get("/semantic-search")
+@limiter.limit("10/minute")
+async def semantic_search(
+    request: Request,
+    q: str = Query(..., min_length=2, description="Natural language query"),
+    limit: int = Query(20, ge=1, le=50),
+    db: Session = Depends(get_db),
+):
+    """
+    시맨틱 검색 — 자연어 쿼리로 영화 검색.
+    벡터 유사도(Voyage AI) + 품질 필터로 결과 반환.
+    임베딩 미생성 시 키워드 검색으로 폴백.
+    """
+    t_start = time.time()
+
+    # 결과 캐시 키
+    params_str = f"{q.strip().lower()}:{limit}"
+    result_hash = hashlib.md5(params_str.encode()).hexdigest()[:12]
+    result_cache_key = f"semantic_res:{result_hash}"
+
+    # 1. Redis 결과 캐시 확인
+    redis = await get_redis_client()
+    if redis:
+        try:
+            cached = await redis.get(result_cache_key)
+            if cached:
+                result = json.loads(cached)
+                result["search_time_ms"] = round((time.time() - t_start) * 1000, 1)
+                return result
+        except Exception:
+            pass
+
+    # 2. 시맨틱 검색 불가 → 키워드 폴백
+    if not is_semantic_search_available():
+        return _keyword_fallback(q, limit, t_start, db)
+
+    # 3. 쿼리 임베딩
+    embedding = await get_query_embedding(q)
+    if embedding is None:
+        return _keyword_fallback(q, limit, t_start, db)
+
+    # 4. 벡터 유사도 검색 (Top 100)
+    candidates = search_similar(embedding, top_k=100)
+    if not candidates:
+        return _keyword_fallback(q, limit, t_start, db)
+
+    candidate_ids = [mid for mid, _ in candidates]
+    score_map = {mid: score for mid, score in candidates}
+
+    # 5. DB에서 후보 영화 조회
+    movies = (
+        db.query(Movie)
+        .options(selectinload(Movie.genres))
+        .filter(Movie.id.in_(candidate_ids))
+        .all()
+    )
+    movie_map = {m.id: m for m in movies}
+
+    # 6. 점수 정렬 + 품질 필터
+    results = []
+    for mid in candidate_ids:
+        m = movie_map.get(mid)
+        if not m:
+            continue
+        ws = m.weighted_score or 0.0
+        if ws < 5.0:
+            continue
+
+        semantic_score = score_map.get(mid, 0.0)
+        genres = [g.name for g in m.genres] if m.genres else []
+
+        results.append({
+            "id": m.id,
+            "title": m.title,
+            "title_ko": m.title_ko,
+            "poster_path": m.poster_path,
+            "release_date": str(m.release_date) if m.release_date else None,
+            "weighted_score": round(ws, 1),
+            "genres": genres,
+            "semantic_score": round(semantic_score, 4),
+        })
+
+        if len(results) >= limit:
+            break
+
+    elapsed_ms = round((time.time() - t_start) * 1000, 1)
+    response = {
+        "query": q,
+        "results": results,
+        "total": len(results),
+        "search_time_ms": elapsed_ms,
+        "fallback": False,
+    }
+
+    # 7. Redis 결과 캐시 저장
+    if redis and results:
+        try:
+            await redis.setex(
+                result_cache_key,
+                SEMANTIC_RESULT_CACHE_TTL,
+                json.dumps(response, ensure_ascii=False),
+            )
+        except Exception:
+            pass
+
+    return response
+
+
+def _keyword_fallback(
+    query: str, limit: int, t_start: float, db: Session,
+) -> dict:
+    """시맨틱 검색 불가 시 기존 키워드 검색으로 폴백."""
+    movies = (
+        db.query(Movie)
+        .options(selectinload(Movie.genres))
+        .filter(
+            or_(
+                Movie.title.ilike(f"%{query}%"),
+                Movie.title_ko.ilike(f"%{query}%"),
+            )
+        )
+        .order_by(Movie.popularity.desc())
+        .limit(limit)
+        .all()
+    )
+
+    results = []
+    for m in movies:
+        ws = m.weighted_score or 0.0
+        genres = [g.name for g in m.genres] if m.genres else []
+        results.append({
+            "id": m.id,
+            "title": m.title,
+            "title_ko": m.title_ko,
+            "poster_path": m.poster_path,
+            "release_date": str(m.release_date) if m.release_date else None,
+            "weighted_score": round(ws, 1),
+            "genres": genres,
+            "semantic_score": 0.0,
+        })
+
+    return {
+        "query": query,
+        "results": results,
+        "total": len(results),
+        "search_time_ms": round((time.time() - t_start) * 1000, 1),
+        "fallback": True,
+    }
 
 
 @router.get("/{movie_id}", response_model=MovieDetail)

@@ -46,6 +46,12 @@ async def lifespan(app: FastAPI):
     logger.info("Redis: %s", "enabled" if settings.REDIS_URL else "disabled")
     logger.info("Sentry: %s", "enabled" if settings.SENTRY_DSN else "disabled")
     logger.info("Weather API: %s", "enabled" if settings.WEATHER_API_KEY else "disabled")
+
+    # Load movie embeddings for semantic search
+    from app.api.v1.semantic_search import is_semantic_search_available, load_embeddings
+    load_embeddings()
+    logger.info("Semantic search: %s", "enabled" if is_semantic_search_available() else "disabled (no embeddings)")
+
     yield
     # Shutdown: cleanup if needed
 

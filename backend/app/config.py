@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
+    VOYAGE_API_KEY: str = ""
 
     # OAuth - Kakao
     KAKAO_CLIENT_ID: str = ""

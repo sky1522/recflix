@@ -114,6 +114,11 @@ logs/
 data/processed/*
 !data/processed/.gitkeep
 
+# 임베딩 데이터 (대용량)
+*.npy
+backend/data/embeddings/*.json
+!backend/data/embeddings/.gitkeep
+
 # MovieLens 데이터 (대용량)
 backend/data/movielens/ml-25m/
 backend/data/movielens/ml-25m.zip
