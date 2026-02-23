@@ -15,33 +15,110 @@ import type {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
+const DEFAULT_TIMEOUT_MS = 10_000;
+const RETRY_DELAY_MS = 1_000;
+const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
+
+/** Structured API error with status and retryable flag. */
+export class ApiError extends Error {
+  status: number;
+  retryable: boolean;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.retryable = RETRYABLE_STATUSES.has(status);
+  }
+}
+
+interface FetchAPIOptions extends Omit<RequestInit, "signal"> {
+  /** Request timeout in milliseconds (default 10s). */
+  timeoutMs?: number;
+  /** External AbortSignal for caller-controlled cancellation. */
+  signal?: AbortSignal;
+  /** Auto-retry on 5xx/429 for GET requests (default true). */
+  retry?: boolean;
+}
+
 // Helper function for API calls
 async function fetchAPI<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: FetchAPIOptions = {}
 ): Promise<T> {
+  const { timeoutMs = DEFAULT_TIMEOUT_MS, signal: externalSignal, retry = true, ...init } = options;
+  const method = (init.method ?? "GET").toUpperCase();
+  const canRetry = retry && method === "GET";
+
   const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
 
   const headers: HeadersInit = {
     "Content-Type": "application/json",
-    ...options.headers,
+    ...init.headers,
   };
 
   if (token) {
     (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  const doFetch = async (signal: AbortSignal): Promise<T> => {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...init,
+      headers,
+      signal,
+    });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: "Request failed" }));
-    throw new Error(error.detail || "Request failed");
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({ detail: "Request failed" }));
+      throw new ApiError(response.status, body.detail || "Request failed");
+    }
+
+    return response.json();
+  };
+
+  // Build combined abort signal: timeout + optional external signal
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), timeoutMs);
+
+  const signals = externalSignal
+    ? [timeoutController.signal, externalSignal]
+    : [timeoutController.signal];
+  // AbortSignal.any is available in modern browsers; fallback for older
+  const combinedSignal =
+    typeof AbortSignal.any === "function"
+      ? AbortSignal.any(signals)
+      : signals[0]; // single-signal fallback (external abort handled below)
+
+  // For older browsers without AbortSignal.any, manually wire external abort
+  let externalAbortHandler: (() => void) | undefined;
+  if (typeof AbortSignal.any !== "function" && externalSignal) {
+    externalAbortHandler = () => timeoutController.abort();
+    externalSignal.addEventListener("abort", externalAbortHandler, { once: true });
   }
 
-  return response.json();
+  try {
+    return await doFetch(combinedSignal);
+  } catch (err) {
+    // AbortError: don't retry, rethrow silently (callers should handle)
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw err;
+    }
+
+    // Retry once for retryable errors on GET
+    if (canRetry && err instanceof ApiError && err.retryable) {
+      await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+      // Respect abort during retry wait
+      if (combinedSignal.aborted) throw err;
+      return await doFetch(combinedSignal);
+    }
+
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+    if (externalAbortHandler && externalSignal) {
+      externalSignal.removeEventListener("abort", externalAbortHandler);
+    }
+  }
 }
 
 // Movie APIs
@@ -257,10 +334,11 @@ export interface SemanticSearchResponse {
 
 export async function semanticSearch(
   query: string,
-  limit: number = 20
+  limit: number = 20,
+  signal?: AbortSignal
 ): Promise<SemanticSearchResponse> {
   const params = new URLSearchParams({ q: query, limit: String(limit) });
-  return fetchAPI<SemanticSearchResponse>(`/movies/semantic-search?${params}`);
+  return fetchAPI<SemanticSearchResponse>(`/movies/semantic-search?${params}`, { signal });
 }
 
 // Search Autocomplete
@@ -280,8 +358,8 @@ export interface AutocompleteResult {
   query: string;
 }
 
-export async function searchAutocomplete(query: string, limit = 8): Promise<AutocompleteResult> {
-  return fetchAPI<AutocompleteResult>(`/movies/search/autocomplete?query=${encodeURIComponent(query)}&limit=${limit}`);
+export async function searchAutocomplete(query: string, limit = 8, signal?: AbortSignal): Promise<AutocompleteResult> {
+  return fetchAPI<AutocompleteResult>(`/movies/search/autocomplete?query=${encodeURIComponent(query)}&limit=${limit}`, { signal });
 }
 
 // Onboarding APIs

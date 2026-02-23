@@ -76,25 +76,37 @@ export default function SearchAutocomplete({
     return items;
   }, [results, semanticResults]);
 
-  // Fetch autocomplete results
+  // Fetch autocomplete results (keyword + semantic in parallel, with abort)
   useEffect(() => {
-    const fetchResults = async () => {
-      if (debouncedQuery.length < 1) {
-        setResults(null);
-        setSemanticResults([]);
-        setIsSemanticMode(false);
-        return;
-      }
+    if (debouncedQuery.length < 1) {
+      setResults(null);
+      setSemanticResults([]);
+      setIsSemanticMode(false);
+      return;
+    }
 
-      setIsLoading(true);
+    const abortController = new AbortController();
+    const { signal } = abortController;
 
-      // Check if natural language query
-      const isNL = isNaturalLanguageQuery(debouncedQuery);
-      setIsSemanticMode(isNL);
+    const isNL = isNaturalLanguageQuery(debouncedQuery);
+    setIsSemanticMode(isNL);
+    setIsLoading(true);
+    if (isNL) setIsSemanticLoading(true);
 
-      try {
-        // Always run keyword search
-        const data = await searchAutocomplete(debouncedQuery);
+    const keywordPromise = searchAutocomplete(debouncedQuery, 8, signal);
+    const semanticPromise = isNL ? semanticSearch(debouncedQuery, 8, signal) : null;
+
+    const promises: Promise<unknown>[] = [keywordPromise];
+    if (semanticPromise) promises.push(semanticPromise);
+
+    Promise.allSettled(promises).then((settled) => {
+      // Ignore results if this effect was cleaned up (new query fired)
+      if (signal.aborted) return;
+
+      // Keyword result
+      const kwResult = settled[0];
+      if (kwResult.status === "fulfilled") {
+        const data = kwResult.value as Awaited<ReturnType<typeof searchAutocomplete>>;
         setResults(data);
         setActiveIndex(-1);
         trackEvent({
@@ -105,34 +117,33 @@ export default function SearchAutocomplete({
             is_semantic: isNL,
           },
         });
-      } catch (error) {
-        console.error("Autocomplete error:", error);
-        setResults(null);
-      } finally {
-        setIsLoading(false);
-      }
-
-      // Run semantic search in parallel if NL query
-      if (isNL) {
-        setIsSemanticLoading(true);
-        try {
-          const semData = await semanticSearch(debouncedQuery, 8);
-          if (!semData.fallback) {
-            setSemanticResults(semData.results);
-          } else {
-            setSemanticResults([]);
-          }
-        } catch {
-          setSemanticResults([]);
-        } finally {
-          setIsSemanticLoading(false);
-        }
       } else {
+        // Only log non-abort errors
+        if (!(kwResult.reason instanceof DOMException && kwResult.reason.name === "AbortError")) {
+          console.error("Autocomplete error:", kwResult.reason);
+        }
+        setResults(null);
+      }
+      setIsLoading(false);
+
+      // Semantic result
+      if (isNL && settled.length > 1) {
+        const semResult = settled[1];
+        if (semResult.status === "fulfilled") {
+          const semData = semResult.value as Awaited<ReturnType<typeof semanticSearch>>;
+          setSemanticResults(!semData.fallback ? semData.results : []);
+        } else {
+          setSemanticResults([]);
+        }
+        setIsSemanticLoading(false);
+      } else if (!isNL) {
         setSemanticResults([]);
       }
-    };
+    });
 
-    fetchResults();
+    return () => {
+      abortController.abort();
+    };
   }, [debouncedQuery]);
 
   // Close dropdown on outside click

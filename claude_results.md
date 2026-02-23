@@ -1,4 +1,4 @@
-# Phase 42: DB 성능 최적화 — 결과
+# Phase 43A: Frontend 성능 — API 클라이언트 내결함성 + 검색 병렬화 결과
 
 ## 날짜
 2026-02-23
@@ -7,78 +7,78 @@
 
 | # | 파일 | 주요 변경 |
 |---|------|----------|
-| 1 | `backend/app/api/v1/recommendation_engine.py` | N+1 제거(selectinload), LLM ID 캐시(TTL 5min), score_type 화이트리스트 |
-| 2 | `backend/app/api/v1/recommendations.py` | popular/top_rated/for-you 쿼리 selectinload 추가 |
-| 3 | `backend/app/api/v1/movies.py` | 영화 상세/검색/유사/온보딩 N+1 제거 (selectinload) |
-| 4 | `backend/app/api/v1/semantic_search.py` | 쿼리 벡터 norm=0 가드 추가 |
-| 5 | `backend/app/services/weather.py` | Redis 연결 REDIS_URL 우선 처리 (llm.py와 통일) |
-| 6 | `backend/scripts/migrate_search_index.sql` | pg_trgm GIN 인덱스 3개 (title_ko, title, cast_ko) |
+| 1 | `frontend/lib/api.ts` | ApiError 클래스, fetchAPI timeout/retry/abort 확장 |
+| 2 | `frontend/components/search/SearchAutocomplete.tsx` | 키워드+시맨틱 병렬 검색, AbortController stale 응답 차단 |
 
-## 1단계: N+1 쿼리 제거 (selectinload)
+## 1단계: api.ts fetchAPI 내결함성 강화
 
-**문제**: Movie.genres 등 M:M 관계를 반복문 내에서 접근 시 N+1 쿼리 발생
-
-**해결**: 모든 Movie 쿼리에 `selectinload(Movie.genres)` 추가
-
-| 위치 | 파일 | 적용 |
-|------|------|------|
-| `get_movies_by_score()` | recommendation_engine.py | `selectinload(Movie.genres)` |
-| popular_q, top_rated_q | recommendations.py | `selectinload(Movie.genres)` |
-| `/popular`, `/top-rated` | recommendations.py | `selectinload(Movie.genres)` |
-| `/for-you` fallback | recommendations.py | `selectinload(Movie.genres)` |
-| `get_movies()` 검색 | movies.py | `selectinload(Movie.genres)` |
-| `get_movie()` 상세 | movies.py | `selectinload(Movie.genres, cast_members, keywords, countries)` |
-| `get_similar_movies()` | movies.py | 직접 쿼리 + `selectinload(Movie.genres)` |
-| `get_onboarding_movies()` | movies.py | `selectinload(Movie.genres)` |
-
-## 2단계: LLM Movie ID 프로세스 캐시
-
-**문제**: `get_llm_movie_ids()` — 매 요청마다 DB 쿼리 (popularity Top 1000)
-
-**해결**: `time.monotonic()` 기반 프로세스 레벨 캐시 (TTL 5분)
-```python
-_llm_ids_cache: set | None = None
-_llm_ids_cache_time: float = 0.0
-_LLM_IDS_CACHE_TTL = 300.0  # 5 minutes
+### 변경 전 시그니처
+```ts
+async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T>
 ```
 
-## 3단계: pg_trgm 검색 인덱스
+### 변경 후 시그니처
+```ts
+async function fetchAPI<T>(endpoint: string, options?: FetchAPIOptions): Promise<T>
 
-**파일**: `backend/scripts/migrate_search_index.sql`
-
-```sql
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_movies_title_ko_trgm ON movies USING gin (title_ko gin_trgm_ops);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_movies_title_trgm ON movies USING gin (title gin_trgm_ops);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_movies_cast_ko_trgm ON movies USING gin (cast_ko gin_trgm_ops);
+interface FetchAPIOptions extends Omit<RequestInit, "signal"> {
+  timeoutMs?: number;   // 기본 10초
+  signal?: AbortSignal; // 외부 취소 시그널
+  retry?: boolean;      // GET 5xx/429 재시도 (기본 true)
+}
 ```
 
-- `CONCURRENTLY`: 무중단 인덱스 생성 (테이블 락 없음)
-- 적용 대상: `ilike('%...%')` 패턴 검색 쿼리 가속
-
-## 4단계: 기타 최적화
-
-### weather.py Redis 연결 통일
-- `REDIS_URL` 환경변수가 있으면 우선 사용 (Railway 배포 호환)
-- 기존 HOST/PORT/PASSWORD 방식은 폴백
-
-### semantic_search.py norm=0 가드
-```python
-norm = np.linalg.norm(query_embedding)
-if norm < 1e-10:
-    return []
-query_norm = query_embedding / norm
+### ApiError 클래스
+```ts
+export class ApiError extends Error {
+  status: number;       // HTTP 상태 코드
+  retryable: boolean;   // 429/5xx → true
+}
 ```
 
-### score_type SQL 인젝션 방지
-```python
-_ALLOWED_SCORE_TYPES = {"mbti_scores", "weather_scores", "emotion_tags"}
-if score_type not in _ALLOWED_SCORE_TYPES:
-    logger.warning("Invalid score_type requested: %s", score_type)
-    return []
+### 기능 상세
+
+| 기능 | 설명 |
+|------|------|
+| Timeout | AbortController 기반 10초 기본값, `timeoutMs` 옵션으로 변경 가능 |
+| Abort 병합 | `AbortSignal.any()` 지원 시 사용, 미지원 시 수동 이벤트 연결 |
+| 재시도 | GET + 5xx/429 → 1초 대기 후 1회 자동 재시도 |
+| 재시도 비활성화 | `retry: false` 옵션 또는 POST/PUT/DELETE → 재시도 안 함 |
+| AbortError | DOMException AbortError는 별도 분기, 재시도하지 않음 |
+| 하위 호환 | 기존 `fetchAPI(endpoint)` / `fetchAPI(endpoint, { method: "POST" })` 그대로 동작 |
+
+### signal 지원 추가 함수
+- `searchAutocomplete(query, limit?, signal?)` — 선택적 signal 파라미터 추가
+- `semanticSearch(query, limit?, signal?)` — 선택적 signal 파라미터 추가
+- 기존 호출 코드 변경 불필요 (optional 파라미터)
+
+## 2단계: SearchAutocomplete 검색 병렬화
+
+### 변경 전 (직렬)
 ```
+1. await searchAutocomplete(query)     ← 키워드 완료 대기
+2. setResults(data)
+3. if (NL) await semanticSearch(query)  ← 시맨틱 완료 대기
+4. setSemanticResults(data)
+총 소요: 키워드 지연 + 시맨틱 지연 (직렬)
+```
+
+### 변경 후 (병렬 + abort)
+```
+1. Promise.allSettled([keyword, semantic])  ← 동시 실행
+2. signal.aborted 체크 → stale이면 무시
+3. 각 결과 독립 처리 (fulfilled/rejected)
+총 소요: max(키워드 지연, 시맨틱 지연) (병렬)
+```
+
+### AbortController 적용
+- 새 입력(debouncedQuery 변경) 시 이전 요청의 AbortController.abort() 호출
+- useEffect cleanup 함수에서 abort
+- AbortError는 console.error로 출력하지 않음 (DOMException 체크)
+- abort signal을 `searchAutocomplete()`과 `semanticSearch()`에 전달 → 실제 HTTP 요청도 취소
 
 ## 검증 결과
-- `ruff check` (Phase 42 파일): 0 errors
-- `next build`: 성공 (13/13 pages)
-- weather.py 기존 스타일 이슈 5건 (UP007, SIM108): Phase 42 범위 외, 기존 상태 유지
+- `tsc --noEmit`: 0 errors
+- `npm run build`: 성공 (13/13 pages)
+- `npm run lint`: 0 ESLint errors
+- fetchAPI 하위 호환: 기존 24개 API 함수 시그니처 변경 없음
