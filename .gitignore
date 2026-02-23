@@ -71,6 +71,7 @@ node_modules/
 out/
 .nuxt/
 dist/
+*.tsbuildinfo
 
 # NPM
 npm-debug.log*

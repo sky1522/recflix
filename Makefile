@@ -3,7 +3,7 @@
 # ==============================================
 # Usage: make [target]
 
-.PHONY: help install docker-up docker-down docker-logs db-init db-migrate backend-run frontend-run test clean
+.PHONY: help install docker-up docker-down docker-logs db-init db-migrate backend-run frontend-run test clean clean-dry-run
 
 # Default target
 help:
@@ -38,6 +38,7 @@ help:
 	@echo "  make dev             - Start full development environment"
 	@echo "  make test            - Run all tests"
 	@echo "  make clean           - Clean temporary files"
+	@echo "  make clean-dry-run   - Preview cleanup targets"
 	@echo "  make env-copy        - Copy .env.example to .env"
 
 # ==============================================
@@ -134,10 +135,10 @@ test: backend-test
 # Utility Commands
 # ==============================================
 clean:
-	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-	find . -type f -name "*.pyc" -delete 2>/dev/null || true
-	find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
-	@echo "Cleaned temporary files"
+	python scripts/clean_project.py
+
+clean-dry-run:
+	python scripts/clean_project.py --dry-run
 
 env-copy:
 	cp .env.example .env
