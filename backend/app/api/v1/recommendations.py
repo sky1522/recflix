@@ -9,7 +9,6 @@ from sqlalchemy import desc
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.v1.diversity import deduplicate_section, inject_serendipity
-from app.api.v1.recommendation_reason import generate_reason
 from app.api.v1.recommendation_constants import (
     DIVERSITY_ENABLED,
     MOOD_EMOTION_MAPPING,
@@ -25,6 +24,7 @@ from app.api.v1.recommendation_engine import (
     get_similar_movie_ids,
     get_user_preferences,
 )
+from app.api.v1.recommendation_reason import generate_reason
 from app.core.deps import get_current_user, get_current_user_optional, get_db
 from app.core.rate_limit import limiter
 from app.models import Collection, Genre, Movie, User
@@ -173,7 +173,7 @@ def get_home_recommendations(
         )
 
     # Popular movies (shuffle from top 100)
-    popular_q = db.query(Movie).filter(Movie.weighted_score >= 6.0)
+    popular_q = db.query(Movie).options(selectinload(Movie.genres)).filter(Movie.weighted_score >= 6.0)
     popular_q = apply_age_rating_filter(popular_q, age_rating)
     popular_pool = popular_q.order_by(Movie.popularity.desc(), Movie.weighted_score.desc()).limit(100).all()
     if DIVERSITY_ENABLED:
@@ -189,7 +189,7 @@ def get_home_recommendations(
     )
 
     # Top rated (shuffle from top 100)
-    top_rated_q = db.query(Movie).filter(Movie.weighted_score >= 6.0, Movie.vote_count >= 100)
+    top_rated_q = db.query(Movie).options(selectinload(Movie.genres)).filter(Movie.weighted_score >= 6.0, Movie.vote_count >= 100)
     top_rated_q = apply_age_rating_filter(top_rated_q, age_rating)
     top_rated_pool = top_rated_q.order_by(Movie.weighted_score.desc(), Movie.vote_average.desc()).limit(100).all()
     if DIVERSITY_ENABLED:
@@ -320,7 +320,7 @@ def get_popular_movies(
     db: Session = Depends(get_db)
 ):
     """Get popular movies (quality filter: weighted_score >= 6.0)"""
-    q = db.query(Movie).filter(Movie.weighted_score >= 6.0)
+    q = db.query(Movie).options(selectinload(Movie.genres)).filter(Movie.weighted_score >= 6.0)
     q = apply_age_rating_filter(q, age_rating)
     movies = q.order_by(Movie.popularity.desc(), Movie.weighted_score.desc()).limit(limit).all()
     return [MovieListItem.from_orm_with_genres(m) for m in movies]
@@ -336,7 +336,7 @@ def get_top_rated_movies(
     db: Session = Depends(get_db)
 ):
     """Get top rated movies (quality filter: weighted_score >= 6.0)"""
-    q = db.query(Movie).filter(Movie.weighted_score >= 6.0, Movie.vote_count >= min_votes)
+    q = db.query(Movie).options(selectinload(Movie.genres)).filter(Movie.weighted_score >= 6.0, Movie.vote_count >= min_votes)
     q = apply_age_rating_filter(q, age_rating)
     movies = q.order_by(Movie.weighted_score.desc(), Movie.vote_average.desc()).limit(limit).all()
     return [MovieListItem.from_orm_with_genres(m) for m in movies]
@@ -358,7 +358,7 @@ def get_personalized_recommendations(
     ).first()
 
     if not favorites or not favorites.movies:
-        q = db.query(Movie).filter(Movie.weighted_score >= 6.0)
+        q = db.query(Movie).options(selectinload(Movie.genres)).filter(Movie.weighted_score >= 6.0)
         q = apply_age_rating_filter(q, age_rating)
         movies = q.order_by(Movie.popularity.desc(), Movie.weighted_score.desc()).limit(limit).all()
         return [MovieListItem.from_orm_with_genres(m) for m in movies]
@@ -374,7 +374,7 @@ def get_personalized_recommendations(
             genre_counts[genre_name] = genre_counts.get(genre_name, 0) + 1
 
     if not genre_counts:
-        q = db.query(Movie).filter(Movie.weighted_score >= 6.0)
+        q = db.query(Movie).options(selectinload(Movie.genres)).filter(Movie.weighted_score >= 6.0)
         q = apply_age_rating_filter(q, age_rating)
         movies = q.order_by(Movie.popularity.desc(), Movie.weighted_score.desc()).limit(limit).all()
         return [MovieListItem.from_orm_with_genres(m) for m in movies]

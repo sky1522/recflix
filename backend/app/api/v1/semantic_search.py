@@ -63,7 +63,10 @@ def search_similar(
     if _corpus_embeddings is None or len(_movie_ids) == 0:
         return []
 
-    query_norm = query_embedding / np.linalg.norm(query_embedding)
+    norm = np.linalg.norm(query_embedding)
+    if norm < 1e-10:
+        return []
+    query_norm = query_embedding / norm
     scores = _corpus_embeddings @ query_norm  # (N,)
 
     # Top-K 추출 (argpartition은 O(N), argsort O(N log N)보다 빠름)

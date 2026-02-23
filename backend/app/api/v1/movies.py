@@ -22,7 +22,7 @@ from app.api.v1.semantic_search import is_semantic_search_available, search_simi
 from app.core.deps import get_db
 from app.core.rate_limit import limiter
 from app.models import Genre, Movie, Person
-from app.models.movie import movie_cast
+from app.models.movie import movie_cast, similar_movies
 from app.schemas import GenreResponse, MovieDetail, MovieListItem, PaginatedMovies
 from app.services.embedding import get_query_embedding
 from app.services.llm import get_redis_client
@@ -124,7 +124,7 @@ def get_movies(
     db: Session = Depends(get_db)
 ):
     """Get movies with search, filter and pagination"""
-    q = db.query(Movie)
+    q = db.query(Movie).options(selectinload(Movie.genres))
 
     # Search by title, cast, or director
     if query:
@@ -241,6 +241,7 @@ def get_onboarding_movies(
     for genre_name in genre_names:
         movies = (
             db.query(Movie)
+            .options(selectinload(Movie.genres))
             .join(Movie.genres)
             .filter(
                 Genre.name == genre_name,
@@ -505,7 +506,17 @@ def _keyword_fallback(
 @limiter.limit("60/minute")
 def get_movie(request: Request, movie_id: int, db: Session = Depends(get_db)):
     """Get movie detail by ID"""
-    movie = db.query(Movie).filter(Movie.id == movie_id).first()
+    movie = (
+        db.query(Movie)
+        .options(
+            selectinload(Movie.genres),
+            selectinload(Movie.cast_members),
+            selectinload(Movie.keywords),
+            selectinload(Movie.countries),
+        )
+        .filter(Movie.id == movie_id)
+        .first()
+    )
 
     if not movie:
         raise HTTPException(
@@ -525,13 +536,30 @@ def get_similar_movies(
     db: Session = Depends(get_db)
 ):
     """Get similar movies"""
-    movie = db.query(Movie).filter(Movie.id == movie_id).first()
-
-    if not movie:
+    movie_exists = db.query(Movie.id).filter(Movie.id == movie_id).first()
+    if not movie_exists:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Movie not found"
         )
 
-    similar = movie.similar[:limit]
-    return [MovieListItem.from_orm_with_genres(m) for m in similar]
+    similar_ids_rows = (
+        db.query(similar_movies.c.similar_movie_id)
+        .filter(similar_movies.c.movie_id == movie_id)
+        .limit(limit)
+        .all()
+    )
+    similar_ids = [row[0] for row in similar_ids_rows]
+    if not similar_ids:
+        return []
+
+    similar_movies_q = (
+        db.query(Movie)
+        .options(selectinload(Movie.genres))
+        .filter(Movie.id.in_(similar_ids))
+        .all()
+    )
+    movie_map = {m.id: m for m in similar_movies_q}
+    ordered_similar = [movie_map[mid] for mid in similar_ids if mid in movie_map]
+
+    return [MovieListItem.from_orm_with_genres(m) for m in ordered_similar]

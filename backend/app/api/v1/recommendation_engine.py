@@ -2,7 +2,9 @@
 Recommendation engine: pure scoring and query helper functions.
 No FastAPI route definitions — those live in recommendations.py.
 """
+import logging
 import random
+import time
 from datetime import datetime, timedelta
 
 from sqlalchemy import text
@@ -46,6 +48,8 @@ from app.api.v1.recommendation_constants import (
 from app.models import Collection, Movie, Rating, User
 from app.schemas.recommendation import RecommendationTag
 
+logger = logging.getLogger(__name__)
+
 
 def get_weights_for_group(
     experiment_group: str, use_mood: bool,
@@ -85,15 +89,29 @@ def apply_age_rating_filter(query, age_rating: str | None):
     return query
 
 
+_llm_ids_cache: set | None = None
+_llm_ids_cache_time: float = 0.0
+_LLM_IDS_CACHE_TTL = 300.0  # 5 minutes
+_ALLOWED_SCORE_TYPES = {"mbti_scores", "weather_scores", "emotion_tags"}
+
+
 def get_llm_movie_ids(db: Session) -> set:
-    """Get IDs of LLM-processed movies (top 1000 by popularity)"""
+    """Get IDs of LLM-processed movies (top 1000 by popularity).
+    Cached in-process for 5 minutes to avoid repeated queries."""
+    global _llm_ids_cache, _llm_ids_cache_time
+    now = time.monotonic()
+    if _llm_ids_cache is not None and (now - _llm_ids_cache_time) < _LLM_IDS_CACHE_TTL:
+        return _llm_ids_cache
+
     result = db.execute(text("""
         SELECT id FROM movies
         WHERE vote_count >= 50
         ORDER BY popularity DESC
         LIMIT 1000
     """)).fetchall()
-    return set(row[0] for row in result)
+    _llm_ids_cache = set(row[0] for row in result)
+    _llm_ids_cache_time = now
+    return _llm_ids_cache
 
 
 def get_movies_by_score(
@@ -112,6 +130,10 @@ def get_movies_by_score(
     Ensures minimum ratio of LLM-analyzed movies for quality.
     Quality filter: weighted_score >= min_weighted_score
     """
+    if score_type not in _ALLOWED_SCORE_TYPES:
+        logger.warning("Invalid score_type requested: %s", score_type)
+        return []
+
     llm_ids = get_llm_movie_ids(db)
     extended_pool = pool_size * 2
 
@@ -138,9 +160,11 @@ def get_movies_by_score(
     if not result:
         return []
 
+    score_lookup = {int(row[0]): float(row[1] or 0.0) for row in result}
+
     # Separate LLM and keyword movies
-    llm_movies = [(row[0], row[1]) for row in result if row[0] in llm_ids]
-    kw_movies = [(row[0], row[1]) for row in result if row[0] not in llm_ids]
+    llm_movies = [(int(row[0]), float(row[1] or 0.0)) for row in result if row[0] in llm_ids]
+    kw_movies = [(int(row[0]), float(row[1] or 0.0)) for row in result if row[0] not in llm_ids]
 
     # Calculate minimum LLM count needed
     min_llm_count = int(pool_size * llm_min_ratio)
@@ -159,16 +183,11 @@ def get_movies_by_score(
     if not selected_ids:
         return []
 
-    movies = db.query(Movie).filter(Movie.id.in_(selected_ids)).all()
+    movies = db.query(Movie).options(selectinload(Movie.genres)).filter(Movie.id.in_(selected_ids)).all()
     movie_dict = {m.id: m for m in movies}
 
-    def get_score(mid: int) -> float:
-        m = movie_dict.get(mid)
-        if m and m.emotion_tags:
-            return m.emotion_tags.get(score_key, 0) if score_type == 'emotion_tags' else 0
-        return 0
-
-    selected_ids.sort(key=get_score, reverse=True)
+    # Keep SQL score ordering stable for all score types.
+    selected_ids.sort(key=lambda mid: score_lookup.get(mid, 0.0), reverse=True)
     ordered_movies = [movie_dict[mid] for mid in selected_ids if mid in movie_dict]
 
     if shuffle and len(ordered_movies) > limit:

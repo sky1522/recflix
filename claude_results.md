@@ -1,4 +1,4 @@
-# Phase 41: 안전/정확성 리팩토링 — 결과
+# Phase 42: DB 성능 최적화 — 결과
 
 ## 날짜
 2026-02-23
@@ -7,63 +7,78 @@
 
 | # | 파일 | 주요 변경 |
 |---|------|----------|
-| 1 | `backend/app/api/v1/movies.py` | 장르 필터 distinct 서브쿼리로 중복 제거 |
-| 2 | `backend/app/core/security.py` | refresh 토큰 jti 생성 + Redis 기반 회전/검증 함수 |
-| 3 | `backend/app/api/v1/auth.py` | refresh 회전 적용 (login/refresh/social 전 엔드포인트) |
-| 4 | `backend/app/core/rate_limit.py` | 프록시 인식 key 함수 (CF-Connecting-IP > XFF > remote) |
-| 5 | `backend/app/config.py` | TRUSTED_PROXIES 설정 추가 |
+| 1 | `backend/app/api/v1/recommendation_engine.py` | N+1 제거(selectinload), LLM ID 캐시(TTL 5min), score_type 화이트리스트 |
+| 2 | `backend/app/api/v1/recommendations.py` | popular/top_rated/for-you 쿼리 selectinload 추가 |
+| 3 | `backend/app/api/v1/movies.py` | 영화 상세/검색/유사/온보딩 N+1 제거 (selectinload) |
+| 4 | `backend/app/api/v1/semantic_search.py` | 쿼리 벡터 norm=0 가드 추가 |
+| 5 | `backend/app/services/weather.py` | Redis 연결 REDIS_URL 우선 처리 (llm.py와 통일) |
+| 6 | `backend/scripts/migrate_search_index.sql` | pg_trgm GIN 인덱스 3개 (title_ko, title, cast_ko) |
 
-## 1단계: /movies 장르 필터 distinct 수정
+## 1단계: N+1 쿼리 제거 (selectinload)
 
-**문제**: `JOIN(Movie.genres)` 후 `q.count()`/`q.all()` → 다대다 중복 카운트/데이터 발생
+**문제**: Movie.genres 등 M:M 관계를 반복문 내에서 접근 시 N+1 쿼리 발생
 
-**해결**: 장르 필터를 서브쿼리 2-step으로 분리
+**해결**: 모든 Movie 쿼리에 `selectinload(Movie.genres)` 추가
+
+| 위치 | 파일 | 적용 |
+|------|------|------|
+| `get_movies_by_score()` | recommendation_engine.py | `selectinload(Movie.genres)` |
+| popular_q, top_rated_q | recommendations.py | `selectinload(Movie.genres)` |
+| `/popular`, `/top-rated` | recommendations.py | `selectinload(Movie.genres)` |
+| `/for-you` fallback | recommendations.py | `selectinload(Movie.genres)` |
+| `get_movies()` 검색 | movies.py | `selectinload(Movie.genres)` |
+| `get_movie()` 상세 | movies.py | `selectinload(Movie.genres, cast_members, keywords, countries)` |
+| `get_similar_movies()` | movies.py | 직접 쿼리 + `selectinload(Movie.genres)` |
+| `get_onboarding_movies()` | movies.py | `selectinload(Movie.genres)` |
+
+## 2단계: LLM Movie ID 프로세스 캐시
+
+**문제**: `get_llm_movie_ids()` — 매 요청마다 DB 쿼리 (popularity Top 1000)
+
+**해결**: `time.monotonic()` 기반 프로세스 레벨 캐시 (TTL 5분)
 ```python
-# Before: q = q.join(Movie.genres).filter(Genre.name.in_(genre_list))
-# After:
-genre_movie_ids = (
-    db.query(Movie.id).join(Movie.genres)
-    .filter(Genre.name.in_(genre_list)).distinct().subquery()
-)
-q = q.filter(Movie.id.in_(select(genre_movie_ids)))
+_llm_ids_cache: set | None = None
+_llm_ids_cache_time: float = 0.0
+_LLM_IDS_CACHE_TTL = 300.0  # 5 minutes
 ```
 
-**테스트 결과**:
-- `genres=액션&page_size=5` → total=8389, items=5, unique=5, dup=0
-- `genres=액션,모험&page_size=5` → total=10674, items=5, unique=5, dup=0
+## 3단계: pg_trgm 검색 인덱스
 
-## 2단계: Refresh 토큰 회전(Rotate) 구현
+**파일**: `backend/scripts/migrate_search_index.sql`
 
-**문제**: refresh 토큰 서명/만료만 검증, 탈취 토큰 재사용 방어 없음
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_movies_title_ko_trgm ON movies USING gin (title_ko gin_trgm_ops);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_movies_title_trgm ON movies USING gin (title gin_trgm_ops);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_movies_cast_ko_trgm ON movies USING gin (cast_ko gin_trgm_ops);
+```
 
-**해결**:
-- `security.py`: refresh 토큰에 `jti` (uuid4) 부여
-- `security.py`: `store_refresh_jti()` — Redis에 활성 jti 저장 (TTL = refresh 만료시간)
-- `security.py`: `validate_and_rotate_refresh()` — jti 일치 검증 + 즉시 삭제 + 탈취 감지
-- `auth.py`: login/refresh/kakao/google 전 엔드포인트에서 jti 저장/검증
-- Redis 미연결 시 graceful fallback (기존 방식 유지)
+- `CONCURRENTLY`: 무중단 인덱스 생성 (테이블 락 없음)
+- 적용 대상: `ilike('%...%')` 패턴 검색 쿼리 가속
 
-**보안 흐름**:
-1. 로그인 → jti=A 생성, Redis에 저장
-2. refresh(jti=A) → 일치 확인, jti=A 삭제, jti=B 생성/저장
-3. 재사용(jti=A) → jti=B와 불일치 → 401 "Token reuse detected" + 모든 토큰 무효화
+## 4단계: 기타 최적화
 
-**테스트 결과**:
-- 로그인 → refresh → 새 토큰 발급: OK (200)
-- 같은 refresh 토큰 재사용 → 401 "Token reuse detected. Please login again.": OK
+### weather.py Redis 연결 통일
+- `REDIS_URL` 환경변수가 있으면 우선 사용 (Railway 배포 호환)
+- 기존 HOST/PORT/PASSWORD 방식은 폴백
 
-## 3단계: Rate limit 프록시 인식
+### semantic_search.py norm=0 가드
+```python
+norm = np.linalg.norm(query_embedding)
+if norm < 1e-10:
+    return []
+query_norm = query_embedding / norm
+```
 
-**문제**: `get_remote_address` 단일 IP → 리버스 프록시 뒤에서 모든 사용자가 같은 IP
-
-**해결**: `get_rate_limit_key()` 커스텀 함수
-- 우선순위: CF-Connecting-IP > X-Forwarded-For (첫 번째 IP) > remote address
-- `TRUSTED_PROXIES` 설정: CIDR/IP 리스트로 신뢰 프록시 지정 (빈 리스트 = 모든 프록시 신뢰)
-- `ipaddress` 모듈로 CIDR 네트워크 매칭 지원
+### score_type SQL 인젝션 방지
+```python
+_ALLOWED_SCORE_TYPES = {"mbti_scores", "weather_scores", "emotion_tags"}
+if score_type not in _ALLOWED_SCORE_TYPES:
+    logger.warning("Invalid score_type requested: %s", score_type)
+    return []
+```
 
 ## 검증 결과
-- `ruff check` (E,F,W,I): 수정 파일 기준 0 errors
-- `ast.parse()`: 구문 오류 없음
-- `npm run build`: 성공 (프론트엔드 변경 없음)
-- 장르 필터 테스트: 단일/다중 장르 모두 정확
-- 토큰 회전 테스트: 재사용 시 401 정상 차단
+- `ruff check` (Phase 42 파일): 0 errors
+- `next build`: 성공 (13/13 pages)
+- weather.py 기존 스타일 이슈 5건 (UP007, SIM108): Phase 42 범위 외, 기존 상태 유지

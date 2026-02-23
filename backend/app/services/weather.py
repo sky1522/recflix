@@ -2,13 +2,13 @@
 Weather Service - OpenWeatherMap API Integration with Redis Caching
 """
 import asyncio
+import json
 import logging
+from datetime import datetime
+from typing import Optional
 
 import httpx
 import redis.asyncio as aioredis
-from typing import Optional
-from datetime import datetime
-import json
 
 from app.config import settings
 
@@ -33,16 +33,23 @@ async def get_redis_client() -> Optional[aioredis.Redis]:
             _redis_client = None
 
     try:
-        _redis_client = aioredis.Redis(
-            host=settings.REDIS_HOST,
-            port=settings.REDIS_PORT,
-            password=settings.REDIS_PASSWORD,
-            db=0,
-            decode_responses=True,
-            socket_connect_timeout=5,
-        )
+        if settings.REDIS_URL:
+            _redis_client = aioredis.from_url(
+                settings.REDIS_URL,
+                decode_responses=True,
+                socket_connect_timeout=5,
+            )
+        else:
+            _redis_client = aioredis.Redis(
+                host=settings.REDIS_HOST,
+                port=settings.REDIS_PORT,
+                password=settings.REDIS_PASSWORD,
+                db=0,
+                decode_responses=True,
+                socket_connect_timeout=5,
+            )
         await _redis_client.ping()
-        logger.info("Redis connected: %s:%s", settings.REDIS_HOST, settings.REDIS_PORT)
+        logger.info("Weather Redis connected")
         return _redis_client
     except Exception as e:
         logger.warning("Redis connection failed: %s", e)
