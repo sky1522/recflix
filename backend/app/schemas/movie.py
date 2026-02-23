@@ -43,6 +43,7 @@ class MovieBase(BaseModel):
 class MovieListItem(MovieBase):
     """Schema for movie list item (minimal)"""
     genres: list[str] = []
+    trailer_key: str | None = None
 
     class Config:
         from_attributes = True
@@ -61,7 +62,8 @@ class MovieListItem(MovieBase):
             poster_path=movie.poster_path,
             release_date=movie.release_date,
             is_adult=movie.is_adult,
-            genres=[g.name for g in movie.genres]
+            genres=[g.name for g in movie.genres],
+            trailer_key=movie.trailer_key,
         )
 
 
@@ -75,6 +77,7 @@ class MovieDetail(MovieBase):
     production_countries_ko: str | None = None
     release_season: str | None = None
     weighted_score: float | None = None
+    trailer_key: str | None = None
     genres: list[GenreResponse] = []
     cast_members: list[PersonResponse] = []
     keywords: list[str] = []
@@ -108,13 +111,14 @@ class MovieDetail(MovieBase):
             production_countries_ko=movie.production_countries_ko,
             release_season=movie.release_season,
             weighted_score=movie.weighted_score,
+            trailer_key=movie.trailer_key,
             genres=[GenreResponse.model_validate(g) for g in movie.genres],
             cast_members=[PersonResponse.model_validate(p) for p in movie.cast_members[:10]],
             keywords=[k.name for k in movie.keywords],
             countries=[c.name for c in movie.countries],
             mbti_scores=movie.mbti_scores,
             weather_scores=movie.weather_scores,
-            emotion_tags=movie.emotion_tags
+            emotion_tags=movie.emotion_tags,
         )
 
 
