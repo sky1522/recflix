@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
+import * as api from "@/lib/api";
 import type { MBTIType } from "@/types";
 
 const MBTI_TYPES: MBTIType[] = [
@@ -191,20 +192,13 @@ export default function SignupPage() {
           <div className="space-y-3">
             <button
               type="button"
-              onClick={() => {
-                const clientId = process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID?.trim();
-                const redirectUri = process.env.NEXT_PUBLIC_KAKAO_REDIRECT_URI?.trim();
-                if (!clientId || !redirectUri) {
-                  console.error("Kakao OAuth 환경변수 미설정:", { clientId, redirectUri });
+              onClick={async () => {
+                try {
+                  const url = await api.getOAuthAuthorizeUrl("kakao");
+                  window.location.href = url;
+                } catch {
                   alert("카카오 로그인 설정이 필요합니다.");
-                  return;
                 }
-                const params = new URLSearchParams({
-                  client_id: clientId,
-                  redirect_uri: redirectUri,
-                  response_type: "code",
-                });
-                window.location.href = `https://kauth.kakao.com/oauth/authorize?${params.toString()}`;
               }}
               className="w-full py-3 bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] font-medium rounded-lg transition flex items-center justify-center gap-2"
             >
@@ -216,21 +210,13 @@ export default function SignupPage() {
 
             <button
               type="button"
-              onClick={() => {
-                const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim();
-                const redirectUri = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI?.trim();
-                if (!clientId || !redirectUri) {
-                  console.error("Google OAuth 환경변수 미설정:", { clientId, redirectUri });
+              onClick={async () => {
+                try {
+                  const url = await api.getOAuthAuthorizeUrl("google");
+                  window.location.href = url;
+                } catch {
                   alert("Google 로그인 설정이 필요합니다.");
-                  return;
                 }
-                const params = new URLSearchParams({
-                  client_id: clientId,
-                  redirect_uri: redirectUri,
-                  response_type: "code",
-                  scope: "openid email profile",
-                });
-                window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
               }}
               className="w-full py-3 bg-white hover:bg-gray-100 text-gray-700 font-medium rounded-lg transition flex items-center justify-center gap-2 border border-white/20"
             >

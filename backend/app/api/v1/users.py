@@ -2,14 +2,20 @@
 User API endpoints
 """
 import json
+import logging
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, status
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
 from app.core.rate_limit import limiter
-from app.models import User
+from app.core.security import revoke_refresh_token
+from app.models import User, UserEvent
 from app.schemas import MBTIUpdate, OnboardingComplete, UserResponse, UserUpdate
+from app.services.llm import get_redis_client
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -73,3 +79,42 @@ def complete_onboarding(
     db.commit()
     db.refresh(current_user)
     return current_user
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("3/minute")
+async def delete_account(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    """Delete current user account and all associated data (GDPR hard delete).
+
+    Cascade order:
+    1. user_events (SET NULL FK, explicitly deleted for GDPR)
+    2. ratings (CASCADE FK, auto-deleted)
+    3. collections + collection_movies (CASCADE FK, auto-deleted)
+    4. user record
+    """
+    user_id = current_user.id
+    try:
+        # 1. Explicitly delete user_events (FK is SET NULL, not CASCADE)
+        db.query(UserEvent).filter(UserEvent.user_id == user_id).delete()
+
+        # 2-4. Delete user (ratings + collections cascade automatically)
+        db.delete(current_user)
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to delete account for user %s", user_id)
+        raise
+
+    # 5. Clean up Redis (refresh token, best-effort)
+    try:
+        redis = await get_redis_client()
+        await revoke_refresh_token(redis, str(user_id))
+    except Exception:
+        logger.warning("Failed to revoke Redis tokens for deleted user %s", user_id)
+
+    logger.info("Account deleted: user_id=%s", user_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

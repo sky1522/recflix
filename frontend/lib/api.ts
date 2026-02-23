@@ -199,17 +199,22 @@ export async function refreshToken(refresh_token: string): Promise<AuthTokens> {
   });
 }
 
-export async function kakaoLogin(code: string): Promise<SocialLoginResponse> {
+export async function getOAuthAuthorizeUrl(provider: "kakao" | "google"): Promise<string> {
+  const data = await fetchAPI<{ url: string }>(`/auth/${provider}/authorize`);
+  return data.url;
+}
+
+export async function kakaoLogin(code: string, state?: string | null): Promise<SocialLoginResponse> {
   return fetchAPI<SocialLoginResponse>("/auth/kakao", {
     method: "POST",
-    body: JSON.stringify({ code }),
+    body: JSON.stringify({ code, state: state || undefined }),
   });
 }
 
-export async function googleLogin(code: string): Promise<SocialLoginResponse> {
+export async function googleLogin(code: string, state?: string | null): Promise<SocialLoginResponse> {
   return fetchAPI<SocialLoginResponse>("/auth/google", {
     method: "POST",
-    body: JSON.stringify({ code }),
+    body: JSON.stringify({ code, state: state || undefined }),
   });
 }
 
@@ -230,6 +235,10 @@ export async function updateMBTI(mbti: string): Promise<User> {
     method: "PUT",
     body: JSON.stringify({ mbti }),
   });
+}
+
+export async function deleteAccount(): Promise<void> {
+  await fetchAPI("/users/me", { method: "DELETE" });
 }
 
 // Rating APIs

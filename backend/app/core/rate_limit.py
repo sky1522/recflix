@@ -14,13 +14,18 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
+if not settings.TRUSTED_PROXIES:
+    logger.warning(
+        "TRUSTED_PROXIES not configured — X-Forwarded-For headers will be ignored. "
+        "Set TRUSTED_PROXIES to your proxy CIDR ranges if behind a reverse proxy."
+    )
+
 
 def _is_trusted_proxy(ip: str) -> bool:
     """Check if an IP is in the trusted proxies list."""
     if not settings.TRUSTED_PROXIES:
-        # No trusted proxies configured — trust all forwarded headers
-        # (Railway/Vercel proxy environments set X-Forwarded-For)
-        return True
+        # No trusted proxies configured — do NOT trust forwarded headers
+        return False
     try:
         addr = ipaddress.ip_address(ip)
         for proxy in settings.TRUSTED_PROXIES:

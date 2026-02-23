@@ -16,6 +16,7 @@ function KakaoCallbackContent() {
     processed.current = true;
 
     const code = searchParams.get("code");
+    const state = searchParams.get("state");
     const error = searchParams.get("error");
 
     if (error || !code) {
@@ -26,7 +27,7 @@ function KakaoCallbackContent() {
     }
 
     api
-      .kakaoLogin(code)
+      .kakaoLogin(code, state)
       .then((response) => {
         const isNew = socialLogin(response);
         router.replace(isNew ? "/onboarding" : "/");

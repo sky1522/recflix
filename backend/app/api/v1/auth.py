@@ -36,8 +36,46 @@ from app.services.llm import get_redis_client
 logger = logging.getLogger(__name__)
 
 EXPERIMENT_GROUPS = ["control", "test_a", "test_b"]
+_OAUTH_STATE_TTL = 600  # 10 minutes
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+
+async def _create_oauth_state() -> str | None:
+    """Generate a random state token and store it in Redis. Returns None if Redis unavailable."""
+    redis = await get_redis_client()
+    if not redis:
+        return None
+    state = secrets.token_urlsafe(32)
+    try:
+        await redis.setex(f"oauth_state:{state}", _OAUTH_STATE_TTL, "1")
+        return state
+    except Exception:
+        logger.warning("Failed to store OAuth state in Redis")
+        return None
+
+
+async def _validate_oauth_state(state: str | None) -> bool:
+    """Validate and consume an OAuth state token. Returns True if valid or if Redis is unavailable."""
+    if not state:
+        # No state provided — skip validation (backward compat)
+        return True
+    redis = await get_redis_client()
+    if not redis:
+        # Redis unavailable — skip validation, log warning
+        logger.warning("Redis unavailable, skipping OAuth state validation")
+        return True
+    try:
+        key = f"oauth_state:{state}"
+        result = await redis.get(key)
+        if result:
+            await redis.delete(key)
+            return True
+        logger.warning("OAuth state mismatch or expired: %s…", state[:8])
+        return False
+    except Exception:
+        logger.warning("Redis error during OAuth state validation")
+        return True  # Fail open for availability
 
 
 @router.post("/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -175,6 +213,39 @@ async def _build_social_response(user: User, is_new: bool) -> SocialLoginRespons
     )
 
 
+@router.get("/kakao/authorize")
+@limiter.limit("10/minute")
+async def kakao_authorize(request: Request) -> dict[str, str]:
+    """Generate Kakao OAuth authorize URL with CSRF state token."""
+    params: dict[str, str] = {
+        "client_id": settings.KAKAO_CLIENT_ID,
+        "redirect_uri": settings.KAKAO_REDIRECT_URI,
+        "response_type": "code",
+    }
+    state = await _create_oauth_state()
+    if state:
+        params["state"] = state
+    qs = "&".join(f"{k}={v}" for k, v in params.items())
+    return {"url": f"https://kauth.kakao.com/oauth/authorize?{qs}"}
+
+
+@router.get("/google/authorize")
+@limiter.limit("10/minute")
+async def google_authorize(request: Request) -> dict[str, str]:
+    """Generate Google OAuth authorize URL with CSRF state token."""
+    params: dict[str, str] = {
+        "client_id": settings.GOOGLE_CLIENT_ID,
+        "redirect_uri": settings.GOOGLE_REDIRECT_URI,
+        "response_type": "code",
+        "scope": "openid email profile",
+    }
+    state = await _create_oauth_state()
+    if state:
+        params["state"] = state
+    qs = "&".join(f"{k}={v}" for k, v in params.items())
+    return {"url": f"https://accounts.google.com/o/oauth2/v2/auth?{qs}"}
+
+
 @router.post("/kakao", response_model=SocialLoginResponse)
 @limiter.limit("10/minute")
 async def kakao_login(
@@ -183,6 +254,10 @@ async def kakao_login(
     db: Session = Depends(get_db),
 ) -> SocialLoginResponse:
     """Login/Signup via Kakao OAuth"""
+    # 0. Validate state (CSRF protection)
+    if not await _validate_oauth_state(body.state):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "잘못된 인증 요청입니다. 다시 시도해주세요.")
+
     # 1. Exchange code for access_token
     with httpx.Client(timeout=10.0) as client:
         token_resp = client.post(
@@ -265,6 +340,10 @@ async def google_login(
     db: Session = Depends(get_db),
 ) -> SocialLoginResponse:
     """Login/Signup via Google OAuth"""
+    # 0. Validate state (CSRF protection)
+    if not await _validate_oauth_state(body.state):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "잘못된 인증 요청입니다. 다시 시도해주세요.")
+
     # 1. Exchange code for access_token
     with httpx.Client(timeout=10.0) as client:
         token_resp = client.post(

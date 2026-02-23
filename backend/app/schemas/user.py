@@ -81,6 +81,7 @@ class MBTIUpdate(BaseModel):
 class SocialLoginRequest(BaseModel):
     """Schema for social login (Kakao/Google)"""
     code: str = Field(..., min_length=1)
+    state: str | None = None
 
 
 class SocialLoginResponse(BaseModel):
