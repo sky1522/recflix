@@ -12,6 +12,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { useInteractionStore } from "@/stores/interactionStore";
 import type { Movie, Weather, WeatherType, MoodType } from "@/types";
 import MovieModal from "./MovieModal";
+import TrailerModal from "./TrailerModal";
 
 // MBTI 유도 문구 배열
 const MBTI_MESSAGES = [
@@ -78,6 +79,7 @@ export default function FeaturedBanner({
 }: FeaturedBannerProps) {
   const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isTrailerOpen, setIsTrailerOpen] = useState(false);
   const [isAddingToList, setIsAddingToList] = useState(false);
   const { isAuthenticated, user } = useAuthStore();
   const { interactions, fetchInteraction, toggleFavorite } = useInteractionStore();
@@ -250,6 +252,17 @@ export default function FeaturedBanner({
                 </svg>
                 <span>미리보기</span>
               </button>
+              {movie.trailer_key && (
+                <button
+                  onClick={() => setIsTrailerOpen(true)}
+                  className="flex items-center space-x-2 bg-white/20 text-white px-4 md:px-6 py-2.5 md:py-3 rounded-md font-medium hover:bg-white/30 backdrop-blur-sm transition text-sm md:text-base"
+                >
+                  <svg className="w-4 h-4 md:w-5 md:h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                  </svg>
+                  <span>트레일러</span>
+                </button>
+              )}
               <button
                 onClick={handleAddToList}
                 disabled={isAddingToList}
@@ -401,6 +414,11 @@ export default function FeaturedBanner({
       {/* Modal */}
       {isModalOpen && (
         <MovieModal movie={movie} onClose={() => setIsModalOpen(false)} />
+      )}
+
+      {/* Trailer Modal */}
+      {isTrailerOpen && movie.trailer_key && (
+        <TrailerModal trailerKey={movie.trailer_key} onClose={() => setIsTrailerOpen(false)} />
       )}
     </>
   );

@@ -12,6 +12,7 @@ export interface Movie {
   release_date: string | null;
   is_adult: boolean;
   genres: string[];
+  trailer_key?: string | null;
 }
 
 export interface MovieDetail extends Movie {

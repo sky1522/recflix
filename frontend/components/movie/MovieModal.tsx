@@ -10,6 +10,7 @@ import { useInteractionStore } from "@/stores/interactionStore";
 import { useAuthStore } from "@/stores/authStore";
 import type { Movie, MovieDetail } from "@/types";
 import MovieCard from "./MovieCard";
+import TrailerModal from "./TrailerModal";
 
 interface MovieModalProps {
   movie: Movie;
@@ -21,6 +22,7 @@ export default function MovieModal({ movie, onClose }: MovieModalProps) {
   const [similar, setSimilar] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
   const [ratingHover, setRatingHover] = useState(0);
+  const [isTrailerOpen, setIsTrailerOpen] = useState(false);
 
   const { isAuthenticated } = useAuthStore();
   const { interactions, fetchInteraction, toggleFavorite, setRating } = useInteractionStore();
@@ -129,6 +131,7 @@ export default function MovieModal({ movie, onClose }: MovieModalProps) {
   const displayRating = ratingHover || userRating;
 
   return (
+    <>
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
@@ -253,6 +256,19 @@ export default function MovieModal({ movie, onClose }: MovieModalProps) {
                 <span>{isFavorited ? "찜 완료" : "찜하기"}</span>
               </button>
 
+              {/* 트레일러 버튼 */}
+              {detail?.trailer_key && (
+                <button
+                  onClick={() => setIsTrailerOpen(true)}
+                  className="flex items-center justify-center space-x-2 px-6 py-3 rounded-md font-medium bg-white/10 hover:bg-white/20 text-white transition"
+                >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                  </svg>
+                  <span>트레일러</span>
+                </button>
+              )}
+
               {/* 별점 */}
               <div className="flex items-center space-x-3">
                 <span className="text-white/70 text-sm">내 평점:</span>
@@ -298,5 +314,11 @@ export default function MovieModal({ movie, onClose }: MovieModalProps) {
         </motion.div>
       </motion.div>
     </AnimatePresence>
+
+    {/* Trailer Modal */}
+    {isTrailerOpen && detail?.trailer_key && (
+      <TrailerModal trailerKey={detail.trailer_key} onClose={() => setIsTrailerOpen(false)} />
+    )}
+    </>
   );
 }

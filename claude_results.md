@@ -1,57 +1,56 @@
-# Phase 47A: TMDB 트레일러 데이터 수집 + API 반영
+# Phase 47B: 트레일러 YouTube 임베드 UI
 
 **날짜**: 2026-02-23
 
-## 변경 파일
+## 변경/생성 파일
 
 | 파일 | 변경 내용 |
 |------|-----------|
-| `backend/app/models/movie.py` | `trailer_key` Column(String(20)) 추가 |
-| `backend/scripts/migrate_trailer.sql` | ALTER TABLE + partial index 마이그레이션 |
-| `backend/scripts/collect_trailers.py` | TMDB 트레일러 키 수집 배치 스크립트 (신규) |
-| `backend/app/schemas/movie.py` | MovieListItem, MovieDetail에 `trailer_key` 필드 추가 |
+| `frontend/types/index.ts` | `Movie` 타입에 `trailer_key?: string \| null` 추가 |
+| `frontend/app/movies/[id]/components/MovieTrailer.tsx` | 상세 페이지 트레일러 섹션 (신규) |
+| `frontend/components/movie/TrailerModal.tsx` | 트레일러 모달 (신규) |
+| `frontend/app/movies/[id]/page.tsx` | MovieTrailer 배치 (출연진↔유사영화 사이) |
+| `frontend/components/movie/FeaturedBanner.tsx` | 트레일러 버튼 + TrailerModal 연동 |
+| `frontend/components/movie/MovieModal.tsx` | 트레일러 버튼 + TrailerModal 연동 |
+| `frontend/components/movie/MovieCard.tsx` | hover 시 ▶ 아이콘 오버레이 |
+| `frontend/components/movie/HybridMovieCard.tsx` | hover 시 ▶ 아이콘 오버레이 |
 
-## 핵심 변경사항
+## 컴포넌트 역할
 
-### 1. DB 스키마 (migrate_trailer.sql)
-```sql
-ALTER TABLE movies ADD COLUMN IF NOT EXISTS trailer_key VARCHAR(20);
-CREATE INDEX IF NOT EXISTS idx_movies_trailer_key
-    ON movies (trailer_key) WHERE trailer_key IS NOT NULL;
-```
+### MovieTrailer (신규)
+- 영화 상세 페이지 내 인라인 트레일러 섹션
+- YouTube iframe 임베드, `loading="lazy"`, `aspect-video` 반응형
+- `trailerKey` 없으면 null 반환 (섹션 숨김)
 
-### 2. 배치 스크립트 (collect_trailers.py)
-- **TMDB API**: `GET /movie/{id}/videos?language=ko-KR&include_video_language=ko,en`
-- **선택 우선순위**: YouTube Trailer → official 우선 → 한국어 우선 → 최신순
-- **Rate limit**: 0.05초 간격 (20 req/sec, TMDB 허용 ~40)
-- **배치 처리**: 1000건씩 DB commit
-- **재실행 안전**: `WHERE trailer_key IS NULL`만 대상
-- **CLI**: `--limit N`, `--dry-run`, `--batch-size`
-- **총 소요 예상**: 42,917편 × 0.05초 ≈ 36분
+### TrailerModal (신규)
+- 전체 화면 오버레이 (`bg-black/80`) + 중앙 YouTube iframe
+- `autoplay=1` 자동 재생
+- 닫기: X 버튼 + ESC 키 + 배경 클릭
+- `role="dialog"` `aria-modal="true"` 접근성
+- focus trap (MovieModal과 동일 패턴)
 
-### 3. API 스키마
-- `MovieListItem.trailer_key: str | None = None`
-- `MovieDetail.trailer_key: str | None = None`
-- `from_orm_with_genres()`, `from_orm_with_relations()` 모두 trailer_key 반영
+## 트레일러 표시 위치 요약
+
+| 위치 | 동작 |
+|------|------|
+| **영화 상세 페이지** | 출연진 아래, 유사 영화 위에 인라인 iframe |
+| **FeaturedBanner** | '미리보기' 옆 '트레일러' 버튼 → TrailerModal |
+| **MovieModal** | 찜하기 옆 '트레일러' 버튼 → TrailerModal |
+| **MovieCard** | hover 시 포스터 좌하단 ▶ 아이콘 (클릭은 기존 동작 유지) |
+| **HybridMovieCard** | hover 시 포스터 좌하단 ▶ 아이콘 (클릭은 기존 동작 유지) |
+
+## 접근성 처리
+
+- TrailerModal: `role="dialog"`, `aria-modal="true"`, `aria-label="트레일러"`
+- ESC 키로 닫기
+- focus trap (Tab/Shift+Tab 순환)
+- 닫을 때 트리거 요소로 포커스 복귀
+- 닫기 버튼: `aria-label="닫기"`
 
 ## 검증 결과
 
 | 항목 | 결과 |
 |------|------|
-| `ruff check app/ scripts/collect_trailers.py` | All checks passed |
-| `python -c 'from app.main import app; print(app.title)'` | RecFlix (정상) |
-| 스크립트 import 테스트 | Module loaded OK |
-| SQL 문법 | 표준 DDL (IF NOT EXISTS 안전) |
-
-## 사용법
-
-```bash
-# 1. 프로덕션 DB에 마이그레이션 적용
-psql -h shinkansen.proxy.rlwy.net -p 20053 -U postgres -d railway -f scripts/migrate_trailer.sql
-
-# 2. 트레일러 수집 (전체)
-DATABASE_URL="postgresql://..." TMDB_API_KEY="..." python scripts/collect_trailers.py
-
-# 3. 테스트 (5건만, DB 저장 안 함)
-DATABASE_URL="postgresql://..." TMDB_API_KEY="..." python scripts/collect_trailers.py --limit 5 --dry-run
-```
+| `npx tsc --noEmit` | 0 errors |
+| `npm run build` | 13/13 pages 성공 |
+| Lint (build 내장) | 0 errors |
