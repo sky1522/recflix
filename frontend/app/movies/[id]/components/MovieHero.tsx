@@ -11,7 +11,7 @@ import {
   ArrowLeft,
   Play,
 } from "lucide-react";
-import { getImageUrl, formatRuntime, formatDate } from "@/lib/utils";
+import { getImageUrl, formatRuntime, formatDate, getGenreName } from "@/lib/utils";
 import type { MovieDetail } from "@/types";
 
 interface MovieHeroProps {
@@ -168,7 +168,7 @@ export default function MovieHero({
             {/* Genres */}
             <div className="flex flex-wrap gap-1.5 md:gap-2 mb-4 md:mb-6">
               {movie.genres.slice(0, 4).map((genre, index) => {
-                const genreName = typeof genre === 'string' ? genre : (genre as any).name_ko || (genre as any).name;
+                const genreName = getGenreName(genre);
                 return (
                   <Link
                     key={genreName || index}

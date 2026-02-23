@@ -5,7 +5,9 @@ import logging
 import os
 
 from fastapi import APIRouter
+from redis.exceptions import RedisError
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import settings
 from app.database import SessionLocal
@@ -22,7 +24,7 @@ def _check_database() -> str:
         db.execute(text("SELECT 1"))
         db.close()
         return "connected"
-    except Exception:
+    except SQLAlchemyError:
         return "disconnected"
 
 
@@ -37,7 +39,7 @@ def _check_redis() -> str:
         client.ping()
         client.close()
         return "connected"
-    except Exception:
+    except (RedisError, ConnectionError):
         return "disconnected"
 
 

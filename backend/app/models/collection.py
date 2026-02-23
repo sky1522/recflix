@@ -2,11 +2,11 @@
 Collection Model
 """
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, Table
+
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Table, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
-
 
 # Association table for collection-movies many-to-many
 collection_movies = Table(

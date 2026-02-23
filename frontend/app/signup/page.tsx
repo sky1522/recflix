@@ -52,8 +52,9 @@ export default function SignupPage() {
         mbti: formData.mbti || undefined,
       });
       router.push("/");
-    } catch (err: any) {
-      setError(err.message || "회원가입에 실패했습니다.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "회원가입에 실패했습니다.";
+      setError(message);
     }
   };
 

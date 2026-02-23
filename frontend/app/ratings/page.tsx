@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Star, Film, Trash2, LogIn, Calendar, Cloud } from "lucide-react";
 import { getMyRatings, deleteRating, getPopularMovies } from "@/lib/api";
 import { useAuthStore } from "@/stores/authStore";
-import { getImageUrl } from "@/lib/utils";
+import { getImageUrl, getGenreName } from "@/lib/utils";
 import type { RatingWithMovie, Movie } from "@/types";
 import MovieCard from "@/components/movie/MovieCard";
 import { MovieGridSkeleton } from "@/components/ui/Skeleton";
@@ -88,7 +88,7 @@ function RatingCard({
               {movie.genres && movie.genres.length > 0 && (
                 <>
                   <span>·</span>
-                  <span className="truncate">{movie.genres.slice(0, 2).map(g => typeof g === 'string' ? g : (g as any)?.name_ko || (g as any)?.name).join(", ")}</span>
+                  <span className="truncate">{movie.genres.slice(0, 2).map(g => getGenreName(g)).join(", ")}</span>
                 </>
               )}
             </div>

@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import type { GenreLike } from "@/types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -81,4 +82,9 @@ export function getMBTIColor(mbti: string): string {
     ESFP: "bg-yellow-400",
   };
   return colors[mbti] || "bg-gray-600";
+}
+
+export function getGenreName(genre: GenreLike): string {
+  if (typeof genre === 'string') return genre;
+  return genre.name_ko || genre.name || '';
 }

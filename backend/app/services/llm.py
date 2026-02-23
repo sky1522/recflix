@@ -5,7 +5,7 @@ import logging
 
 import anthropic
 import redis.asyncio as aioredis
-from typing import Optional
+from redis.exceptions import RedisError
 
 from app.config import settings
 
@@ -15,10 +15,10 @@ logger = logging.getLogger(__name__)
 CATCHPHRASE_CACHE_TTL = 86400
 
 # Redis 클라이언트 (싱글톤)
-_redis_client: Optional[aioredis.Redis] = None
+_redis_client: aioredis.Redis | None = None
 
 
-async def get_redis_client() -> Optional[aioredis.Redis]:
+async def get_redis_client() -> aioredis.Redis | None:
     """Redis 클라이언트 가져오기 (싱글톤)"""
     global _redis_client
 
@@ -26,7 +26,7 @@ async def get_redis_client() -> Optional[aioredis.Redis]:
         try:
             await _redis_client.ping()
             return _redis_client
-        except Exception:
+        except (RedisError, ConnectionError, TimeoutError):
             _redis_client = None
 
     try:
@@ -52,7 +52,7 @@ async def get_redis_client() -> Optional[aioredis.Redis]:
         await _redis_client.ping()
         logger.info("Redis connection successful")
         return _redis_client
-    except Exception as e:
+    except (RedisError, ConnectionError, TimeoutError) as e:
         logger.warning("Redis connection failed: %s", e)
         _redis_client = None
         return None
@@ -78,7 +78,7 @@ async def generate_catchphrase(
     title: str,
     overview: str,
     genres: list[str],
-    fallback_tagline: Optional[str] = None,
+    fallback_tagline: str | None = None,
 ) -> tuple[str, bool]:
     """
     영화에 대한 캐치프레이즈 생성 (Anthropic Claude API 사용)
@@ -104,7 +104,7 @@ async def generate_catchphrase(
                 logger.debug("Cache HIT: %s", cache_key)
                 return cached, True
             logger.debug("Cache MISS: %s", cache_key)
-        except Exception as e:
+        except (RedisError, ConnectionError, TimeoutError) as e:
             logger.warning("Redis get error: %s", e)
 
     # API 키 확인
@@ -134,7 +134,7 @@ async def generate_catchphrase(
         # 따옴표 제거
         catchphrase = catchphrase.strip('"\'')
 
-    except Exception as e:
+    except (anthropic.APIError, anthropic.APIConnectionError, anthropic.APITimeoutError) as e:
         logger.error("Anthropic API error: %s", e)
         return fallback_tagline or "매력적인 영화", False
 
@@ -147,7 +147,7 @@ async def generate_catchphrase(
                 catchphrase,
             )
             logger.debug("Cache SET: %s (TTL: %ds)", cache_key, CATCHPHRASE_CACHE_TTL)
-        except Exception as e:
+        except (RedisError, ConnectionError, TimeoutError) as e:
             logger.warning("Redis set error: %s", e)
 
     return catchphrase, False

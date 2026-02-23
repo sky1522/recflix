@@ -1,11 +1,10 @@
 """
 RecFlix Configuration Management
 """
-import os
-from typing import List, Optional, Union
-from pydantic_settings import BaseSettings
-from pydantic import field_validator
 from functools import lru_cache
+
+from pydantic import field_validator
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -20,7 +19,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = ""
 
     # Redis - supports both REDIS_URL (Railway) and individual settings
-    REDIS_URL: Optional[str] = None
+    REDIS_URL: str | None = None
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
     REDIS_PASSWORD: str = ""
@@ -52,10 +51,10 @@ class Settings(BaseSettings):
     GOOGLE_REDIRECT_URI: str = ""
 
     # CORS - supports comma-separated string from environment
-    CORS_ORIGINS: Union[str, List[str]] = "http://localhost:3000,http://127.0.0.1:3000"
+    CORS_ORIGINS: str | list[str] = "http://localhost:3000,http://127.0.0.1:3000"
 
     # Rate Limiting
-    TRUSTED_PROXIES: List[str] = []
+    TRUSTED_PROXIES: list[str] = []
 
     # Server
     PORT: int = 8000
@@ -112,7 +111,7 @@ class Settings(BaseSettings):
         return self.APP_ENV == "production"
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     """Get cached settings instance"""
     return Settings()

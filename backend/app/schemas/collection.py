@@ -2,7 +2,7 @@
 Collection Pydantic Schemas
 """
 from datetime import datetime
-from typing import Optional, List
+
 from pydantic import BaseModel, Field
 
 from app.schemas.movie import MovieListItem
@@ -11,7 +11,7 @@ from app.schemas.movie import MovieListItem
 class CollectionBase(BaseModel):
     """Base collection schema"""
     name: str = Field(..., min_length=1, max_length=100)
-    description: Optional[str] = None
+    description: str | None = None
     is_public: bool = False
 
 
@@ -22,9 +22,9 @@ class CollectionCreate(CollectionBase):
 
 class CollectionUpdate(BaseModel):
     """Schema for collection update"""
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
-    description: Optional[str] = None
-    is_public: Optional[bool] = None
+    name: str | None = Field(None, min_length=1, max_length=100)
+    description: str | None = None
+    is_public: bool | None = None
 
 
 class CollectionResponse(CollectionBase):
@@ -40,7 +40,7 @@ class CollectionResponse(CollectionBase):
 
 class CollectionDetail(CollectionResponse):
     """Schema for collection detail with movies"""
-    movies: List[MovieListItem] = []
+    movies: list[MovieListItem] = []
 
 
 class AddMovieToCollection(BaseModel):

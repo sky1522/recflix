@@ -1,13 +1,14 @@
 """
 Security utilities for authentication
 """
+import contextlib
 import logging
 import uuid
 from datetime import datetime, timedelta
-from typing import Optional
 
 import bcrypt
 from jose import JWTError, jwt
+from redis.exceptions import RedisError
 
 from app.config import settings
 
@@ -35,7 +36,7 @@ def get_password_hash(password: str) -> str:
     return hashed.decode('utf-8')
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     """Create a JWT access token"""
     to_encode = data.copy()
     # Convert sub to string (JWT standard)
@@ -50,7 +51,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return encoded_jwt
 
 
-def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+def create_refresh_token(data: dict, expires_delta: timedelta | None = None) -> str:
     """Create a JWT refresh token with jti for rotation."""
     to_encode = data.copy()
     # Convert sub to string (JWT standard)
@@ -66,7 +67,7 @@ def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None) 
     return encoded_jwt
 
 
-def decode_token(token: str) -> Optional[dict]:
+def decode_token(token: str) -> dict | None:
     """Decode and verify a JWT token"""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -89,7 +90,7 @@ async def store_refresh_jti(
     try:
         await redis.setex(_refresh_token_key(user_id), ttl_seconds, jti)
         return True
-    except Exception:
+    except (RedisError, ConnectionError, TimeoutError):
         logger.warning("Failed to store refresh jti in Redis")
         return False
 
@@ -120,7 +121,7 @@ async def validate_and_rotate_refresh(
         # Mismatch — possible token theft; revoke all
         await redis.delete(key)
         return False, True
-    except Exception:
+    except (RedisError, ConnectionError, TimeoutError):
         logger.warning("Redis error during refresh validation")
         return False, False
 
@@ -129,7 +130,5 @@ async def revoke_refresh_token(redis, user_id: str) -> None:
     """Revoke all refresh tokens for a user."""
     if not redis:
         return
-    try:
+    with contextlib.suppress(RedisError, ConnectionError, TimeoutError):
         await redis.delete(_refresh_token_key(user_id))
-    except Exception:
-        pass

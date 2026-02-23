@@ -1,22 +1,26 @@
 """
 Collection API endpoints
 """
-from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_db, get_current_user
+from app.core.deps import get_current_user, get_db
 from app.core.rate_limit import limiter
-from app.models import User, Movie, Collection
+from app.models import Collection, Movie, User
 from app.schemas import (
-    CollectionCreate, CollectionUpdate, CollectionResponse,
-    CollectionDetail, AddMovieToCollection, MovieListItem
+    AddMovieToCollection,
+    CollectionCreate,
+    CollectionDetail,
+    CollectionResponse,
+    CollectionUpdate,
+    MovieListItem,
 )
 
 router = APIRouter(prefix="/collections", tags=["Collections"])
 
 
-@router.get("", response_model=List[CollectionResponse])
+@router.get("", response_model=list[CollectionResponse])
 @limiter.limit("30/minute")
 def get_my_collections(
     request: Request,

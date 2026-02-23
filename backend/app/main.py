@@ -21,9 +21,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-from app.api.v1.router import api_router
-from app.database import Base, engine
-from app.models import *  # noqa: F401, F403 - Import all models for table creation
+from app.api.v1.router import api_router  # noqa: E402
+from app.database import Base, engine  # noqa: E402
+from app.models import *  # noqa: E402, F401, F403 - Import all models for table creation
 
 # --- Sentry initialization (skip if DSN is empty) ---
 if settings.SENTRY_DSN:

@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Star, Eye } from "lucide-react";
-import { getImageUrl, formatDate } from "@/lib/utils";
+import { getImageUrl, formatDate, getGenreName } from "@/lib/utils";
 import { trackEvent } from "@/lib/eventTracker";
 import type { Movie } from "@/types";
 import MovieModal from "./MovieModal";
@@ -125,7 +125,7 @@ export default function MovieCard({ movie, index = 0, showQuickView = true, high
               {movie.genres.length > 0 && (
                 <>
                   <span>·</span>
-                  <span className="truncate">{typeof movie.genres[0] === 'string' ? movie.genres[0] : (movie.genres[0] as any)?.name_ko || (movie.genres[0] as any)?.name}</span>
+                  <span className="truncate">{getGenreName(movie.genres[0])}</span>
                 </>
               )}
             </div>

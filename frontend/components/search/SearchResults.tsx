@@ -62,6 +62,7 @@ export default function SearchResults({
                   id={`search-item-${currentIdx}`}
                   role="option"
                   aria-selected={isActive}
+                  tabIndex={-1}
                   data-autocomplete-item
                   onClick={() => onMovieClick(movie.id)}
                   onMouseEnter={() => onSetActiveIndex(currentIdx)}
@@ -131,6 +132,7 @@ export default function SearchResults({
                 id={`search-item-${currentIdx}`}
                 role="option"
                 aria-selected={isActive}
+                tabIndex={-1}
                 data-autocomplete-item
                 onClick={() => {
                   trackEvent({
@@ -207,6 +209,7 @@ export default function SearchResults({
                 id={`search-item-${currentIdx}`}
                 role="option"
                 aria-selected={isActive}
+                tabIndex={-1}
                 data-autocomplete-item
                 onClick={() => onPersonClick(person.name)}
                 onMouseEnter={() => onSetActiveIndex(currentIdx)}
@@ -251,6 +254,7 @@ export default function SearchResults({
               id={`search-item-${currentIdx}`}
               role="option"
               aria-selected={isActive}
+              tabIndex={-1}
               data-autocomplete-item
               onClick={onFullSearch}
               onMouseEnter={() => onSetActiveIndex(currentIdx)}

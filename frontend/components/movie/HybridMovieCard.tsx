@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Star, Eye } from "lucide-react";
-import { getImageUrl } from "@/lib/utils";
+import { getImageUrl, getGenreName } from "@/lib/utils";
 import { trackEvent } from "@/lib/eventTracker";
 import MovieModal from "./MovieModal";
 import type { HybridMovie, RecommendationTag } from "@/types";
@@ -138,7 +138,7 @@ export default function HybridMovieCard({ movie, index = 0, showQuickView = true
               {movie.genres.length > 0 && (
                 <>
                   <span>·</span>
-                  <span className="truncate">{typeof movie.genres[0] === 'string' ? movie.genres[0] : (movie.genres[0] as any)?.name_ko || (movie.genres[0] as any)?.name}</span>
+                  <span className="truncate">{getGenreName(movie.genres[0])}</span>
                 </>
               )}
             </div>

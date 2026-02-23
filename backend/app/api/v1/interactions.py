@@ -1,15 +1,14 @@
 """
 User Interactions API - 평점/찜 상태 통합 조회
 """
-from typing import List, Optional
-from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy.orm import Session
-from sqlalchemy import func
-from pydantic import BaseModel
 
-from app.core.deps import get_db, get_current_user, get_current_user_optional
+from fastapi import APIRouter, Depends, Query, Request
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from app.core.deps import get_current_user, get_current_user_optional, get_db
 from app.core.rate_limit import limiter
-from app.models import User, Movie, Rating, Collection, collection_movies
+from app.models import Collection, Movie, Rating, User, collection_movies
 from app.schemas import MovieListItem
 
 router = APIRouter(prefix="/interactions", tags=["Interactions"])
@@ -18,7 +17,7 @@ router = APIRouter(prefix="/interactions", tags=["Interactions"])
 class MovieInteraction(BaseModel):
     """사용자의 영화 상호작용 상태"""
     movie_id: int
-    rating: Optional[float] = None  # 0.5 ~ 5.0, None if not rated
+    rating: float | None = None  # 0.5 ~ 5.0, None if not rated
     is_favorited: bool = False  # 찜 여부
 
     class Config:
@@ -35,7 +34,7 @@ class MovieInteractionBulk(BaseModel):
 def get_movie_interaction(
     request: Request,
     movie_id: int,
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User | None = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """특정 영화에 대한 사용자의 평점/찜 상태 조회"""
@@ -72,8 +71,8 @@ def get_movie_interaction(
 @limiter.limit("30/minute")
 def get_movies_interactions(
     request: Request,
-    movie_ids: List[int],
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    movie_ids: list[int],
+    current_user: User | None = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """여러 영화에 대한 사용자의 평점/찜 상태 일괄 조회"""
@@ -160,7 +159,7 @@ def toggle_favorite(
     }
 
 
-@router.get("/favorites", response_model=List[MovieListItem])
+@router.get("/favorites", response_model=list[MovieListItem])
 @limiter.limit("30/minute")
 def get_favorites(
     request: Request,

@@ -1,190 +1,128 @@
-# Phase 44: SEO 메타데이터 + Loading Skeleton + 접근성 + 캐시 키 (2026-02-23)
+# Phase 45: 코드 품질 자동화 + Phase 44 잔여 수정 (2026-02-23)
 
-## Step 1: 라우트별 SEO 메타데이터 레이아웃 (6개)
+## Step 0: Phase 44 잔여 수정
 
-| 라우트 | 파일 | title |
-|--------|------|-------|
-| `/login` | `app/login/layout.tsx` | 로그인 \| RecFlix |
-| `/signup` | `app/signup/layout.tsx` | 회원가입 \| RecFlix |
-| `/profile` | `app/profile/layout.tsx` | 내 프로필 \| RecFlix |
-| `/favorites` | `app/favorites/layout.tsx` | 찜한 영화 \| RecFlix |
-| `/ratings` | `app/ratings/layout.tsx` | 내 평점 \| RecFlix |
-| `/onboarding` | `app/onboarding/layout.tsx` | 취향 설정 \| RecFlix |
+### 0-1: layout.tsx fallback description
+- 확인 결과 이미 정상: `${title} - RecFlix에서 확인하세요`
+- 수정 불필요
 
-각 layout.tsx에 `metadata` export (title, description, openGraph, twitter) 포함.
+### 0-2: MovieModal focus trap
+- Tab/Shift+Tab 순환 로직 추가 (순수 JS, querySelectorAll)
+- 열릴 때: trigger 요소 저장 + dialog에 focus
+- Tab: 마지막 → 첫 번째 순환
+- Shift+Tab: 첫 번째 → 마지막 순환
+- 닫힐 때: trigger 요소로 포커스 복귀
 
-## Step 2: Loading Skeleton (3개)
+### 0-3: HeaderMobileDrawer focus trap
+- 동일한 Tab 순환 로직
+- panelRef + tabIndex={-1} + outline-none
+- 열릴 때 패널에 focus, 닫힐 때 trigger 복귀
 
-| 파일 | 설명 |
+### 0-4: SearchResults option tabIndex={-1}
+- 4개 option 버튼 모두 `tabIndex={-1}` 추가
+- combobox에서 Tab이 입력 필드 밖으로 나가지 않도록 방지
+
+## Step 1: Backend ruff 자동수정
+
+| 단계 | 명령 | 수정 건수 |
+|------|------|----------|
+| Safe auto-fix | `ruff check app/ --fix` | 59건 |
+| UP007 unsafe | `ruff check app/ --fix --unsafe-fixes --select UP007` | 76건 |
+| F401 cleanup | `ruff check app/ --fix --select F401` | 14건 (미사용 Optional 임포트) |
+| I001 sort | `ruff check app/ --fix --select I001` | 1건 |
+| **합계** | | **150건 자동수정** |
+
+## Step 2: Backend 수동 수정
+
+### 2-1: E402 (main.py 3건) — noqa 주석
+- `from app.api.v1.router import api_router  # noqa: E402`
+- `from app.database import Base, engine  # noqa: E402`
+- `from app.models import *  # noqa: E402, F401, F403`
+
+### 2-2: B904 (deps.py 1건) — 예외 체인
+- `raise credentials_exception` → `raise credentials_exception from e`
+
+### 2-3: SIM105 (3건) — contextlib.suppress
+- `movies.py:100`: Redis cache setex → `contextlib.suppress(RedisError, ConnectionError, TimeoutError)`
+- `movies.py:451`: Redis cache setex → 동일
+- `security.py:133`: Redis delete → 동일
+
+### 2-4: SIM108 (1건) — ternary
+- `weather.py:412`: if-else → `condition = "sunny" if 6 <= hour < 18 else "cloudy"`
+
+### 2-5: Broad except 구체화 (32건 → 0건)
+
+| 파일 | 변경 수 | 예외 타입 |
+|------|---------|----------|
+| `core/security.py` | 3 | `(RedisError, ConnectionError, TimeoutError)` |
+| `services/embedding.py` | 5 | Redis + `(httpx.HTTPError, TimeoutError)` |
+| `services/llm.py` | 5 | Redis + `(anthropic.APIError, ...)` |
+| `services/weather.py` | 8+ | Redis + httpx + `(ValueError, KeyError, TypeError)` |
+| `api/v1/events.py` | 2 | `SQLAlchemyError` |
+| `api/v1/health.py` | 2 | `SQLAlchemyError` / `(RedisError, ConnectionError)` |
+| `api/v1/movies.py` | 4 | `(RedisError, ConnectionError, TimeoutError)` |
+| `api/v1/recommendation_cf.py` | 1 | `(FileNotFoundError, OSError, ValueError)` |
+| `api/v1/semantic_search.py` | 1 | `(OSError, ValueError)` |
+
+## Step 3: Frontend any 감축
+
+### Before/After
+- `catch (err: any)`: 2건 → 0건 (`err: unknown` + `instanceof Error`)
+- `as any` (genre): 6건 → 0건 (`GenreLike` 타입 + `getGenreName()` 유틸)
+
+### 새로 추가된 타입/유틸
+- `types/index.ts`: `GenreLike = string | { id?: number; name?: string; name_ko?: string }`
+- `lib/utils.ts`: `getGenreName(genre: GenreLike): string`
+
+### 수정 파일 (8건)
+1. `login/page.tsx` — `catch (err: unknown)`
+2. `signup/page.tsx` — `catch (err: unknown)`
+3. `FeaturedBanner.tsx` — `getGenreName(genre)`
+4. `HybridMovieCard.tsx` — `getGenreName(movie.genres[0])`
+5. `MovieCard.tsx` — `getGenreName(movie.genres[0])`
+6. `MovieModal.tsx` — `getGenreName(genre)`
+7. `ratings/page.tsx` — `getGenreName(g)`
+8. `MovieHero.tsx` — `getGenreName(genre)`
+
+## 검증 결과
+
+| 항목 | 결과 |
 |------|------|
-| `app/loading.tsx` | 홈: 배너 + 3개 Movie Row × 6카드 |
-| `app/movies/loading.tsx` | 검색: 타이틀 + 검색바 + 필터 + 4×6 그리드 |
-| `app/movies/[id]/loading.tsx` | 상세: 히어로 + 포스터 + 정보 |
+| `ruff check app/` | 0 issues (143 → 0) |
+| `python -c 'from app.main import app; print(app.title)'` | `RecFlix` (정상) |
+| `tsc --noEmit` | 0 errors |
+| `npm run build` | 성공 (13/13 pages) |
+| `npm run lint` | 0 warnings/errors |
+| `grep ': any' frontend/app/ frontend/components/` | 0건 |
+| `grep 'as any' frontend/app/ frontend/components/` | 0건 |
 
-## Step 3: 접근성 (Accessibility)
+## 변경 파일 목록
 
-### 3-1: Viewport 설정
-- `maximumScale`: 1 → 5
-- `userScalable`: false → true
+### Frontend (12개)
+- `types/index.ts` — GenreLike 타입 추가
+- `lib/utils.ts` — getGenreName 유틸 추가
+- `components/movie/MovieModal.tsx` — focus trap + getGenreName
+- `components/movie/FeaturedBanner.tsx` — getGenreName
+- `components/movie/HybridMovieCard.tsx` — getGenreName
+- `components/movie/MovieCard.tsx` — getGenreName
+- `components/layout/HeaderMobileDrawer.tsx` — focus trap
+- `components/search/SearchResults.tsx` — tabIndex={-1}
+- `app/login/page.tsx` — err: unknown
+- `app/signup/page.tsx` — err: unknown
+- `app/ratings/page.tsx` — getGenreName
+- `app/movies/[id]/components/MovieHero.tsx` — getGenreName
 
-### 3-2: MovieModal
-- `role="dialog"` `aria-modal="true"` `aria-labelledby="modal-movie-title"` 추가
-- `tabIndex={-1}` + `ref={dialogRef}` + ESC 키 핸들러
-- 닫기 버튼 `aria-label="닫기"` 추가
-- h2에 `id="modal-movie-title"` 추가
-
-### 3-3: HeaderMobileDrawer
-- `role="dialog"` `aria-modal="true"` `aria-label="메뉴"` 추가
-- ESC 키 핸들러 (useEffect + keydown)
-
-### 3-4: SearchAutocomplete (Combobox ARIA)
-- input: `role="combobox"` `aria-expanded` `aria-controls` `aria-activedescendant` `aria-autocomplete="list"`
-- 결과 컨테이너: `id="search-results-listbox"` `role="listbox"`
-- 각 결과 항목 (SearchResults.tsx): `role="option"` `aria-selected` `id="search-item-{n}"`
-- 검색어 지우기 버튼: `aria-label="검색어 지우기"`
-
-### 3-5: Icon 버튼 aria-label
-- 로그인 닫기 버튼: `aria-label="닫기"`
-- 비밀번호 토글: `aria-label="비밀번호 보기"` / `"비밀번호 숨기기"`
-
-### 3-6: MovieFilters select aria-label
-- 장르: `aria-label="장르 선택"`
-- 연령등급: `aria-label="연령 등급 선택"`
-- 정렬: `aria-label="정렬 방식"`
-
-## Step 4: 홈 캐시 키 개선
-
-```
-Before: `${weather.condition}-${mood}-${isAuthenticated}`
-After:  `${weather.condition}-${mood}-${user?.id || 'anon'}-${user?.mbti || 'none'}`
-```
-
-동일 인증 상태여도 사용자/MBTI가 다르면 캐시 무효화.
-useEffect 의존성 배열에 `user?.id`, `user?.mbti` 추가.
-
-## 변경 파일 목록 (15개)
-
-### 신규 (9개)
-- `app/login/layout.tsx`
-- `app/signup/layout.tsx`
-- `app/profile/layout.tsx`
-- `app/favorites/layout.tsx`
-- `app/ratings/layout.tsx`
-- `app/onboarding/layout.tsx`
-- `app/loading.tsx`
-- `app/movies/loading.tsx`
-- `app/movies/[id]/loading.tsx`
-
-### 수정 (6개)
-- `app/layout.tsx` — viewport 접근성
-- `app/page.tsx` — 캐시 키 + deps
-- `app/login/page.tsx` — aria-label
-- `components/movie/MovieModal.tsx` — dialog ARIA
-- `components/movie/MovieFilters.tsx` — select aria-label
-- `components/layout/HeaderMobileDrawer.tsx` — dialog ARIA + ESC
-- `components/search/SearchAutocomplete.tsx` — combobox ARIA
-- `components/search/SearchResults.tsx` — option ARIA
-
-## 검증 결과
-- `tsc --noEmit`: 0 errors
-- `npm run build`: 성공 (13/13 pages)
-- `npm run lint`: 0 warnings/errors
-
----
-
-# pg_trgm 검색 인덱스 프로덕션 적용 (2026-02-23)
-
-Railway 프로덕션 DB에 pg_trgm GIN 인덱스 3개 적용 완료.
-
-- `pg_trgm` 확장: 활성화 확인
-- `idx_movies_title_ko_trgm`: title_ko ILIKE 검색 가속
-- `idx_movies_title_trgm`: title ILIKE 검색 가속
-- `idx_movies_cast_ko_trgm`: cast_ko ILIKE 검색 가속
-
-모두 `CREATE INDEX CONCURRENTLY`로 무중단 생성.
-
----
-
-# Phase 43B: Frontend 성능 — 파일 분할 + 애니메이션 경량화 결과
-
-## 날짜
-2026-02-23
-
-## 분할 전/후 LOC 비교
-
-| 파일 | Before | After | 감소 |
-|------|--------|-------|------|
-| `app/movies/page.tsx` | 531 | 271 | -260 (-49%) |
-| `components/search/SearchAutocomplete.tsx` | 534 | 321 | -213 (-40%) |
-| `components/layout/Header.tsx` | 373 | 230 | -143 (-38%) |
-
-## 새로 생성된 파일 목록
-
-| # | 파일 | 역할 | LOC |
-|---|------|------|-----|
-| 1 | `components/movie/MovieFilters.tsx` | 장르/정렬/연령등급 필터 UI | 108 |
-| 2 | `components/movie/MovieGrid.tsx` | 영화 그리드 + 시맨틱 결과 + 페이지네이션 + 무한스크롤 | 289 |
-| 3 | `components/search/SearchResults.tsx` | 자동완성 검색 결과 드롭다운 렌더링 | 255 |
-| 4 | `components/layout/HeaderMobileDrawer.tsx` | 모바일 슬라이드 메뉴 패널 | 167 |
-
-## 1단계: movies/page.tsx 분할
-
-### 추출된 컴포넌트
-- **MovieFilters**: 장르/연령등급/정렬 select + 무한스크롤 토글 + 필터 초기화 버튼
-- **MovieGrid**: 검색 결과 그리드 렌더링 (시맨틱 검색 섹션 포함), 빈 결과 + 추천, 무한스크롤/페이지네이션
-
-### page.tsx에 남은 역할
-- URL 파라미터 해석 (searchParams)
-- 데이터 fetch (getMovies, getGenres, semanticSearch)
-- 상태 관리 (movies, genres, loading 등)
-- 레이아웃 조합
-
-## 2단계: SearchAutocomplete.tsx 분할
-
-### 추출된 컴포넌트
-- **SearchResults**: 시맨틱 AI 결과, 키워드 영화, 인물, 빈 결과, "전체 검색" 버튼 렌더링
-
-### SearchAutocomplete에 남은 역할
-- 입력 UI + debounce
-- Promise.allSettled 병렬 fetch + AbortController
-- 키보드 네비게이션 (ArrowUp/Down, Enter, Escape)
-- flatItems 계산 (useMemo)
-
-## 3단계: Header.tsx 경량화
-
-### 변경 사항
-- **5초 interval polling 제거**: `setInterval(loadWeather, 5000)` → `storage` 이벤트 리스너만 유지
-- **HeaderMobileDrawer 추출**: 모바일 메뉴 패널 (날씨, 네비게이션, 사용자 섹션) 별도 컴포넌트
-- **nav 상수 모듈 레벨**: `NAV_ITEMS`, `AUTH_NAV_ITEMS` → 렌더링마다 재생성 방지
-
-### Weather polling 변경
-```
-Before: loadWeather() + storage event + setInterval(5000ms)
-After:  loadWeather() + storage event only (no polling)
-```
-날씨 데이터는 useWeather 훅이 localStorage에 쓸 때 storage 이벤트로 동기화됩니다.
-
-## 4단계: 카드 애니메이션 경량화
-
-### MovieCard.tsx
-```
-Before: initial={{ opacity: 0, y: 20 }} transition={{ delay: index * 0.05 }}
-After:  initial={{ opacity: 0 }} transition={{ duration: 0.3 }}
-```
-
-### HybridMovieCard.tsx
-```
-Before: initial={{ opacity: 0, y: 20 }} transition={{ delay: index * 0.05 }}
-After:  initial={{ opacity: 0 }} transition={{ duration: 0.3 }}
-```
-
-- `y: 20` 이동 애니메이션 제거 → 단순 페이드인
-- `delay: index * 0.05` 순차 지연 제거 → 모든 카드 동시 페이드인
-- hover 효과 (scale, shadow) 유지
-- 무한스크롤 추가분도 동일한 짧은 페이드만 적용
-
-## 검증 결과
-- `tsc --noEmit`: 0 errors
-- `npm run build`: 성공 (13/13 pages)
-- `npm run lint`: 0 ESLint errors
-- 500줄 초과 파일: 0개 (최대 415줄 curationMessages.ts, 데이터 파일)
+### Backend (13개)
+- `main.py` — noqa E402
+- `core/deps.py` — raise from e
+- `core/security.py` — contextlib.suppress + RedisError
+- `services/embedding.py` — except 구체화
+- `services/llm.py` — except 구체화
+- `services/weather.py` — except 구체화 + ternary
+- `api/v1/events.py` — SQLAlchemyError
+- `api/v1/health.py` — SQLAlchemyError + RedisError
+- `api/v1/movies.py` — contextlib.suppress + RedisError
+- `api/v1/recommendation_cf.py` — FileNotFoundError 등
+- `api/v1/semantic_search.py` — OSError 등
+- `api/v1/interactions.py` — ruff auto-fix
+- `schemas/*.py`, `config.py` — Optional→X|None, import 정리

@@ -1,7 +1,7 @@
 """
 Recommendation Pydantic Schemas
 """
-from typing import Optional, List
+
 from pydantic import BaseModel
 
 from app.schemas.movie import MovieListItem
@@ -9,9 +9,9 @@ from app.schemas.movie import MovieListItem
 
 class RecommendationParams(BaseModel):
     """Parameters for recommendation request"""
-    mbti: Optional[str] = None
-    weather: Optional[str] = None  # sunny, rainy, cloudy, snowy
-    emotion: Optional[str] = None  # healing, tension, touching, fun, horror, excitement, sadness
+    mbti: str | None = None
+    weather: str | None = None  # sunny, rainy, cloudy, snowy
+    emotion: str | None = None  # healing, tension, touching, fun, horror, excitement, sadness
     limit: int = 20
 
 
@@ -19,18 +19,18 @@ class RecommendationTag(BaseModel):
     """Tag explaining why a movie was recommended"""
     type: str  # mbti, weather, personal, popular, rating
     label: str  # Display label like "#INTJ추천", "#비오는날"
-    score: Optional[float] = None  # Contribution score
+    score: float | None = None  # Contribution score
 
 
 class HybridMovieItem(MovieListItem):
     """Movie item with recommendation tags"""
-    recommendation_tags: List[RecommendationTag] = []
+    recommendation_tags: list[RecommendationTag] = []
     hybrid_score: float = 0.0  # Combined recommendation score
     recommendation_reason: str = ""  # Template-based reason sentence
 
     @classmethod
     def from_movie_with_tags(
-        cls, movie, tags: List[RecommendationTag],
+        cls, movie, tags: list[RecommendationTag],
         hybrid_score: float = 0.0, reason: str = "",
     ):
         return cls(
@@ -55,22 +55,22 @@ class HybridMovieItem(MovieListItem):
 class RecommendationRow(BaseModel):
     """Schema for a recommendation row"""
     title: str
-    description: Optional[str] = None
-    movies: List[MovieListItem]
+    description: str | None = None
+    movies: list[MovieListItem]
 
 
 class HybridRecommendationRow(BaseModel):
     """Schema for hybrid recommendation row with tags"""
     title: str
-    description: Optional[str] = None
-    movies: List[HybridMovieItem]
+    description: str | None = None
+    movies: list[HybridMovieItem]
 
 
 class HomeRecommendations(BaseModel):
     """Schema for home page recommendations"""
-    featured: Optional[MovieListItem] = None
-    rows: List[RecommendationRow]
-    hybrid_row: Optional[HybridRecommendationRow] = None  # Main personalized recommendation
+    featured: MovieListItem | None = None
+    rows: list[RecommendationRow]
+    hybrid_row: HybridRecommendationRow | None = None  # Main personalized recommendation
 
 
 class WeatherInfo(BaseModel):

@@ -2,7 +2,8 @@
 Rating Model
 """
 from datetime import datetime
-from sqlalchemy import Column, Integer, Float, String, DateTime, ForeignKey, UniqueConstraint
+
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.database import Base

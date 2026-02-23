@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { Heart, Star, X } from "lucide-react";
-import { getImageUrl, formatRuntime, formatDate } from "@/lib/utils";
+import { getImageUrl, formatRuntime, formatDate, getGenreName } from "@/lib/utils";
 import { getMovie, getSimilarMovies } from "@/lib/api";
 import { useInteractionStore } from "@/stores/interactionStore";
 import { useAuthStore } from "@/stores/authStore";
@@ -51,17 +51,44 @@ export default function MovieModal({ movie, onClose }: MovieModalProps) {
 
     fetchData();
     document.body.style.overflow = "hidden";
-    // Focus dialog on open
+
+    // Save trigger element and focus dialog
+    const trigger = document.activeElement as HTMLElement | null;
     dialogRef.current?.focus();
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab" || !dialogRef.current) return;
+
+      const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     };
     document.addEventListener("keydown", handleKeyDown);
 
     return () => {
       document.body.style.overflow = "unset";
       document.removeEventListener("keydown", handleKeyDown);
+      trigger?.focus();
     };
   }, [movie.id, isAuthenticated, fetchInteraction, onClose]);
 
@@ -174,7 +201,7 @@ export default function MovieModal({ movie, onClose }: MovieModalProps) {
             {/* Genres */}
             <div className="flex flex-wrap gap-2 mb-6">
               {movie.genres.map((genre, index) => {
-                const genreName = typeof genre === 'string' ? genre : (genre as any)?.name_ko || (genre as any)?.name;
+                const genreName = getGenreName(genre);
                 return (
                   <span
                     key={genreName || index}

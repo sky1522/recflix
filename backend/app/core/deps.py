@@ -1,15 +1,15 @@
 """
 Dependencies for FastAPI endpoints
 """
-from typing import Generator, Optional
+from collections.abc import Generator
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.core.security import decode_token
 from app.database import SessionLocal
 from app.models import User
-from app.core.security import decode_token
 
 # HTTP Bearer token scheme
 security = HTTPBearer()
@@ -51,8 +51,8 @@ def get_current_user(
 
     try:
         user_id = int(user_id_str)
-    except (ValueError, TypeError):
-        raise credentials_exception
+    except (ValueError, TypeError) as e:
+        raise credentials_exception from e
 
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
@@ -68,9 +68,9 @@ def get_current_user(
 
 
 def get_current_user_optional(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
+    credentials: HTTPAuthorizationCredentials | None = Depends(HTTPBearer(auto_error=False)),
     db: Session = Depends(get_db)
-) -> Optional[User]:
+) -> User | None:
     """Get current user if authenticated, None otherwise"""
     if credentials is None:
         return None

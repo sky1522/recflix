@@ -2,7 +2,7 @@
 Movie Pydantic Schemas
 """
 from datetime import date
-from typing import Optional, List, Dict
+
 from pydantic import BaseModel
 
 
@@ -10,7 +10,7 @@ class GenreResponse(BaseModel):
     """Schema for genre response"""
     id: int
     name: str
-    name_ko: Optional[str]
+    name_ko: str | None
 
     class Config:
         from_attributes = True
@@ -29,20 +29,20 @@ class MovieBase(BaseModel):
     """Base movie schema"""
     id: int
     title: str
-    title_ko: Optional[str]
-    certification: Optional[str]
-    runtime: Optional[int]
+    title_ko: str | None
+    certification: str | None
+    runtime: int | None
     vote_average: float
     vote_count: int
     popularity: float
-    poster_path: Optional[str]
-    release_date: Optional[date]
+    poster_path: str | None
+    release_date: date | None
     is_adult: bool
 
 
 class MovieListItem(MovieBase):
     """Schema for movie list item (minimal)"""
-    genres: List[str] = []
+    genres: list[str] = []
 
     class Config:
         from_attributes = True
@@ -67,21 +67,21 @@ class MovieListItem(MovieBase):
 
 class MovieDetail(MovieBase):
     """Schema for movie detail"""
-    overview: Optional[str]
-    tagline: Optional[str]
-    director: Optional[str] = None
-    director_ko: Optional[str] = None
-    cast_ko: Optional[str] = None
-    production_countries_ko: Optional[str] = None
-    release_season: Optional[str] = None
-    weighted_score: Optional[float] = None
-    genres: List[GenreResponse] = []
-    cast_members: List[PersonResponse] = []
-    keywords: List[str] = []
-    countries: List[str] = []
-    mbti_scores: Optional[Dict[str, float]] = None
-    weather_scores: Optional[Dict[str, float]] = None
-    emotion_tags: Optional[Dict[str, float]] = None
+    overview: str | None
+    tagline: str | None
+    director: str | None = None
+    director_ko: str | None = None
+    cast_ko: str | None = None
+    production_countries_ko: str | None = None
+    release_season: str | None = None
+    weighted_score: float | None = None
+    genres: list[GenreResponse] = []
+    cast_members: list[PersonResponse] = []
+    keywords: list[str] = []
+    countries: list[str] = []
+    mbti_scores: dict[str, float] | None = None
+    weather_scores: dict[str, float] | None = None
+    emotion_tags: dict[str, float] | None = None
 
     class Config:
         from_attributes = True
@@ -120,12 +120,12 @@ class MovieDetail(MovieBase):
 
 class MovieSearchParams(BaseModel):
     """Schema for movie search parameters"""
-    query: Optional[str] = None
-    genres: Optional[List[str]] = None
-    min_rating: Optional[float] = None
-    max_rating: Optional[float] = None
-    year_from: Optional[int] = None
-    year_to: Optional[int] = None
+    query: str | None = None
+    genres: list[str] | None = None
+    min_rating: float | None = None
+    max_rating: float | None = None
+    year_from: int | None = None
+    year_to: int | None = None
     sort_by: str = "popularity"  # popularity, weighted_score, release_date
     sort_order: str = "desc"  # asc, desc
     page: int = 1
@@ -134,7 +134,7 @@ class MovieSearchParams(BaseModel):
 
 class PaginatedMovies(BaseModel):
     """Schema for paginated movie list"""
-    items: List[MovieListItem]
+    items: list[MovieListItem]
     total: int
     page: int
     page_size: int

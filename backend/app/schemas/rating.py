@@ -2,7 +2,7 @@
 Rating Pydantic Schemas
 """
 from datetime import datetime
-from typing import Optional
+
 from pydantic import BaseModel, Field
 
 from app.schemas.movie import MovieListItem
@@ -11,7 +11,7 @@ from app.schemas.movie import MovieListItem
 class RatingBase(BaseModel):
     """Base rating schema"""
     score: float = Field(..., ge=0.5, le=5.0)
-    weather_context: Optional[str] = None
+    weather_context: str | None = None
 
 
 class RatingCreate(RatingBase):
@@ -22,7 +22,7 @@ class RatingCreate(RatingBase):
 class RatingUpdate(BaseModel):
     """Schema for rating update"""
     score: float = Field(..., ge=0.5, le=5.0)
-    weather_context: Optional[str] = None
+    weather_context: str | None = None
 
 
 class RatingResponse(RatingBase):

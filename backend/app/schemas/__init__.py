@@ -1,24 +1,35 @@
 """RecFlix Pydantic Schemas Package"""
-from app.schemas.user import (
-    UserBase, UserCreate, UserUpdate, UserResponse,
-    UserLogin, Token, TokenRefresh, MBTIUpdate,
-    SocialLoginRequest, SocialLoginResponse, OnboardingComplete,
+from app.schemas.collection import (
+    AddMovieToCollection,
+    CollectionBase,
+    CollectionCreate,
+    CollectionDetail,
+    CollectionResponse,
+    CollectionUpdate,
 )
 from app.schemas.movie import (
-    GenreResponse, PersonResponse, MovieBase, MovieListItem,
-    MovieDetail, MovieSearchParams, PaginatedMovies
+    GenreResponse,
+    MovieBase,
+    MovieDetail,
+    MovieListItem,
+    MovieSearchParams,
+    PaginatedMovies,
+    PersonResponse,
 )
-from app.schemas.collection import (
-    CollectionBase, CollectionCreate, CollectionUpdate,
-    CollectionResponse, CollectionDetail, AddMovieToCollection
-)
-from app.schemas.rating import (
-    RatingBase, RatingCreate, RatingUpdate,
-    RatingResponse, RatingWithMovie
-)
-from app.schemas.recommendation import (
-    RecommendationParams, RecommendationRow,
-    HomeRecommendations, WeatherInfo
+from app.schemas.rating import RatingBase, RatingCreate, RatingResponse, RatingUpdate, RatingWithMovie
+from app.schemas.recommendation import HomeRecommendations, RecommendationParams, RecommendationRow, WeatherInfo
+from app.schemas.user import (
+    MBTIUpdate,
+    OnboardingComplete,
+    SocialLoginRequest,
+    SocialLoginResponse,
+    Token,
+    TokenRefresh,
+    UserBase,
+    UserCreate,
+    UserLogin,
+    UserResponse,
+    UserUpdate,
 )
 
 __all__ = [

@@ -1,16 +1,15 @@
 """
 Weather API endpoints
 """
-from typing import Optional
+
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from app.core.rate_limit import limiter
-
 from app.services.weather import (
-    get_weather_by_coords,
-    get_weather_by_city,
     WeatherData,
+    get_weather_by_city,
+    get_weather_by_coords,
 )
 
 router = APIRouter(prefix="/weather", tags=["Weather"])
@@ -79,9 +78,9 @@ def weather_to_response(weather: WeatherData) -> WeatherResponse:
 @limiter.limit("60/minute")
 async def get_weather(
     request: Request,
-    lat: Optional[float] = Query(None, ge=-90, le=90, description="위도"),
-    lon: Optional[float] = Query(None, ge=-180, le=180, description="경도"),
-    city: Optional[str] = Query(None, description="도시명 (예: Seoul)"),
+    lat: float | None = Query(None, ge=-90, le=90, description="위도"),
+    lon: float | None = Query(None, ge=-180, le=180, description="경도"),
+    city: str | None = Query(None, description="도시명 (예: Seoul)"),
 ):
     """
     날씨 정보 조회

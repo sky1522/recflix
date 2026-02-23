@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import func, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_current_user_optional, get_db
@@ -41,7 +42,7 @@ def create_event(
         )
         db.add(db_event)
         db.commit()
-    except Exception as e:
+    except SQLAlchemyError as e:
         logger.warning("Event logging failed: %s", e)
         db.rollback()
     return EventResponse(status="ok")
@@ -73,7 +74,7 @@ def create_events_batch(
             ))
         db.add_all(db_events)
         db.commit()
-    except Exception as e:
+    except SQLAlchemyError as e:
         logger.warning("Batch event logging failed: %s", e)
         db.rollback()
     return EventResponse(status="ok")

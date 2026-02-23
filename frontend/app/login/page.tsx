@@ -32,8 +32,9 @@ function LoginContent() {
     try {
       await login({ email, password });
       router.push("/");
-    } catch (err: any) {
-      setError(err.message || "로그인에 실패했습니다.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "로그인에 실패했습니다.";
+      setError(message);
     }
   };
 

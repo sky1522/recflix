@@ -169,3 +169,5 @@ export interface CatchphraseResponse {
   catchphrase: string;
   cached: boolean;
 }
+
+export type GenreLike = string | { id?: number; name?: string; name_ko?: string };

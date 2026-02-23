@@ -1,16 +1,11 @@
 """
 Movie Model
 """
-from datetime import date
-from sqlalchemy import (
-    Column, Integer, String, Text, Float, Boolean, Date,
-    Table, ForeignKey, ARRAY
-)
-from sqlalchemy.orm import relationship
+from sqlalchemy import Boolean, Column, Date, Float, ForeignKey, Integer, String, Table, Text
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import relationship
 
 from app.database import Base
-
 
 # Association tables for many-to-many relationships
 movie_genres = Table(

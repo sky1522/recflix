@@ -1,21 +1,19 @@
 """
 Rating API endpoints
 """
-from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_db, get_current_user
+from app.core.deps import get_current_user, get_db
 from app.core.rate_limit import limiter
-from app.models import User, Movie, Rating
-from app.schemas import (
-    RatingCreate, RatingUpdate, RatingResponse, RatingWithMovie, MovieListItem
-)
+from app.models import Movie, Rating, User
+from app.schemas import MovieListItem, RatingCreate, RatingResponse, RatingUpdate, RatingWithMovie
 
 router = APIRouter(prefix="/ratings", tags=["Ratings"])
 
 
-@router.get("/me", response_model=List[RatingWithMovie])
+@router.get("/me", response_model=list[RatingWithMovie])
 @limiter.limit("30/minute")
 def get_my_ratings(
     request: Request,

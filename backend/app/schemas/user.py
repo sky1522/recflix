@@ -2,7 +2,7 @@
 User Pydantic Schemas
 """
 from datetime import date, datetime
-from typing import Optional
+
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
@@ -10,8 +10,8 @@ class UserBase(BaseModel):
     """Base user schema"""
     email: EmailStr
     nickname: str = Field(..., min_length=2, max_length=50)
-    mbti: Optional[str] = Field(None, pattern=r'^[EI][NS][TF][JP]$')
-    birth_date: Optional[date] = None
+    mbti: str | None = Field(None, pattern=r'^[EI][NS][TF][JP]$')
+    birth_date: date | None = None
     location_consent: bool = False
 
 
@@ -22,10 +22,10 @@ class UserCreate(UserBase):
 
 class UserUpdate(BaseModel):
     """Schema for user update"""
-    nickname: Optional[str] = Field(None, min_length=2, max_length=50)
-    mbti: Optional[str] = Field(None, pattern=r'^[EI][NS][TF][JP]$')
-    birth_date: Optional[date] = None
-    location_consent: Optional[bool] = None
+    nickname: str | None = Field(None, min_length=2, max_length=50)
+    mbti: str | None = Field(None, pattern=r'^[EI][NS][TF][JP]$')
+    birth_date: date | None = None
+    location_consent: bool | None = None
 
 
 class UserResponse(BaseModel):
@@ -33,13 +33,13 @@ class UserResponse(BaseModel):
     id: int
     email: EmailStr
     nickname: str
-    mbti: Optional[str]
-    birth_date: Optional[date]
+    mbti: str | None
+    birth_date: date | None
     location_consent: bool
     auth_provider: str = "email"
-    profile_image: Optional[str] = None
+    profile_image: str | None = None
     onboarding_completed: bool = False
-    preferred_genres: Optional[list[str]] = None
+    preferred_genres: list[str] | None = None
     is_active: bool
     created_at: datetime
 
@@ -48,7 +48,7 @@ class UserResponse(BaseModel):
 
     @field_validator("preferred_genres", mode="before")
     @classmethod
-    def parse_preferred_genres(cls, v: object) -> Optional[list[str]]:
+    def parse_preferred_genres(cls, v: object) -> list[str] | None:
         import json
         if isinstance(v, str):
             return json.loads(v)

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Home, Film, Heart, Star, User, LogOut } from "lucide-react";
@@ -33,12 +33,45 @@ export default function HeaderMobileDrawer({
   onClose,
   onLogout,
 }: HeaderMobileDrawerProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
+    const trigger = document.activeElement as HTMLElement | null;
+    panelRef.current?.focus();
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab" || !panelRef.current) return;
+
+      const focusable = panelRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     };
     document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      trigger?.focus();
+    };
   }, [onClose]);
 
   return (
@@ -54,14 +87,16 @@ export default function HeaderMobileDrawer({
 
       {/* Menu Panel */}
       <motion.div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label="메뉴"
+        tabIndex={-1}
         initial={{ x: "100%" }}
         animate={{ x: 0 }}
         exit={{ x: "100%" }}
         transition={{ type: "spring", damping: 25, stiffness: 300 }}
-        className="fixed top-0 right-0 bottom-0 w-72 bg-dark-200 z-50 md:hidden shadow-2xl"
+        className="fixed top-0 right-0 bottom-0 w-72 bg-dark-200 z-50 md:hidden shadow-2xl outline-none"
       >
         <div className="flex flex-col h-full pt-16">
           {/* Weather */}

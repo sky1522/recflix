@@ -1,15 +1,16 @@
 """
 Movie API endpoints
 """
+import contextlib
 import hashlib
 import json
 import logging
 import math
 import random as random_mod
 import time
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from redis.exceptions import RedisError
 from sqlalchemy import distinct, extract, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -56,7 +57,7 @@ async def search_autocomplete(
             cached = await redis.get(cache_key)
             if cached:
                 return json.loads(cached)
-        except Exception:
+        except (RedisError, ConnectionError, TimeoutError):
             pass
 
     results = {
@@ -97,10 +98,8 @@ async def search_autocomplete(
 
     # Save to Redis cache
     if redis:
-        try:
+        with contextlib.suppress(RedisError, ConnectionError, TimeoutError):
             await redis.setex(cache_key, AUTOCOMPLETE_CACHE_TTL, json.dumps(results, ensure_ascii=False))
-        except Exception:
-            pass
 
     return results
 
@@ -109,14 +108,14 @@ async def search_autocomplete(
 @limiter.limit("60/minute")
 def get_movies(
     request: Request,
-    query: Optional[str] = None,
-    genres: Optional[str] = Query(None, description="Comma-separated genre names"),
-    person: Optional[str] = Query(None, description="Actor or director name"),
-    min_rating: Optional[float] = None,
-    max_rating: Optional[float] = None,
-    year_from: Optional[int] = None,
-    year_to: Optional[int] = None,
-    age_rating: Optional[str] = Query(None, regex="^(all|family|teen|adult)$"),
+    query: str | None = None,
+    genres: str | None = Query(None, description="Comma-separated genre names"),
+    person: str | None = Query(None, description="Actor or director name"),
+    min_rating: float | None = None,
+    max_rating: float | None = None,
+    year_from: int | None = None,
+    year_to: int | None = None,
+    age_rating: str | None = Query(None, regex="^(all|family|teen|adult)$"),
     sort_by: str = Query("popularity", regex="^(popularity|weighted_score|release_date)$"),
     sort_order: str = Query("desc", regex="^(asc|desc)$"),
     page: int = Query(1, ge=1),
@@ -213,7 +212,7 @@ def get_movies(
     )
 
 
-@router.get("/genres", response_model=List[GenreResponse])
+@router.get("/genres", response_model=list[GenreResponse])
 @limiter.limit("60/minute")
 def get_genres(request: Request, db: Session = Depends(get_db)):
     """Get all genres"""
@@ -221,7 +220,7 @@ def get_genres(request: Request, db: Session = Depends(get_db)):
     return genres
 
 
-@router.get("/onboarding", response_model=List[MovieListItem])
+@router.get("/onboarding", response_model=list[MovieListItem])
 @limiter.limit("10/minute")
 def get_onboarding_movies(
     request: Request,
@@ -352,7 +351,7 @@ async def semantic_search(
                 result = json.loads(cached)
                 result["search_time_ms"] = round((time.time() - t_start) * 1000, 1)
                 return result
-        except Exception:
+        except (RedisError, ConnectionError, TimeoutError):
             pass
 
     # 2. 시맨틱 검색 불가 → 키워드 폴백
@@ -448,14 +447,12 @@ async def semantic_search(
 
     # 7. Redis 결과 캐시 저장
     if redis and results:
-        try:
+        with contextlib.suppress(RedisError, ConnectionError, TimeoutError):
             await redis.setex(
                 result_cache_key,
                 SEMANTIC_RESULT_CACHE_TTL,
                 json.dumps(response, ensure_ascii=False),
             )
-        except Exception:
-            pass
 
     return response
 
@@ -527,7 +524,7 @@ def get_movie(request: Request, movie_id: int, db: Session = Depends(get_db)):
     return MovieDetail.from_orm_with_relations(movie)
 
 
-@router.get("/{movie_id}/similar", response_model=List[MovieListItem])
+@router.get("/{movie_id}/similar", response_model=list[MovieListItem])
 @limiter.limit("60/minute")
 def get_similar_movies(
     request: Request,

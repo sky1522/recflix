@@ -50,7 +50,7 @@ def load_embeddings() -> None:
             _corpus_embeddings.shape[1],
             _corpus_embeddings.nbytes / 1024 / 1024,
         )
-    except Exception as e:
+    except (OSError, ValueError) as e:
         logger.error("Failed to load embeddings: %s", e)
         _corpus_embeddings = None
         _movie_ids = []

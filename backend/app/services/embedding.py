@@ -8,6 +8,7 @@ import logging
 import httpx
 import numpy as np
 import redis.asyncio as aioredis
+from redis.exceptions import RedisError
 
 from app.config import settings
 
@@ -30,7 +31,7 @@ async def _get_binary_redis() -> aioredis.Redis | None:
         try:
             await _redis_binary.ping()
             return _redis_binary
-        except Exception:
+        except (RedisError, ConnectionError, TimeoutError):
             _redis_binary = None
 
     try:
@@ -51,7 +52,7 @@ async def _get_binary_redis() -> aioredis.Redis | None:
             )
         await _redis_binary.ping()
         return _redis_binary
-    except Exception as e:
+    except (RedisError, ConnectionError, TimeoutError) as e:
         logger.warning("Binary Redis connection failed: %s", e)
         _redis_binary = None
         return None
@@ -78,7 +79,7 @@ async def get_query_embedding(text: str) -> np.ndarray | None:
             if cached:
                 logger.debug("Embedding cache HIT: %s", key)
                 return np.frombuffer(cached, dtype=np.float32).copy()
-        except Exception as e:
+        except (RedisError, ConnectionError, TimeoutError) as e:
             logger.warning("Redis embedding get error: %s", e)
 
     # API 키 확인
@@ -112,7 +113,7 @@ async def get_query_embedding(text: str) -> np.ndarray | None:
     except httpx.HTTPStatusError as e:
         logger.error("Voyage AI HTTP error %d: %s", e.response.status_code, e.response.text[:200])
         return None
-    except Exception as e:
+    except (httpx.HTTPError, TimeoutError) as e:
         logger.error("Voyage AI embedding error: %s", e)
         return None
 
@@ -120,7 +121,7 @@ async def get_query_embedding(text: str) -> np.ndarray | None:
     if redis:
         try:
             await redis.setex(key, EMBEDDING_CACHE_TTL, embedding.tobytes())
-        except Exception as e:
+        except (RedisError, ConnectionError, TimeoutError) as e:
             logger.warning("Redis embedding set error: %s", e)
 
     return embedding

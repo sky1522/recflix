@@ -5,10 +5,10 @@ import asyncio
 import json
 import logging
 from datetime import datetime
-from typing import Optional
 
 import httpx
 import redis.asyncio as aioredis
+from redis.exceptions import RedisError
 
 from app.config import settings
 
@@ -18,10 +18,10 @@ logger = logging.getLogger(__name__)
 WEATHER_CACHE_TTL = 1800
 
 # Redis 클라이언트 (싱글톤)
-_redis_client: Optional[aioredis.Redis] = None
+_redis_client: aioredis.Redis | None = None
 
 
-async def get_redis_client() -> Optional[aioredis.Redis]:
+async def get_redis_client() -> aioredis.Redis | None:
     """Redis 클라이언트 가져오기 (싱글톤)"""
     global _redis_client
 
@@ -29,7 +29,7 @@ async def get_redis_client() -> Optional[aioredis.Redis]:
         try:
             await _redis_client.ping()
             return _redis_client
-        except Exception:
+        except (RedisError, ConnectionError, TimeoutError):
             _redis_client = None
 
     try:
@@ -51,7 +51,7 @@ async def get_redis_client() -> Optional[aioredis.Redis]:
         await _redis_client.ping()
         logger.info("Weather Redis connected")
         return _redis_client
-    except Exception as e:
+    except (RedisError, ConnectionError, TimeoutError) as e:
         logger.warning("Redis connection failed: %s", e)
         _redis_client = None
         return None
@@ -214,7 +214,7 @@ WEATHER_DESCRIPTIONS_KO = {
 async def get_weather_by_coords(
     lat: float,
     lon: float,
-) -> Optional[WeatherData]:
+) -> WeatherData | None:
     """
     좌표 기반 날씨 조회
 
@@ -241,7 +241,7 @@ async def get_weather_by_coords(
                 data = json.loads(cached)
                 return WeatherData(**data)
             logger.debug("Cache MISS: %s", cache_key)
-        except Exception as e:
+        except (RedisError, ConnectionError, TimeoutError, ValueError, KeyError, TypeError) as e:
             logger.warning("Redis get error: %s", e)
 
     # OpenWeatherMap API 호출 (날씨 + 역지오코딩 병렬)
@@ -280,9 +280,9 @@ async def get_weather_by_coords(
                 if geo_data and len(geo_data) > 0:
                     local_names = geo_data[0].get("local_names", {})
                     geo_city_ko = local_names.get("ko", "")
-            except Exception:
+            except (ValueError, KeyError, TypeError):
                 pass
-    except Exception as e:
+    except (httpx.HTTPError, TimeoutError) as e:
         logger.error("Weather API error: %s", e)
         return _get_default_weather()
 
@@ -315,7 +315,7 @@ async def get_weather_by_coords(
                 json.dumps(weather_data.to_dict(), ensure_ascii=False),
             )
             logger.debug("Cache SET: %s (TTL: %ds)", cache_key, WEATHER_CACHE_TTL)
-        except Exception as e:
+        except (RedisError, ConnectionError, TimeoutError) as e:
             logger.warning("Redis set error: %s", e)
 
     return weather_data
@@ -324,7 +324,7 @@ async def get_weather_by_coords(
 async def get_weather_by_city(
     city: str,
     country_code: str = "KR",
-) -> Optional[WeatherData]:
+) -> WeatherData | None:
     """
     도시명 기반 날씨 조회
 
@@ -350,7 +350,7 @@ async def get_weather_by_city(
                 data = json.loads(cached)
                 return WeatherData(**data)
             logger.debug("Cache MISS: %s", cache_key)
-        except Exception as e:
+        except (RedisError, ConnectionError, TimeoutError, ValueError, KeyError, TypeError) as e:
             logger.warning("Redis get error: %s", e)
 
     # OpenWeatherMap API 호출
@@ -368,7 +368,7 @@ async def get_weather_by_city(
             )
             response.raise_for_status()
             data = response.json()
-    except Exception as e:
+    except (httpx.HTTPError, TimeoutError) as e:
         logger.error("Weather API error: %s", e)
         return _get_default_weather()
 
@@ -399,7 +399,7 @@ async def get_weather_by_city(
                 json.dumps(weather_data.to_dict(), ensure_ascii=False),
             )
             logger.debug("Cache SET: %s (TTL: %ds)", cache_key, WEATHER_CACHE_TTL)
-        except Exception as e:
+        except (RedisError, ConnectionError, TimeoutError) as e:
             logger.warning("Redis set error: %s", e)
 
     return weather_data
@@ -409,10 +409,7 @@ def _get_default_weather() -> WeatherData:
     """API 키가 없거나 실패 시 기본 날씨 반환"""
     hour = datetime.now().hour
 
-    if 6 <= hour < 18:
-        condition = "sunny"
-    else:
-        condition = "cloudy"
+    condition = "sunny" if 6 <= hour < 18 else "cloudy"
 
     return WeatherData(
         condition=condition,

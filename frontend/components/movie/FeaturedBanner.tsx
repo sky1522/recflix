@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Cloud, Plus, Check, Sun, CloudRain, CloudSnow, RotateCcw } from "lucide-react";
-import { getImageUrl, formatRuntime } from "@/lib/utils";
+import { getImageUrl, formatRuntime, getGenreName } from "@/lib/utils";
 import { getCatchphrase } from "@/lib/api";
 import { useAuthStore } from "@/stores/authStore";
 import { useInteractionStore } from "@/stores/interactionStore";
@@ -223,7 +223,7 @@ export default function FeaturedBanner({
                     key={i}
                     className="px-2 md:px-2.5 py-0.5 md:py-1 bg-white/10 backdrop-blur-sm rounded-full text-xs md:text-sm text-white/80"
                   >
-                    {typeof genre === "string" ? genre : (genre as any)?.name_ko || (genre as any)?.name}
+                    {getGenreName(genre)}
                   </span>
                 ))}
               </div>

@@ -6,10 +6,10 @@ import json
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_db, get_current_user
+from app.core.deps import get_current_user, get_db
 from app.core.rate_limit import limiter
 from app.models import User
-from app.schemas import UserResponse, UserUpdate, MBTIUpdate, OnboardingComplete
+from app.schemas import MBTIUpdate, OnboardingComplete, UserResponse, UserUpdate
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
