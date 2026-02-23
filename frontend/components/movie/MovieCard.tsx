@@ -45,9 +45,9 @@ export default function MovieCard({ movie, index = 0, showQuickView = true, high
   return (
     <>
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: index * 0.05 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
         className="flex-shrink-0 w-[160px] md:w-[200px] group"
       >
         <Link

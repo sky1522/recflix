@@ -1,84 +1,83 @@
-# Phase 43A: Frontend 성능 — API 클라이언트 내결함성 + 검색 병렬화 결과
+# Phase 43B: Frontend 성능 — 파일 분할 + 애니메이션 경량화 결과
 
 ## 날짜
 2026-02-23
 
-## 변경 파일 목록
+## 분할 전/후 LOC 비교
 
-| # | 파일 | 주요 변경 |
-|---|------|----------|
-| 1 | `frontend/lib/api.ts` | ApiError 클래스, fetchAPI timeout/retry/abort 확장 |
-| 2 | `frontend/components/search/SearchAutocomplete.tsx` | 키워드+시맨틱 병렬 검색, AbortController stale 응답 차단 |
+| 파일 | Before | After | 감소 |
+|------|--------|-------|------|
+| `app/movies/page.tsx` | 531 | 271 | -260 (-49%) |
+| `components/search/SearchAutocomplete.tsx` | 534 | 321 | -213 (-40%) |
+| `components/layout/Header.tsx` | 373 | 230 | -143 (-38%) |
 
-## 1단계: api.ts fetchAPI 내결함성 강화
+## 새로 생성된 파일 목록
 
-### 변경 전 시그니처
-```ts
-async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T>
+| # | 파일 | 역할 | LOC |
+|---|------|------|-----|
+| 1 | `components/movie/MovieFilters.tsx` | 장르/정렬/연령등급 필터 UI | 108 |
+| 2 | `components/movie/MovieGrid.tsx` | 영화 그리드 + 시맨틱 결과 + 페이지네이션 + 무한스크롤 | 289 |
+| 3 | `components/search/SearchResults.tsx` | 자동완성 검색 결과 드롭다운 렌더링 | 255 |
+| 4 | `components/layout/HeaderMobileDrawer.tsx` | 모바일 슬라이드 메뉴 패널 | 167 |
+
+## 1단계: movies/page.tsx 분할
+
+### 추출된 컴포넌트
+- **MovieFilters**: 장르/연령등급/정렬 select + 무한스크롤 토글 + 필터 초기화 버튼
+- **MovieGrid**: 검색 결과 그리드 렌더링 (시맨틱 검색 섹션 포함), 빈 결과 + 추천, 무한스크롤/페이지네이션
+
+### page.tsx에 남은 역할
+- URL 파라미터 해석 (searchParams)
+- 데이터 fetch (getMovies, getGenres, semanticSearch)
+- 상태 관리 (movies, genres, loading 등)
+- 레이아웃 조합
+
+## 2단계: SearchAutocomplete.tsx 분할
+
+### 추출된 컴포넌트
+- **SearchResults**: 시맨틱 AI 결과, 키워드 영화, 인물, 빈 결과, "전체 검색" 버튼 렌더링
+
+### SearchAutocomplete에 남은 역할
+- 입력 UI + debounce
+- Promise.allSettled 병렬 fetch + AbortController
+- 키보드 네비게이션 (ArrowUp/Down, Enter, Escape)
+- flatItems 계산 (useMemo)
+
+## 3단계: Header.tsx 경량화
+
+### 변경 사항
+- **5초 interval polling 제거**: `setInterval(loadWeather, 5000)` → `storage` 이벤트 리스너만 유지
+- **HeaderMobileDrawer 추출**: 모바일 메뉴 패널 (날씨, 네비게이션, 사용자 섹션) 별도 컴포넌트
+- **nav 상수 모듈 레벨**: `NAV_ITEMS`, `AUTH_NAV_ITEMS` → 렌더링마다 재생성 방지
+
+### Weather polling 변경
+```
+Before: loadWeather() + storage event + setInterval(5000ms)
+After:  loadWeather() + storage event only (no polling)
+```
+날씨 데이터는 useWeather 훅이 localStorage에 쓸 때 storage 이벤트로 동기화됩니다.
+
+## 4단계: 카드 애니메이션 경량화
+
+### MovieCard.tsx
+```
+Before: initial={{ opacity: 0, y: 20 }} transition={{ delay: index * 0.05 }}
+After:  initial={{ opacity: 0 }} transition={{ duration: 0.3 }}
 ```
 
-### 변경 후 시그니처
-```ts
-async function fetchAPI<T>(endpoint: string, options?: FetchAPIOptions): Promise<T>
-
-interface FetchAPIOptions extends Omit<RequestInit, "signal"> {
-  timeoutMs?: number;   // 기본 10초
-  signal?: AbortSignal; // 외부 취소 시그널
-  retry?: boolean;      // GET 5xx/429 재시도 (기본 true)
-}
+### HybridMovieCard.tsx
+```
+Before: initial={{ opacity: 0, y: 20 }} transition={{ delay: index * 0.05 }}
+After:  initial={{ opacity: 0 }} transition={{ duration: 0.3 }}
 ```
 
-### ApiError 클래스
-```ts
-export class ApiError extends Error {
-  status: number;       // HTTP 상태 코드
-  retryable: boolean;   // 429/5xx → true
-}
-```
-
-### 기능 상세
-
-| 기능 | 설명 |
-|------|------|
-| Timeout | AbortController 기반 10초 기본값, `timeoutMs` 옵션으로 변경 가능 |
-| Abort 병합 | `AbortSignal.any()` 지원 시 사용, 미지원 시 수동 이벤트 연결 |
-| 재시도 | GET + 5xx/429 → 1초 대기 후 1회 자동 재시도 |
-| 재시도 비활성화 | `retry: false` 옵션 또는 POST/PUT/DELETE → 재시도 안 함 |
-| AbortError | DOMException AbortError는 별도 분기, 재시도하지 않음 |
-| 하위 호환 | 기존 `fetchAPI(endpoint)` / `fetchAPI(endpoint, { method: "POST" })` 그대로 동작 |
-
-### signal 지원 추가 함수
-- `searchAutocomplete(query, limit?, signal?)` — 선택적 signal 파라미터 추가
-- `semanticSearch(query, limit?, signal?)` — 선택적 signal 파라미터 추가
-- 기존 호출 코드 변경 불필요 (optional 파라미터)
-
-## 2단계: SearchAutocomplete 검색 병렬화
-
-### 변경 전 (직렬)
-```
-1. await searchAutocomplete(query)     ← 키워드 완료 대기
-2. setResults(data)
-3. if (NL) await semanticSearch(query)  ← 시맨틱 완료 대기
-4. setSemanticResults(data)
-총 소요: 키워드 지연 + 시맨틱 지연 (직렬)
-```
-
-### 변경 후 (병렬 + abort)
-```
-1. Promise.allSettled([keyword, semantic])  ← 동시 실행
-2. signal.aborted 체크 → stale이면 무시
-3. 각 결과 독립 처리 (fulfilled/rejected)
-총 소요: max(키워드 지연, 시맨틱 지연) (병렬)
-```
-
-### AbortController 적용
-- 새 입력(debouncedQuery 변경) 시 이전 요청의 AbortController.abort() 호출
-- useEffect cleanup 함수에서 abort
-- AbortError는 console.error로 출력하지 않음 (DOMException 체크)
-- abort signal을 `searchAutocomplete()`과 `semanticSearch()`에 전달 → 실제 HTTP 요청도 취소
+- `y: 20` 이동 애니메이션 제거 → 단순 페이드인
+- `delay: index * 0.05` 순차 지연 제거 → 모든 카드 동시 페이드인
+- hover 효과 (scale, shadow) 유지
+- 무한스크롤 추가분도 동일한 짧은 페이드만 적용
 
 ## 검증 결과
 - `tsc --noEmit`: 0 errors
 - `npm run build`: 성공 (13/13 pages)
 - `npm run lint`: 0 ESLint errors
-- fetchAPI 하위 호환: 기존 24개 API 함수 시그니처 변경 없음
+- 500줄 초과 파일: 0개 (최대 415줄 curationMessages.ts, 데이터 파일)
