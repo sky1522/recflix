@@ -50,6 +50,20 @@ export default function HomePage() {
   const { isAuthenticated, user } = useAuthStore();
   const prevAuthRef = useRef(isAuthenticated);
 
+  // Track interaction version to invalidate cache on rating/favorite changes
+  const [interactionVersion, setInteractionVersion] = useState(0);
+  useEffect(() => {
+    // Read initial value
+    const readVersion = () => {
+      const v = parseInt(localStorage.getItem("interaction_version") || "0", 10);
+      setInteractionVersion(v);
+    };
+    readVersion();
+    // Re-check when user returns to page (tab switch, back navigation)
+    window.addEventListener("focus", readVersion);
+    return () => window.removeEventListener("focus", readVersion);
+  }, []);
+
   // 페이지 로드 시 랜덤 서브타이틀 인덱스 결정 (하이드레이션 안전)
   useEffect(() => {
     setSubtitleIdx(Math.floor(Math.random() * SUBTITLE_COUNT));
@@ -96,12 +110,15 @@ export default function HomePage() {
     setUserContext(buildUserContext(temp, condition));
   }, [weather]);
 
-  // Fetch recommendations when weather, mood, or auth state changes
+  // Fetch recommendations when weather, mood, auth state, or interaction changes
   useEffect(() => {
     const fetchRecommendations = async () => {
       if (!weather) return;
 
-      const key = `${weather.condition}-${mood}-${user?.id || 'anon'}-${user?.mbti || 'none'}`;
+      const iv = typeof window !== "undefined"
+        ? localStorage.getItem("interaction_version") || "0"
+        : "0";
+      const key = `${weather.condition}-${mood}-${user?.id || 'anon'}-${user?.mbti || 'none'}-iv${iv}`;
 
       // Use cache if params haven't changed (e.g. back navigation)
       if (cachedRecommendations && cachedKey === key) {
@@ -128,7 +145,7 @@ export default function HomePage() {
     };
 
     fetchRecommendations();
-  }, [weather, mood, isAuthenticated, user?.id, user?.mbti]);
+  }, [weather, mood, isAuthenticated, user?.id, user?.mbti, interactionVersion]);
 
   const handleWeatherChange = (condition: WeatherType) => {
     setManualWeather(condition);

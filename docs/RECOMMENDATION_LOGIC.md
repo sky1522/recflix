@@ -319,6 +319,10 @@ Mood 없음: (0.35 × MBTI) + (0.25 × Weather) + (0.40 × Personal)
 ```python
 personal_score = 0.0
 
+# 0. 콜드스타트 보완 (상호작용 < 5건 시)
+#    온보딩 preferred_genres(한글) → Genre 테이블로 영어 변환 → genre_counts에 가중치 1 추가
+#    상호작용 5건 이상이면 preferred_genres 무시 (기존 데이터로 충분)
+
 # 1. 장르 매칭 보너스 (최대 0.9)
 matching_genres = movie_genres & user_top_genres
 personal_score += min(len(matching_genres) * 0.3, 0.9)
@@ -697,6 +701,7 @@ RUN git lfs pull --include="data/embeddings/*,data/svd_model.pkl"
 | 2026-02-20 | 다양성 후처리: 장르 다양성, 신선도, serendipity, 중복 제거 (diversity.py 신규) |
 | 2026-02-20 | SVD 모델 프로덕션 배포: Dockerfile LFS 다운로드, numpy 2.x 호환 |
 | 2026-02-20 | 시맨틱 검색: Voyage AI 임베딩 42,917편, NumPy 인메모리 코사인 유사도 (semantic_search.py 신규) |
+| 2026-02-23 | 콜드스타트 보완: 상호작용 <5건 시 온보딩 preferred_genres → genre_counts fallback |
 | 2026-02-19 | CF 통합 (v3): MovieLens 25M SVD item_bias → 25% 가중치, recommendation_cf.py 신규 |
 | 2026-02-13 | 기분 카테고리 확장: 6개 → 8개 (gloomy 울적한, stifled 답답한 추가) |
 | 2026-02-13 | 컨텍스트 큐레이션 시스템: 시간대+계절+기온 감지, 258개 문구 (contextCuration.ts) |

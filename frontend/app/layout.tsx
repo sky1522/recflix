@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://jnsquery-reflix.vercel.app"),
@@ -57,7 +58,9 @@ export default function RootLayout({
     <html lang="ko">
       <body className="min-h-screen bg-dark-200">
         <Header />
-        <main className="pt-14 md:pt-16 pb-16 md:pb-0">{children}</main>
+        <ErrorBoundary>
+          <main className="pt-14 md:pt-16 pb-16 md:pb-0">{children}</main>
+        </ErrorBoundary>
         <MobileNav />
       </body>
     </html>

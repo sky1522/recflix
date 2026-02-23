@@ -2,6 +2,7 @@
 Recommendation engine: pure scoring and query helper functions.
 No FastAPI route definitions — those live in recommendations.py.
 """
+import json
 import logging
 import random
 import time
@@ -45,7 +46,7 @@ from app.api.v1.recommendation_constants import (
     WEIGHTS_HYBRID_B,
     WEIGHTS_HYBRID_B_NO_MOOD,
 )
-from app.models import Collection, Movie, Rating, User
+from app.models import Collection, Genre, Movie, Rating, User
 from app.schemas.recommendation import RecommendationTag
 
 logger = logging.getLogger(__name__)
@@ -242,6 +243,22 @@ def get_user_preferences(
             for genre in movie.genres:
                 genre_name = genre.name if hasattr(genre, 'name') else str(genre)
                 genre_counts[genre_name] = genre_counts.get(genre_name, 0) + 2  # Double weight
+
+    # Cold-start fallback: use preferred_genres when interactions are sparse
+    total_interactions = len(favorited_ids) + len(highly_rated_ids)
+    if total_interactions < 5 and user.preferred_genres:
+        try:
+            preferred: list[str] = json.loads(user.preferred_genres)
+        except (json.JSONDecodeError, TypeError):
+            preferred = []
+        if preferred:
+            # Map Korean genre names → English via Genre table
+            genre_rows = db.query(Genre.name, Genre.name_ko).filter(
+                Genre.name_ko.in_(preferred),
+            ).all()
+            for eng_name, _ko_name in genre_rows:
+                genre_counts.setdefault(eng_name, 0)
+                genre_counts[eng_name] += 1
 
     return favorited_ids, genre_counts, highly_rated_ids
 

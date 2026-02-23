@@ -1,6 +1,13 @@
 import { create } from "zustand";
 import * as api from "@/lib/api";
 
+/** Bump interaction version in localStorage to invalidate home recommendation cache. */
+function bumpInteractionVersion(): void {
+  if (typeof window === "undefined") return;
+  const current = parseInt(localStorage.getItem("interaction_version") || "0", 10);
+  localStorage.setItem("interaction_version", String(current + 1));
+}
+
 interface InteractionState {
   // 영화별 상호작용 상태 캐시
   interactions: Record<number, api.MovieInteraction>;
@@ -102,6 +109,7 @@ export const useInteractionStore = create<InteractionState>()((set, get) => ({
           },
         },
       }));
+      bumpInteractionVersion();
       return result.is_favorited;
     } catch (error) {
       // Rollback on error
@@ -133,6 +141,7 @@ export const useInteractionStore = create<InteractionState>()((set, get) => ({
 
     try {
       await api.rateMovie(movieId, score);
+      bumpInteractionVersion();
     } catch (error) {
       // Rollback on error
       set((state) => ({
