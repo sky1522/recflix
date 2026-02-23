@@ -1,125 +1,126 @@
-# Phase 38: 프로덕션 DB 마이그레이션 — 결과
+# Phase 39: 프로젝트 문서 업데이트 — 결과
 
 ## 날짜
 2026-02-23
 
-## 마이그레이션 실행 결과
+## 업데이트된 문서 목록
 
-**상태: 성공 (멱등 실행)**
+| # | 파일 | 주요 변경 |
+|---|------|----------|
+| 1 | `docs/RECOMMENDATION_LOGIC.md` | 4개 신규 섹션 추가 + 관련 파일/변경 이력 업데이트 |
+| 2 | `CHANGELOG.md` | Phase 38 (2026-02-23) 항목 추가 |
+| 3 | `README.md` | Features/Tech Stack/Algorithm/Project Structure 업데이트 |
+| 4 | `PROGRESS.md` | Phase 38 항목 추가 + 최종 업데이트 날짜 + TODO 완료 표시 |
+| 5 | `docs/HANDOFF_CONTEXT.md` | Phase 38 완료 반영 + 미반영 사항 → 완료로 변경 + 향후 작업 재정렬 |
+| 6 | `CLAUDE.md` | 핵심 구조에 17개 신규 파일 반영 + DB 모델 업데이트 |
 
-프로덕션 Railway DB에 테이블과 컬럼이 이미 존재했음 (SQLAlchemy `create_all`로 사전 생성).
-`IF NOT EXISTS`로 안전하게 스킵되고, 타입/제약조건 보정만 실행됨.
+## 각 문서별 변경 요약
 
-### 실행된 보정 작업
+### 1. docs/RECOMMENDATION_LOGIC.md
 
-| 작업 | 변경 전 | 변경 후 |
-|------|---------|---------|
-| `preferred_genres` 타입 수정 | `text[]` (ARRAY) | `text` (TEXT) |
-| `auth_provider` 제약조건 | nullable=YES | NOT NULL DEFAULT 'email' |
-| `onboarding_completed` 제약조건 | nullable=YES | NOT NULL DEFAULT false |
-| A/B 그룹 재배정 | control 5명 | 3등분 배정 |
+**추가된 섹션:**
+- Section 12: 시맨틱 검색 (Voyage AI 임베딩, NumPy 코사인 유사도, 재랭킹 공식, API 엔드포인트)
+- Section 13: 다양성 후처리 (5개 함수 상세 — diversify_by_genre, apply_genre_cap, ensure_freshness, inject_serendipity, deduplicate_section + 정책 상수 테이블)
+- Section 14: 추천 이유 생성 (43개 템플릿, 우선순위, 카테고리별 수, MBTI 기질 그룹 매핑)
+- Section 15: SVD 협업 필터링 프로덕션 배포 (모델 정보, Dockerfile LFS)
 
-### 데이터 무결성
+**수정된 섹션:**
+- Section 11 (관련 파일): recommendation_reason.py, diversity.py, semantic_search.py, HybridMovieCard.tsx 추가
+- 변경 이력: Phase 33-37 4개 항목 추가
+- 마지막 업데이트: 2026-02-19 → 2026-02-23
 
-| 항목 | 마이그레이션 전 | 마이그레이션 후 |
-|------|---------------|---------------|
-| users 행 수 | 8 | 8 (변동 없음) |
-| user_events 테이블 | 존재 | 존재 (변동 없음) |
+### 2. CHANGELOG.md
 
-## 테이블 구조 검증 결과
+**추가:**
+- `[2026-02-23]` 섹션 신규 (Phase 38: 프로덕션 DB 마이그레이션)
+  - Added: users 7컬럼, user_events 테이블, 타입/제약조건 보정
+  - Fixed: events.py ab-report metadata_ 버그
+  - Technical Details: 멱등 실행, 데이터 무결성, 스모크 테스트
 
-### users 테이블 (17컬럼) — 모델과 일치 확인
+### 3. README.md
 
-| 컬럼 | 타입 | Nullable | Default | 모델 일치 |
-|------|------|----------|---------|----------|
-| id | integer | NO | serial | OK |
-| email | varchar | NO | - | OK |
-| password | varchar | NO | - | OK |
-| nickname | varchar | NO | - | OK |
-| mbti | varchar | YES | - | OK |
-| birth_date | date | YES | - | OK |
-| location_consent | boolean | YES | - | OK |
-| is_active | boolean | YES | - | OK |
-| created_at | timestamp | YES | - | OK |
-| updated_at | timestamp | YES | - | OK |
-| **experiment_group** | varchar | NO | 'control' | OK |
-| **kakao_id** | varchar | YES | - | OK (UNIQUE) |
-| **google_id** | varchar | YES | - | OK (UNIQUE) |
-| **profile_image** | varchar | YES | - | OK |
-| **auth_provider** | varchar | **NO** | 'email' | OK (수정됨) |
-| **onboarding_completed** | boolean | **NO** | false | OK (수정됨) |
-| **preferred_genres** | **text** | YES | - | OK (수정됨) |
+**Features 섹션 추가:**
+- 협업 필터링 (MovieLens 25M 기반 SVD)
+- 시맨틱 검색 (Voyage AI 임베딩 42,917편)
+- 추천 이유 표시 (43개 템플릿)
+- 추천 다양성 정책
+- 소셜 로그인 (Kakao/Google)
+- 온보딩 2단계
+- CI/CD 자동 배포
 
-### user_events 테이블 (7컬럼) — 모델과 일치 확인
+**Tech Stack 추가:**
+- Voyage AI (시맨틱 검색 임베딩)
+- GitHub Actions (CI/CD)
+- Sentry (에러 모니터링)
+- slowapi (Rate Limiting)
+- scipy (SVD)
 
-| 컬럼 | 타입 | Nullable | 모델 일치 |
-|------|------|----------|----------|
-| id | integer (serial) | NO | OK |
-| user_id | integer (FK users.id) | YES | OK |
-| session_id | varchar | YES | OK |
-| event_type | varchar | NO | OK |
-| movie_id | integer | YES | OK |
-| metadata | jsonb | YES | OK |
-| created_at | timestamptz | YES | OK |
+**Recommendation Algorithm:** v2 → v3 (CF 25% 통합, Diversity 후처리)
 
-### 인덱스 확인
+**Project Structure:** api/v1/ 12개 파일 상세, .github/workflows/, data/embeddings/, docs/HANDOFF_CONTEXT.md 추가
 
-**users**: `users_pkey`, `ix_users_email` (UNIQUE), `users_kakao_id_key` (UNIQUE), `users_google_id_key` (UNIQUE), `ix_users_kakao_id` (partial), `ix_users_google_id` (partial)
+### 4. PROGRESS.md
 
-**user_events**: `user_events_pkey`, `ix_user_events_event_type`, `ix_user_events_created_at`, `idx_events_user_time`, `idx_events_type_time`, `idx_events_movie`
+**추가:**
+- Phase 38 항목 (6개 체크리스트)
+- 향후 개선사항에서 DB 마이그레이션 완료 표시
+- 완료 목록에 프로덕션 DB 마이그레이션 추가
+- 최종 업데이트: 2026-02-20 → 2026-02-23
 
-## 코드 버그 수정
+### 5. docs/HANDOFF_CONTEXT.md
 
-### events.py ab-report 쿼리 컬럼명 버그 수정
+**수정:**
+- 총 커밋: "210개, Phase 37까지" → "213개+, Phase 38까지"
+- Section 5 제목: "Phase 요약 (1~37)" → "(1~38)" + Phase 38 행 추가
+- Section 6: "프로덕션 미반영 사항 (중요!)" → "프로덕션 미반영 사항" + DB 마이그레이션 ✅ 완료 표시
+- Section 6.2 신규: 남은 수동 작업 (OAuth 환경변수)
+- Section 7: DB 마이그레이션 제거, OAuth 앱 등록을 1순위로 재정렬
+- user_events: "★ 프로덕션 미생성" → "프로덕션 생성 완료, Phase 38"
+- users: 17컬럼 상세 추가
 
-| 파일 | 변경 | 이유 |
-|------|------|------|
-| `backend/app/api/v1/events.py` | raw SQL `metadata_` → `metadata` (4곳) | DB 컬럼명은 `metadata`, Python 속성은 `metadata_` — raw SQL에서는 DB 컬럼명 사용 필요 |
+### 6. CLAUDE.md
 
-## 환경변수 체크리스트
+**핵심 구조에 신규 파일 반영:**
+- `api/v1/`: recommendation_engine.py, recommendation_constants.py, recommendation_cf.py, recommendation_reason.py, diversity.py, semantic_search.py, events.py, health.py (8개)
+- `core/`: exceptions.py, rate_limit.py (2개)
+- `models/`: user_event.py (1개)
+- `frontend/app/`: onboarding, auth/kakao/callback, auth/google/callback (3개)
+- `frontend/lib/`: eventTracker.ts (1개)
+- `frontend/hooks/`: useImpressionTracker.ts (1개)
+- `.github/workflows/ci.yml` (1개)
+- `scripts/clean_project.py` (1개)
+- `docs/`: HANDOFF_CONTEXT.md, PROJECT_INDEX.md 추가
 
-### Backend (Railway 환경변수)
+**DB 모델 섹션:** users 17컬럼 상세 + user_events 테이블 추가
 
-| 환경변수 | 용도 | 설정 필요 값 |
-|---------|------|-------------|
-| `KAKAO_CLIENT_ID` | 카카오 OAuth | Kakao Developer 앱 REST API 키 |
-| `KAKAO_CLIENT_SECRET` | 카카오 OAuth | Kakao Developer 앱 시크릿 |
-| `KAKAO_REDIRECT_URI` | 카카오 콜백 | `https://jnsquery-reflix.vercel.app/auth/kakao/callback` |
-| `GOOGLE_CLIENT_ID` | Google OAuth | Google Cloud Console 클라이언트 ID |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth | Google Cloud Console 시크릿 |
-| `GOOGLE_REDIRECT_URI` | Google 콜백 | `https://jnsquery-reflix.vercel.app/auth/google/callback` |
+## RECOMMENDATION_LOGIC.md 새 섹션 목차
 
-### Frontend (Vercel 환경변수)
+```
+12. 시맨틱 검색 (Semantic Search)
+    12.1 개요
+    12.2 동작 흐름
+    12.3 재랭킹 공식
+    12.4 API 엔드포인트
+    12.5 Frontend 통합
 
-| 환경변수 | 용도 | 설정 필요 값 |
-|---------|------|-------------|
-| `NEXT_PUBLIC_KAKAO_CLIENT_ID` | 카카오 OAuth 리다이렉트 | Kakao Developer 앱 REST API 키 |
-| `NEXT_PUBLIC_KAKAO_REDIRECT_URI` | 카카오 콜백 URL | `https://jnsquery-reflix.vercel.app/auth/kakao/callback` |
-| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Google OAuth 리다이렉트 | Google Cloud Console 클라이언트 ID |
-| `NEXT_PUBLIC_GOOGLE_REDIRECT_URI` | Google 콜백 URL | `https://jnsquery-reflix.vercel.app/auth/google/callback` |
+13. 다양성 후처리 (Diversity Post-Processing)
+    13.1 개요
+    13.2 함수별 상세
+        13.2.1 diversify_by_genre — 동일 장르 연속 제한
+        13.2.2 apply_genre_cap — 단일 장르 비율 제한
+        13.2.3 ensure_freshness — 연도 다양성 보장
+        13.2.4 inject_serendipity — 의외의 발견
+        13.2.5 deduplicate_section — 섹션 간 중복 제거
+    13.3 정책 상수
 
-> 로컬 `.env.local`에는 이미 설정됨 (localhost 콜백). Vercel에도 프로덕션 값이 설정되어 있어야 함.
+14. 추천 이유 생성 (Recommendation Reason)
+    14.1 개요
+    14.2 우선순위
+    14.3 카테고리별 템플릿 수
+    14.4 MBTI 기질 그룹 매핑
+    14.5 Frontend 표시
 
-## 스모크 테스트 결과
-
-| API | 상태 | 비고 |
-|-----|------|------|
-| `GET /health` | 200 `{"status": "healthy"}` | DB/Redis/SVD/임베딩 정상 |
-| `GET /api/v1/movies?page_size=1` | 200 | 영화 데이터 정상 반환 |
-| `GET /api/v1/recommendations?weather=sunny&limit=3` | 200 | 추천 + recommendation_reason 포함 |
-| `GET /api/v1/movies/semantic-search?q=따뜻한+가족+영화&limit=3` | 200 | 시맨틱 검색 정상 |
-
-## 변경 파일
-
-| 파일 | 작업 |
-|------|------|
-| `backend/scripts/migrate_phase4.sql` | user_events CREATE TABLE 추가 + 타입/제약조건 보정 추가 |
-| `backend/app/api/v1/events.py` | raw SQL `metadata_` → `metadata` 버그 수정 (4곳) |
-
-## 프로덕션 소셜 로그인 활성화까지 남은 수동 작업
-
-1. **Railway 환경변수 확인**: 위 6개 OAuth 환경변수가 프로덕션 값으로 설정되어 있는지 확인
-2. **Vercel 환경변수 확인**: 위 4개 `NEXT_PUBLIC_*` 환경변수가 프로덕션 콜백 URL로 설정되어 있는지 확인
-3. **Kakao Developer Console**: 앱 도메인에 `jnsquery-reflix.vercel.app` 등록 + Redirect URI 설정
-4. **Google Cloud Console**: 승인된 리디렉션 URI에 `https://jnsquery-reflix.vercel.app/auth/google/callback` 추가
-5. **CI/CD 자동 배포**: 코드 변경 push 시 GitHub Actions가 Railway CD 실행 (events.py 버그 수정 반영)
+15. SVD 협업 필터링 프로덕션 배포
+    15.1 모델 정보
+    15.2 프로덕션 배포 방식
+```

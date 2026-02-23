@@ -1,6 +1,6 @@
 # RecFlix 추천 시스템 로직
 
-> 마지막 업데이트: 2026-02-19
+> 마지막 업데이트: 2026-02-23
 
 ---
 
@@ -463,9 +463,12 @@ const displayedMovies = useMemo(() => {
 |------|------|
 | `backend/app/api/v1/recommendations.py` | 추천 API 엔드포인트 (Hybrid 스코어링, 품질 필터, 연령등급) |
 | `backend/app/api/v1/recommendation_engine.py` | Hybrid 스코어링 엔진 (CF 통합) |
-| `backend/app/api/v1/recommendation_constants.py` | 가중치 상수 (v2/v3, CF 포함) |
+| `backend/app/api/v1/recommendation_constants.py` | 가중치 상수 (v2/v3, A/B 테스트, 다양성 정책) |
 | `backend/app/api/v1/recommendation_cf.py` | 협업 필터링 모듈 (SVD item_bias 예측) |
-| `backend/app/api/v1/movies.py` | 영화 검색 API (연령등급 필터 포함) |
+| `backend/app/api/v1/recommendation_reason.py` | 추천 이유 생성 (43개 템플릿) |
+| `backend/app/api/v1/diversity.py` | 다양성 후처리 (장르/연도/serendipity/중복 제거) |
+| `backend/app/api/v1/semantic_search.py` | 시맨틱 검색 (인메모리 벡터 검색) |
+| `backend/app/api/v1/movies.py` | 영화 검색 API (시맨틱 검색 통합, 연령등급 필터) |
 | `backend/app/models/movie.py` | Movie 모델 (JSONB 컬럼) |
 | `backend/scripts/regenerate_emotion_tags.py` | 키워드 기반 emotion_tags 생성 |
 | `backend/scripts/llm_emotion_tags.py` | LLM 기반 emotion_tags 초기 생성 |
@@ -473,9 +476,10 @@ const displayedMovies = useMemo(() => {
 | `backend/scripts/test_llm_prompt.py` | LLM 프롬프트 테스트 |
 | `backend/scripts/analyze_hybrid_scores.py` | Hybrid 점수 분석 스크립트 |
 | `frontend/app/page.tsx` | 홈 화면 (섹션 렌더링) |
-| `frontend/app/movies/page.tsx` | 영화 검색 (연령등급 필터 드롭다운) |
+| `frontend/app/movies/page.tsx` | 영화 검색 (시맨틱 검색 + 연령등급 필터) |
 | `frontend/components/movie/FeaturedBanner.tsx` | 날씨/기분 선택 UI |
 | `frontend/components/movie/MovieCard.tsx` | 영화 카드 (등급 배지 포함) |
+| `frontend/components/movie/HybridMovieCard.tsx` | 추천 태그 + 추천 이유 표시 카드 |
 | `frontend/hooks/useWeather.ts` | 날씨 상태 관리 |
 | `frontend/lib/api.ts` | API 호출 함수 |
 | `frontend/lib/curationMessages.ts` | 큐레이션 문구 258개 + 헬퍼 함수 |
@@ -483,10 +487,216 @@ const displayedMovies = useMemo(() => {
 
 ---
 
+## 12. 시맨틱 검색 (Semantic Search)
+
+### 12.1 개요
+
+자연어 질의로 영화를 검색하는 기능입니다. 사전 계산된 임베딩을 인메모리에 로드하여 실시간 코사인 유사도 검색을 수행합니다.
+
+| 항목 | 내용 |
+|------|------|
+| 임베딩 모델 | Voyage AI `voyage-multilingual-2` |
+| 임베딩 차원 | 1024 |
+| 영화 수 | 42,917편 |
+| 검색 방식 | NumPy 인메모리 코사인 유사도 |
+| 저장 | `backend/data/embeddings/` (git-lfs) |
+
+### 12.2 동작 흐름
+
+```
+1. 서버 시작 시 임베딩 로드 (movie_embeddings.npy + movie_id_index.json)
+2. L2 정규화 (코사인 유사도 → 내적으로 변환)
+3. 사용자 질의 → Voyage AI API로 실시간 임베딩
+4. 내적 계산 (N,1024) @ (1024,) → (N,) 스코어
+5. argpartition으로 Top-K 추출 (O(N), argsort O(N log N)보다 빠름)
+6. 재랭킹: 유사도 + 인기도 + 품질 복합점수
+```
+
+### 12.3 재랭킹 공식
+
+```python
+# 시맨틱 유사도 0.7 + 인기도 0.15 + 품질 0.15
+pop_log = log10(popularity + 1) / 3  # 정규화
+quality_norm = weighted_score / 10
+final_score = 0.7 * semantic_score + 0.15 * pop_log + 0.15 * quality_norm
+```
+
+### 12.4 API 엔드포인트
+
+```
+GET /movies/semantic-search?q={자연어 질의}&limit=20
+```
+
+응답에 `match_reason` 필드 포함 (예: "따뜻한 가족 이야기의 감동적인 영화").
+
+### 12.5 Frontend 통합
+
+- 검색 페이지에서 자연어 질의 감지 시 자동으로 시맨틱 검색 섹션 표시
+- "AI 추천" 섹션 UI로 일반 검색 결과와 구분
+
+---
+
+## 13. 다양성 후처리 (Diversity Post-Processing)
+
+### 13.1 개요
+
+추천 스코어 계산 후, 결과의 다양성을 보장하기 위한 5개 후처리 함수가 순차 적용됩니다.
+
+```python
+# 적용 순서 (backend/app/api/v1/diversity.py)
+1. diversify_by_genre()    # 동일 장르 연속 제한
+2. apply_genre_cap()       # 단일 장르 비율 제한
+3. ensure_freshness()      # 최신작/클래식 비율 보장
+4. inject_serendipity()    # 의외의 발견 삽입
+5. deduplicate_section()   # 섹션 간 중복 제거
+```
+
+### 13.2 함수별 상세
+
+#### 13.2.1 `diversify_by_genre` — 동일 장르 연속 제한
+
+```python
+# 같은 primary genre가 max_consecutive개 연속되지 않도록 재배치
+# 상위 pool 내에서 재배치하므로 스코어 손실 최소화
+# 조건 만족 영화가 없으면 제약 완화 후 최고점 선택
+max_consecutive = 3  # GENRE_MAX_CONSECUTIVE
+```
+
+#### 13.2.2 `apply_genre_cap` — 단일 장르 비율 제한
+
+```python
+# 단일 장르가 전체의 max_genre_ratio를 초과하지 않도록 필터링
+# 5편 이하 결과에는 미적용
+# 부족하면 스킵된 영화로 채움
+max_genre_ratio = 0.35  # GENRE_MAX_RATIO
+```
+
+#### 13.2.3 `ensure_freshness` — 연도 다양성 보장
+
+```python
+# 최신작(3년 이내): 최소 20%
+# 클래식(10년 이전): 최소 10%
+# 나머지: 원래 스코어 순 채움
+recent_ratio = 0.20   # FRESHNESS_RECENT_RATIO
+classic_ratio = 0.10  # FRESHNESS_CLASSIC_RATIO
+```
+
+#### 13.2.4 `inject_serendipity` — 의외의 발견
+
+```python
+# 추천 리스트의 10%를 사용자 선호 장르 외 고품질 영화로 대체
+# DB에서 랜덤 조회 (user_top_genres 제외, weighted_score >= 7.0)
+# 리스트의 70% 지점에 삽입 (상위 관련성 높은 영화 유지)
+# "#의외의발견" 태그 부여
+serendipity_ratio = 0.10        # SERENDIPITY_RATIO
+min_quality = 7.0               # SERENDIPITY_MIN_QUALITY
+```
+
+#### 13.2.5 `deduplicate_section` — 섹션 간 중복 제거
+
+```python
+# 이미 다른 섹션에 노출된 영화(seen_ids)를 현재 섹션에서 제외
+# 홈 화면 렌더링 시 섹션 순서대로 seen_ids에 추가
+```
+
+### 13.3 정책 상수 (`recommendation_constants.py`)
+
+| 상수 | 값 | 설명 |
+|------|-----|------|
+| `DIVERSITY_ENABLED` | `True` | 다양성 정책 전체 on/off |
+| `GENRE_MAX_CONSECUTIVE` | 3 | 동일 장르 연속 최대 수 |
+| `GENRE_MAX_RATIO` | 0.35 | 단일 장르 최대 비율 |
+| `FRESHNESS_RECENT_RATIO` | 0.20 | 최신작(3년) 최소 비율 |
+| `FRESHNESS_CLASSIC_RATIO` | 0.10 | 클래식(10년+) 최소 비율 |
+| `SERENDIPITY_RATIO` | 0.10 | 의외의 발견 비율 |
+| `SERENDIPITY_MIN_QUALITY` | 7.0 | 의외의 발견 최소 품질 |
+| `SEMANTIC_GENRE_MAX` | 5 | 시맨틱 검색 같은 장르 최대 편수 |
+
+---
+
+## 14. 추천 이유 생성 (Recommendation Reason)
+
+### 14.1 개요
+
+추천 태그와 영화 메타데이터로 한국어 추천 이유 문장을 생성합니다. LLM 호출 없이 순수 문자열 템플릿 매칭으로 동작합니다.
+
+| 항목 | 내용 |
+|------|------|
+| 파일 | `backend/app/api/v1/recommendation_reason.py` (239줄) |
+| 템플릿 수 | 43개 |
+| 비용 | $0 (LLM 호출 없음) |
+| 지연 | ~0ms (문자열 조합) |
+
+### 14.2 우선순위
+
+```
+1. 복합조건 (2+ 시그널): MBTI+Weather, MBTI+Mood, Weather+Mood, Personal+Rating, MBTI+Rating
+2. Mood/Personal 태그
+3. MBTI 태그
+4. Weather 태그
+5. Quality/Rating 태그
+6. Fallback (빈 문자열)
+```
+
+### 14.3 카테고리별 템플릿 수
+
+| 카테고리 | 템플릿 수 | 예시 |
+|---------|----------|------|
+| Compound (복합) | 6 | "INTJ이(가) 비 오는 날에 보면 더 좋은 영화" |
+| MBTI | 11 | "분석적인 INTP에게 딱 맞는 액션" |
+| Weather | 12 | "비 오는 밤, 긴장감 넘치는 스릴러 어때요?" |
+| Mood | 10 | "손에 땀을 쥐게 하는 긴장감이 매력이에요" |
+| Quality | 4 | "평점 8.5의 압도적 명작이에요" |
+
+### 14.4 MBTI 기질 그룹 매핑
+
+```python
+NT (분석형): INTJ, INTP, ENTJ, ENTP → "논리와 분석을 즐기는 ..."
+NF (외교형): INFJ, INFP, ENFJ, ENFP → "감성과 공감 능력이 뛰어난 ..."
+SJ (관리형): ISTJ, ISFJ, ESTJ, ESFJ → "안정과 질서를 중시하는 ..."
+SP (탐험형): ISTP, ISFP, ESTP, ESFP → "즉흥적이고 활동적인 ..."
+```
+
+### 14.5 Frontend 표시
+
+- `HybridMovieItem` 스키마: `recommendation_reason: str = ""` 필드
+- `HybridMovieCard` 컴포넌트: 추천 태그 아래 이탤릭 텍스트로 표시 (`line-clamp-2`)
+
+---
+
+## 15. SVD 협업 필터링 프로덕션 배포
+
+### 15.1 모델 정보
+
+| 항목 | 내용 |
+|------|------|
+| 데이터셋 | MovieLens 25M (22.5M 평점, 162K 사용자) |
+| 매핑 | 20,372편 RecFlix ↔ MovieLens TMDB ID |
+| 알고리즘 | SVD (k=100, scipy.sparse.linalg.svds) |
+| RMSE | 0.8768 (Item Mean 0.9656 대비 -9.2%) |
+| CF 점수 | `global_mean + item_bias` (아이템 품질 추정) |
+
+### 15.2 프로덕션 배포 방식
+
+```dockerfile
+# Dockerfile에서 git-lfs로 모델 + 임베딩 다운로드
+RUN apt-get install -y git-lfs && git lfs install
+RUN git lfs pull --include="data/embeddings/*,data/svd_model.pkl"
+```
+
+- numpy 2.x 호환성: pickle 직렬화 형식 + pandas/scipy 버전 맞춤
+- 서버 시작 시 모델 로드: `load_cf_model()` → 인메모리 item_bias dict
+
+---
+
 ## 변경 이력
 
 | 날짜 | 변경 내용 |
 |------|----------|
+| 2026-02-20 | 추천 이유 생성: 템플릿 기반 43개 패턴, recommendation_reason.py 신규 |
+| 2026-02-20 | 다양성 후처리: 장르 다양성, 신선도, serendipity, 중복 제거 (diversity.py 신규) |
+| 2026-02-20 | SVD 모델 프로덕션 배포: Dockerfile LFS 다운로드, numpy 2.x 호환 |
+| 2026-02-20 | 시맨틱 검색: Voyage AI 임베딩 42,917편, NumPy 인메모리 코사인 유사도 (semantic_search.py 신규) |
 | 2026-02-19 | CF 통합 (v3): MovieLens 25M SVD item_bias → 25% 가중치, recommendation_cf.py 신규 |
 | 2026-02-13 | 기분 카테고리 확장: 6개 → 8개 (gloomy 울적한, stifled 답답한 추가) |
 | 2026-02-13 | 컨텍스트 큐레이션 시스템: 시간대+계절+기온 감지, 258개 문구 (contextCuration.ts) |

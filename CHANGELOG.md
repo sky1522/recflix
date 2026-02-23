@@ -6,6 +6,25 @@ All notable changes to RecFlix will be documented in this file.
 
 ---
 
+## [2026-02-23]
+
+### Added
+- **프로덕션 DB 마이그레이션 (Phase 38)**: Phase 29-32 스키마를 Railway PostgreSQL에 적용
+  - `users` 테이블 7컬럼 추가: experiment_group, kakao_id, google_id, profile_image, auth_provider, onboarding_completed, preferred_genres
+  - `user_events` 테이블 생성 (7컬럼 + 5개 인덱스)
+  - 타입/제약조건 보정: preferred_genres text[] → TEXT, auth_provider/onboarding_completed NOT NULL 설정
+  - 기존 사용자 A/B 그룹 3등분 재배정
+
+### Fixed
+- **events.py ab-report 쿼리 버그**: raw SQL에서 `metadata_` (Python 속성명) → `metadata` (DB 컬럼명) 수정 (4곳)
+
+### Technical Details
+- 마이그레이션 SQL: `backend/scripts/migrate_phase4.sql` (멱등 실행, IF NOT EXISTS)
+- 데이터 무결성: 기존 8명 사용자 데이터 보존
+- 프로덕션 스모크 테스트 통과: /health, /movies, /recommendations, /semantic-search
+
+---
+
 ## [2026-02-20]
 
 ### Added

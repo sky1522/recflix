@@ -16,22 +16,33 @@ DB: PostgreSQL 16 (Railway) + Redis (캐싱)
 backend/
   app/
     api/v1/
-      recommendations.py   # ★ 하이브리드 추천 엔진 (770 LOC)
-      movies.py             # 검색, 상세, 자동완성, 장르
-      weather.py            # 날씨 API 라우터
-      auth.py               # 회원가입, JWT 로그인, 토큰 갱신
-      users.py              # 프로필, MBTI 설정
-      ratings.py            # 평점 CRUD (0.5~5.0)
-      collections.py        # 찜 컬렉션 관리
-      interactions.py       # 통합 상호작용 (찜/평점 상태)
-      llm.py                # Claude API 캐치프레이즈
-      router.py             # API 라우터 통합
+      recommendations.py         # 홈 추천 API (347줄)
+      recommendation_engine.py   # Hybrid 스코어링 엔진 (330줄)
+      recommendation_constants.py # 가중치/다양성 상수 (116줄)
+      recommendation_cf.py       # SVD 협업 필터링 모듈
+      recommendation_reason.py   # 추천 이유 생성 (239줄, 43개 템플릿)
+      diversity.py               # 다양성 후처리 (5개 함수)
+      semantic_search.py         # 시맨틱 검색 (인메모리 벡터)
+      movies.py                  # 검색, 상세, 자동완성, 장르, 시맨틱검색
+      weather.py                 # 날씨 API 라우터
+      auth.py                    # 회원가입, JWT 로그인, Kakao/Google OAuth
+      users.py                   # 프로필, MBTI 설정
+      ratings.py                 # 평점 CRUD (0.5~5.0)
+      collections.py             # 찜 컬렉션 관리
+      interactions.py            # 통합 상호작용 (찜/평점 상태)
+      events.py                  # 사용자 행동 이벤트 (10종)
+      health.py                  # 헬스체크 (DB/Redis/SVD/임베딩)
+      llm.py                     # Claude API 캐치프레이즈
+      router.py                  # API 라우터 통합
     core/
       deps.py               # DI (get_db, get_current_user)
       security.py           # JWT 토큰 생성/검증 (bcrypt)
+      exceptions.py         # 공통 에러 스키마 (AppException)
+      rate_limit.py         # slowapi Rate Limiting
     models/
       movie.py              # Movie + Genre + Person + Keyword + Country
-      user.py               # User
+      user.py               # User (17컬럼, OAuth + A/B 테스트)
+      user_event.py         # UserEvent (사용자 행동 이벤트)
       rating.py             # Rating (user_id + movie_id UNIQUE)
       collection.py         # Collection + CollectionMovie
       similar_movie.py      # SimilarMovie (자기참조 M:M)
@@ -54,11 +65,14 @@ frontend/
     movies/
       page.tsx             # 영화 검색 (필터, 정렬, 무한스크롤)
       [id]/page.tsx        # 영화 상세 (622 LOC, 동적 OG 태그)
-    login/page.tsx         # 로그인
+    login/page.tsx         # 로그인 (Kakao/Google 소셜 로그인)
     signup/page.tsx        # 회원가입 + MBTI 선택
     profile/page.tsx       # 프로필 + MBTI 변경
     favorites/page.tsx     # 찜 목록
     ratings/page.tsx       # 내 평점 목록
+    onboarding/page.tsx    # 온보딩 (장르 선택 + 영화 평가)
+    auth/kakao/callback/   # 카카오 OAuth 콜백
+    auth/google/callback/  # Google OAuth 콜백
   components/
     movie/
       MovieRow.tsx         # 가로 스크롤 영화 Row + 큐레이션 서브타이틀
@@ -76,6 +90,7 @@ frontend/
       HighlightText.tsx    # 검색어 하이라이팅
   lib/
     api.ts                 # 24개 API 함수 (fetchAPI 래퍼)
+    eventTracker.ts        # 사용자 행동 이벤트 배치 전송 (Beacon API)
     curationMessages.ts    # 258개 큐레이션 문구
     contextCuration.ts     # 시간대/계절/기온 컨텍스트 감지
     constants.ts           # 캐시 키, 매직넘버 상수
@@ -87,8 +102,21 @@ frontend/
     useWeather.ts          # Geolocation + localStorage 캐시
     useInfiniteScroll.ts   # 무한스크롤
     useDebounce.ts         # 디바운스
+    useImpressionTracker.ts # IntersectionObserver 섹션 노출 감지
   types/
     index.ts               # TypeScript 타입 정의
+
+.github/workflows/
+  ci.yml                   # CI/CD (lint + build + Railway CD)
+
+scripts/
+  clean_project.py         # 프로젝트 정리 스크립트
+
+docs/
+  RECOMMENDATION_LOGIC.md  # 추천 알고리즘 상세
+  HANDOFF_CONTEXT.md       # 프로젝트 핸드오프 컨텍스트
+  PROJECT_INDEX.md         # 프로젝트 파일 인덱스
+  PROJECT_REVIEW.md        # 프로젝트 리뷰 & 로드맵
 ```
 
 ## DB 모델
@@ -104,7 +132,10 @@ movies: 22컬럼, 42,917행
   GIN 인덱스: mbti_scores, weather_scores, emotion_tags
 
 similar_movies: 429,170개 관계 (영화별 Top 10, 자기참조 M:M)
-users: email UNIQUE, mbti VARCHAR(4), bcrypt password
+users: 17컬럼, email UNIQUE, mbti, bcrypt password
+  + kakao_id, google_id (소셜 로그인), experiment_group (A/B 테스트)
+  + auth_provider, onboarding_completed, preferred_genres
+user_events: 10종 이벤트, JSONB metadata, 복합 인덱스 5개
 ratings: user_id+movie_id UNIQUE, score DECIMAL(2,1) 0.5~5.0
 collections + collection_movies: 찜 관리
 genres(19종), persons(97,206), keywords, countries: M:M 연결 테이블

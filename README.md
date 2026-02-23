@@ -15,12 +15,19 @@
 - **MBTI 기반 영화 추천** (16개 유형별)
 - **실시간 날씨 연동 추천** (OpenWeatherMap)
 - **기분(Mood) 기반 추천** (8가지: 평온한, 긴장된, 활기찬, 몽글몽글한, 상상에빠진, 유쾌한, 울적한, 답답한)
+- **협업 필터링** (MovieLens 25M 기반 SVD, CF 25% 가중치)
+- **시맨틱 검색** - 자연어 질의로 영화 탐색 (Voyage AI 임베딩 42,917편)
+- **추천 이유 표시** - 템플릿 기반 43개 패턴의 한국어 추천 이유
+- **추천 다양성 정책** - 장르 다양성, 신선도 보장, serendipity 삽입, 섹션 간 중복 제거
+- **소셜 로그인** - Kakao / Google OAuth
+- **온보딩 2단계** - 장르 선택 + 영화 평가
 - **감정 태그 기반 큐레이션** (7대 클러스터: healing, tension, energy, romance, deep, fantasy, light)
 - **새로고침 버튼** - 섹션별 영화 재셔플 (API 호출 없음)
 - **LLM 캐치프레이즈** - Claude API로 영화별 맞춤 문구 생성
 - **컨텍스트 큐레이션** - 시간대/계절/기온 기반 동적 서브타이틀 (258개 문구)
 - **검색 자동완성** - 키보드 네비게이션, Redis 캐싱, 키워드 하이라이팅
 - **SEO 동적 OG 태그** - SNS 공유 시 포스터/제목/줄거리 프리뷰
+- **CI/CD 자동 배포** - GitHub Actions (lint + build + Railway CD)
 - 별점 평가 & 찜하기 기능
 - Netflix/Watcha 스타일 UI
 
@@ -29,9 +36,11 @@
 | Layer | Technologies |
 |-------|-------------|
 | **Frontend** | Next.js 14, TailwindCSS, Framer Motion, Zustand, lucide-react |
-| **Backend** | FastAPI, SQLAlchemy, Pydantic, Redis |
+| **Backend** | FastAPI, SQLAlchemy, Pydantic, Redis, scipy (SVD) |
 | **Database** | PostgreSQL 16, Redis (Memurai) |
-| **External API** | OpenWeatherMap, Claude API (Anthropic) |
+| **External API** | OpenWeatherMap, Claude API (Anthropic), Voyage AI (시맨틱 검색 임베딩) |
+| **CI/CD** | GitHub Actions (lint + build + Railway CD), Vercel (자동 배포) |
+| **Monitoring** | Sentry (에러 모니터링), slowapi (Rate Limiting) |
 | **Deployment** | Vercel (Frontend), Railway (Backend + PostgreSQL + Redis) |
 
 ---
@@ -191,25 +200,39 @@ cd frontend && npm install
 recflix/
 ├── backend/
 │   ├── app/
-│   │   ├── api/v1/          # API 라우터 (auth, movies, recommendations 등)
-│   │   ├── core/            # 설정, 보안, 의존성
-│   │   ├── models/          # SQLAlchemy 모델
+│   │   ├── api/v1/          # API 라우터
+│   │   │   ├── recommendations.py       # 홈 추천 API
+│   │   │   ├── recommendation_engine.py # Hybrid 스코어링 엔진
+│   │   │   ├── recommendation_cf.py     # SVD 협업 필터링
+│   │   │   ├── recommendation_reason.py # 추천 이유 생성 (43개 템플릿)
+│   │   │   ├── recommendation_constants.py # 가중치/다양성 상수
+│   │   │   ├── diversity.py             # 다양성 후처리 (5개 함수)
+│   │   │   ├── semantic_search.py       # 시맨틱 검색 (인메모리 벡터)
+│   │   │   ├── movies.py               # 검색, 상세, 자동완성
+│   │   │   ├── auth.py                  # JWT + Kakao/Google OAuth
+│   │   │   ├── events.py               # 사용자 행동 이벤트 (10종)
+│   │   │   └── health.py               # 헬스체크 (DB/Redis/SVD/임베딩)
+│   │   ├── core/            # 설정, 보안, 의존성, Rate Limiting
+│   │   ├── models/          # SQLAlchemy 모델 (user_event.py 포함)
 │   │   ├── schemas/         # Pydantic 스키마
 │   │   └── services/        # 비즈니스 로직 (날씨, LLM 등)
-│   ├── scripts/             # DB 마이그레이션, 음역 변환 스크립트
+│   ├── scripts/             # DB 마이그레이션, 음역 변환, SVD 학습
+│   ├── data/embeddings/     # 시맨틱 검색 임베딩 (git-lfs)
 │   └── requirements.txt
 ├── frontend/
-│   ├── app/                 # Next.js App Router (페이지)
+│   ├── app/                 # Next.js App Router (페이지 + OAuth 콜백 + 온보딩)
 │   ├── components/          # React 컴포넌트
-│   ├── hooks/               # Custom Hooks (useWeather, useDebounce 등)
+│   ├── hooks/               # Custom Hooks (useWeather, useImpressionTracker 등)
 │   ├── stores/              # Zustand 스토어
-│   ├── lib/                 # API 클라이언트, 유틸
+│   ├── lib/                 # API 클라이언트, eventTracker, 유틸
 │   └── types/               # TypeScript 타입 정의
+├── .github/workflows/       # CI/CD (GitHub Actions)
 ├── data/
 │   ├── recflix_db.dump      # DB 덤프 (42,917편, 22MB)
 │   └── DB_RESTORE_GUIDE.md  # DB 복원 상세 가이드
 └── docs/
     ├── RECOMMENDATION_LOGIC.md  # 추천 알고리즘 상세
+    ├── HANDOFF_CONTEXT.md       # 프로젝트 핸드오프 컨텍스트
     └── PROJECT_REVIEW.md        # 프로젝트 리뷰 & 로드맵
 ```
 
@@ -224,21 +247,23 @@ recflix/
 
 ## Recommendation Algorithm
 
-**Mood 선택 시:**
+**Hybrid v3 (CF 활성화 + Mood 선택 시):**
 ```
-Score = (0.25 × MBTI) + (0.20 × Weather) + (0.30 × Mood) + (0.25 × Personal)
+Score = (0.20 × MBTI) + (0.15 × Weather) + (0.25 × Mood) + (0.15 × Personal) + (0.25 × CF)
 ```
 
-**Mood 미선택 시:**
+**CF 비활성화 시 (기존 v2):**
 ```
-Score = (0.35 × MBTI) + (0.25 × Weather) + (0.40 × Personal)
+Score = (0.25 × MBTI) + (0.20 × Weather) + (0.30 × Mood) + (0.25 × Personal)
 ```
 
 - **MBTI**: 16개 유형별 장르 선호도 매칭
 - **Weather**: 날씨 조건별 영화 분위기 매칭
 - **Mood**: 8가지 기분 → 7대 감성 클러스터 매핑
 - **Personal**: 찜한 영화 장르 기반 개인화
+- **CF**: MovieLens 25M SVD item_bias 기반 품질 시그널
 - **Quality**: weighted_score 기반 연속 품질 보정 (×0.85~1.0)
+- **Diversity**: 장르 다양성 + 신선도 + serendipity 후처리
 - **Age Rating**: 연령등급 필터링 지원 (all/family/teen/adult)
 
 자세한 추천 로직은 [docs/RECOMMENDATION_LOGIC.md](docs/RECOMMENDATION_LOGIC.md) 참조

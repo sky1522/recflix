@@ -1,6 +1,6 @@
 # RecFlix 개발 진행 상황
 
-**최종 업데이트**: 2026-02-20
+**최종 업데이트**: 2026-02-23
 
 ---
 
@@ -473,6 +473,17 @@
 | HybridMovieCard 추천 이유 표시 | ✅ | 태그 아래 이탤릭 텍스트 (line-clamp-2) |
 | 프로덕션 배포 + 검증 | ✅ | CI/CD 자동 배포 성공, 헬스체크 정상 |
 
+### Phase 38: 프로덕션 DB 마이그레이션 (2026-02-23)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| users 7컬럼 추가 | ✅ | experiment_group, kakao_id, google_id, profile_image, auth_provider, onboarding_completed, preferred_genres |
+| user_events 테이블 생성 | ✅ | 7컬럼 + 5개 인덱스 (멱등 실행) |
+| 타입/제약조건 보정 | ✅ | preferred_genres text[]→TEXT, auth_provider/onboarding_completed NOT NULL |
+| A/B 그룹 재배정 | ✅ | 기존 8명 사용자 id%3 기반 3등분 |
+| events.py 버그 수정 | ✅ | ab-report raw SQL `metadata_` → `metadata` (4곳) |
+| 프로덕션 스모크 테스트 | ✅ | /health, /movies, /recommendations, /semantic-search 정상 |
+
 ---
 
 ## 프로젝트 구조
@@ -692,11 +703,12 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 - [x] **헬스체크 엔드포인트** (`GET /health`, DB/Redis/SVD/임베딩 상태) (2026-02-20)
 - [x] **CI/CD 파이프라인** (GitHub Actions CI + Railway CD 자동 배포) (2026-02-20)
 - [x] **추천 이유 생성** (템플릿 기반 43개 패턴, $0 비용) (2026-02-20)
+- [x] **프로덕션 DB 마이그레이션** (user_events + users 7컬럼 + 타입 보정) (2026-02-23)
 
 ### 향후 개선사항
 - [ ] PWA 지원
 - [x] **CI/CD 파이프라인** (GitHub Actions CI + Railway CD) (2026-02-20)
-- [ ] 프로덕션 DB 마이그레이션 (Phase 29-32 스키마: user_events, users 컬럼 추가)
+- [x] **프로덕션 DB 마이그레이션** (Phase 29-32 스키마: user_events, users 7컬럼) (2026-02-23)
 - [x] **소셜 로그인 OAuth 수정** (Vercel 환경변수 `\n` + Pydantic 이메일) (2026-02-19)
 - [x] **SVD 모델 프로덕션 배포** (Dockerfile LFS 다운로드 + numpy 2.x) (2026-02-20)
 - [x] **시맨틱 검색** (Voyage AI 임베딩 + NumPy 코사인 유사도) (2026-02-20)

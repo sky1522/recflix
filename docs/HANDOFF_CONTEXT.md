@@ -1,6 +1,6 @@
 # RecFlix 프로젝트 컨텍스트 핸드오프
 
-> 클로드 웹 새 채팅에 붙여넣기용. 2026-02-23 기준.
+> 클로드 웹 새 채팅에 붙여넣기용. 2026-02-23 기준. (Phase 38 완료 반영)
 
 ---
 
@@ -18,7 +18,7 @@
 | Backend 배포 | Railway — https://backend-production-cff2.up.railway.app |
 | API 문서 | https://backend-production-cff2.up.railway.app/docs |
 | GitHub | https://github.com/sky1522/recflix |
-| 총 커밋 | 210개, Phase 37까지 완료 |
+| 총 커밋 | 213개+, Phase 38까지 완료 |
 | 소스 파일 | Backend 52개 (.py) / Frontend 46개 (.ts/.tsx) |
 
 ---
@@ -79,8 +79,8 @@ movies: 22컬럼, 42,917행
   mbti_scores JSONB(16종), weather_scores JSONB(4종), emotion_tags JSONB(7종)
 
 similar_movies: 429,170개 (영화별 Top 10)
-users: email UNIQUE, mbti, bcrypt password + kakao_id, google_id, experiment_group 등
-user_events: 10종 이벤트, JSONB metadata (★ 프로덕션 미생성)
+users: 17컬럼, email UNIQUE, mbti, bcrypt password + kakao_id, google_id, experiment_group, auth_provider, onboarding_completed, preferred_genres 등
+user_events: 10종 이벤트, JSONB metadata (프로덕션 생성 완료, Phase 38)
 ratings: user_id+movie_id UNIQUE, score 0.5~5.0
 collections + collection_movies: 찜 관리
 genres(19), persons(97,206), keywords, countries: M:M 연결
@@ -120,7 +120,7 @@ genres(19), persons(97,206), keywords, countries: M:M 연결
 
 ---
 
-## 5. 완료된 Phase 요약 (1~37)
+## 5. 완료된 Phase 요약 (1~38)
 
 | Phase | 날짜 | 핵심 |
 |-------|------|------|
@@ -144,34 +144,34 @@ genres(19), persons(97,206), keywords, countries: M:M 연결
 | 35 | 02/20 | SVD 모델 프로덕션 배포 (Dockerfile LFS) |
 | 36 | 02/20 | 헬스체크 + CI/CD (GitHub Actions) |
 | 37 | 02/20 | 추천 이유 생성 (템플릿 43개 패턴) |
+| 38 | 02/23 | 프로덕션 DB 마이그레이션 (user_events + users 7컬럼 + events.py 버그 수정) |
 
 ---
 
-## 6. 프로덕션 미반영 사항 (중요!)
+## 6. 프로덕션 미반영 사항
 
-### 6.1 DB 마이그레이션 필요 (Phase 29-32 스키마)
-Phase 29~32에서 코드에 추가했지만 **프로덕션 Railway DB에 아직 미적용**:
-- `user_events` 테이블 생성 (사용자 행동 이벤트)
-- `users` 테이블 6컬럼 추가:
-  - `experiment_group` (A/B 테스트)
-  - `kakao_id`, `google_id` (소셜 로그인)
-  - `profile_image`
-  - `onboarding_completed`
-  - `preferred_genres` (온보딩 장르 선택)
+### 6.1 DB 마이그레이션 — ✅ 완료 (Phase 38, 2026-02-23)
+Phase 29~32 스키마가 **프로덕션 Railway DB에 적용 완료**:
+- `user_events` 테이블 생성 (7컬럼 + 5개 인덱스)
+- `users` 테이블 7컬럼 추가 (experiment_group, kakao_id, google_id, profile_image, auth_provider, onboarding_completed, preferred_genres)
+- 타입/제약조건 보정 완료 (preferred_genres TEXT, auth_provider/onboarding_completed NOT NULL)
 - 마이그레이션 SQL: `backend/scripts/migrate_phase4.sql`
+- events.py ab-report 쿼리 버그 수정 (metadata_ → metadata, 4곳)
 
-**→ 소셜 로그인/온보딩/A/B 테스트가 프로덕션에서 동작하려면 필수**
+### 6.2 남은 수동 작업
+- **OAuth 환경변수**: Railway/Vercel에 Kakao/Google OAuth 프로덕션 값 설정 필요
+- **Kakao Developer Console**: 앱 도메인에 `jnsquery-reflix.vercel.app` 등록 + Redirect URI
+- **Google Cloud Console**: 승인된 리디렉션 URI 추가
 
 ---
 
 ## 7. 향후 작업 후보
 
 우선순위순:
-1. **프로덕션 DB 마이그레이션** — Phase 29-32 스키마 적용 (소셜 로그인/온보딩 활성화)
+1. **OAuth 앱 등록 완료** — Kakao/Google Developer Console 환경변수 설정 (소셜 로그인 프로덕션 활성화)
 2. **PWA 지원** — 오프라인 캐싱, 앱 설치 프롬프트, Service Worker
 3. **추천 알고리즘 평가 대시보드** — A/B 테스트 결과 시각화 (CTR, 전환율, 체류시간)
 4. **사용자 리뷰/코멘트 기능** — 영화별 한줄평
-5. **OAuth 앱 등록 완료** — Kakao/Google Developer Console 환경변수
 
 ---
 
