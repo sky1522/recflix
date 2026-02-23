@@ -3,8 +3,11 @@
 ## 핵심 파일
 → `backend/app/api/v1/recommendations.py` (API 라우터)
 → `backend/app/api/v1/recommendation_engine.py` (스코어링 엔진)
-→ `backend/app/api/v1/recommendation_constants.py` (가중치 상수)
+→ `backend/app/api/v1/recommendation_constants.py` (가중치/다양성 상수)
 → `backend/app/api/v1/recommendation_cf.py` (CF 모듈)
+→ `backend/app/api/v1/recommendation_reason.py` (추천 이유 43개 템플릿)
+→ `backend/app/api/v1/diversity.py` (다양성 후처리 5개 함수)
+→ `backend/app/api/v1/semantic_search.py` (인메모리 벡터 검색)
 
 ## 하이브리드 스코어링 (v3, CF 통합)
 → recommendation_engine.py의 `calculate_hybrid_scores()` 참조
@@ -65,11 +68,24 @@
 | LLM 분석 (Claude API) | 인기 상위 | ~1,711 | 1.0 |
 | 키워드 기반 | 나머지 | ~41,206 | 0.7 |
 
+## 다양성 후처리 (diversity.py)
+→ 스코어링 후 순차 적용: diversify_by_genre → apply_genre_cap → ensure_freshness → inject_serendipity → deduplicate_section
+→ 상수: recommendation_constants.py의 DIVERSITY_* 참조
+
+## 추천 이유 (recommendation_reason.py)
+→ 우선순위: compound > mood/personal > mbti > weather > quality
+→ 43개 템플릿, LLM 호출 없음 ($0, ~0ms)
+
+## 시맨틱 검색 (semantic_search.py)
+→ Voyage AI 임베딩 42,917편, NumPy 인메모리 코사인 유사도
+→ API: `GET /movies/semantic-search?q={query}&limit=20`
+
 ## 알고리즘 변경 시 체크리스트
 1. recommendation_engine.py 가중치/로직 수정
 2. recommendation_constants.py 상수 수정
 3. `docs/RECOMMENDATION_LOGIC.md` 동기화
 4. 추천 태그 조건 확인
 5. 품질 필터(weighted_score >= 6.0) 영향 확인
-6. 프론트엔드 HybridMovieCard 태그 표시 확인
-7. 빌드 확인
+6. 다양성 정책 상수 영향 확인
+7. 프론트엔드 HybridMovieCard 태그/추천이유 표시 확인
+8. 빌드 확인

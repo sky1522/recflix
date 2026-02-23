@@ -16,9 +16,9 @@ DB: PostgreSQL 16 (Railway) + Redis (캐싱)
 backend/
   app/
     api/v1/
-      recommendations.py         # 홈 추천 API (347줄)
-      recommendation_engine.py   # Hybrid 스코어링 엔진 (330줄)
-      recommendation_constants.py # 가중치/다양성 상수 (116줄)
+      recommendations.py         # 홈 추천 API (412줄)
+      recommendation_engine.py   # Hybrid 스코어링 엔진 (396줄)
+      recommendation_constants.py # 가중치/다양성 상수 (115줄)
       recommendation_cf.py       # SVD 협업 필터링 모듈
       recommendation_reason.py   # 추천 이유 생성 (239줄, 43개 템플릿)
       diversity.py               # 다양성 후처리 (5개 함수)
@@ -64,7 +64,7 @@ frontend/
     page.tsx               # ★ 홈 (배너 + 추천 Row + 큐레이션)
     movies/
       page.tsx             # 영화 검색 (필터, 정렬, 무한스크롤)
-      [id]/page.tsx        # 영화 상세 (622 LOC, 동적 OG 태그)
+      [id]/page.tsx        # 영화 상세 (263줄, 동적 OG 태그)
     login/page.tsx         # 로그인 (Kakao/Google 소셜 로그인)
     signup/page.tsx        # 회원가입 + MBTI 선택
     profile/page.tsx       # 프로필 + MBTI 변경
@@ -158,15 +158,13 @@ GitHub:   https://github.com/sky1522/recflix
 ```
 
 ```bash
-# Backend → Railway
+# Backend → Railway (CI/CD 자동, 수동 시)
 cd backend && railway up
 
-# Frontend → Vercel
+# Frontend → Vercel (push 시 자동, 수동 시)
 cd frontend && npx vercel --prod
 
-# DB 프로덕션 복원 (로컬 → Railway)
-PGPASSWORD=recflix123 pg_dump -h localhost -U recflix -d recflix --no-owner --no-acl -Fc -f dump.dump
-PGPASSWORD=<railway_pw> pg_restore -h shinkansen.proxy.rlwy.net -p 20053 -U postgres -d railway --clean --if-exists --no-owner --no-acl dump.dump
+# DB 복원 → .claude/skills/database.md 참조
 ```
 
 ## 로컬 실행

@@ -1,79 +1,63 @@
-claude "Phase 38: 프로덕션 DB 마이그레이션 — Phase 29-32 스키마 적용 + 소셜 로그인 E2E 검증.
+claude "Phase 40: 프로젝트 설정 경량화 및 고도화 — md/skills/hooks 정리.
 
 === Research ===
-먼저 다음 파일들을 읽고 현재 상태를 파악할 것:
-- CLAUDE.md
-- backend/scripts/migrate_phase4.sql (마이그레이션 SQL 전체 내용)
-- backend/app/models/user.py (users 모델 — 6컬럼 추가 여부)
-- backend/app/models/user_event.py (user_events 모델)
-- backend/app/api/v1/auth.py (소셜 로그인 로직 — Kakao/Google OAuth)
-- backend/app/api/v1/events.py (이벤트 API)
-- backend/app/core/config.py (OAuth 환경변수 — KAKAO_*, GOOGLE_*)
-- frontend/app/auth/kakao/callback/page.tsx (프론트 콜백)
-- frontend/app/auth/google/callback/page.tsx (프론트 콜백)
+먼저 다음을 읽고 현재 상태를 파악할 것:
+- CLAUDE.md (전체)
+- .claude/skills/ 디렉토리 전체 구조 + 각 스킬 파일 내용
+- .claude/settings.json 또는 .claude/config 등 설정 파일
+- .gitignore
+- frontend/hooks/ 디렉토리 전체 (useWeather.ts, useInfiniteScroll.ts, useDebounce.ts, useImpressionTracker.ts)
+- docs/ 디렉토리 전체 목록
 
-=== 1단계: 마이그레이션 SQL 검증 ===
-migrate_phase4.sql 내용을 읽고 다음을 확인:
-1. user_events 테이블 CREATE 문이 user_event.py 모델과 일치하는지
-2. users ALTER TABLE 6컬럼이 user.py 모델과 일치하는지
-   - experiment_group, kakao_id, google_id, profile_image, onboarding_completed, preferred_genres
-3. 필요한 인덱스가 포함되어 있는지 (kakao_id UNIQUE, google_id UNIQUE 등)
-4. IF NOT EXISTS / ADD COLUMN IF NOT EXISTS로 멱등성 보장되는지
+=== 1단계: .claude/skills/ 정리 ===
+각 스킬 파일을 읽고 분석:
+- 중복되는 내용이 있으면 통합
+- outdated된 정보 (Phase 33~38 이전 기준) 업데이트
+- 실제 코드와 불일치하는 내용 수정
+- INDEX.md가 실제 스킬 파일과 일치하는지 확인, 불일치 시 수정
+- 각 스킬 파일이 100줄 이내인지 확인, 초과 시 핵심만 남기고 압축
 
-누락/불일치가 있으면 migrate_phase4.sql을 수정하여 모델과 완전히 일치시킬 것.
+=== 2단계: CLAUDE.md 경량화 ===
+현재 CLAUDE.md를 분석:
+- skills/ 파일과 중복되는 상세 내용을 skills로 위임하고 CLAUDE.md에서는 요약만 유지
+- 핵심 구조 섹션: 실제 존재하는 파일만 남기고, 삭제된 파일 제거
+- 규칙 섹션: 중복/모호한 규칙 통합
+- 알려진 이슈 패턴: 해결 완료된 이슈 중 더 이상 재발 가능성 없는 것 제거
+- 목표: CLAUDE.md가 프로젝트 진입점으로서 간결하고 정확하게
 
-=== 2단계: 프로덕션 DB 마이그레이션 실행 ===
-Railway PostgreSQL에 직접 SQL 실행:
+=== 3단계: frontend/hooks/ 고도화 ===
+각 훅을 읽고 분석:
+- useWeather.ts: localStorage 캐시 전략 적절한지, 에러 핸들링, 타입 안전성
+- useInfiniteScroll.ts: IntersectionObserver 정리(cleanup), 메모리 누수 가능성
+- useDebounce.ts: 제네릭 타입 활용, cleanup 로직
+- useImpressionTracker.ts: IntersectionObserver 임계값, 배치 전송 효율성
+- 공통 패턴이 있으면 추출 가능한지 확인
+- 불필요한 리렌더링 유발하는 패턴 수정 (의존성 배열 검증)
+- any 타입 사용 시 적절한 타입으로 교체
 
-PGPASSWORD=lWpLnODyZTJaAUvChkycxupwZPlMOtad psql -h shinkansen.proxy.rlwy.net -p 20053 -U postgres -d railway -f backend/scripts/migrate_phase4.sql
+=== 4단계: docs/ 정리 ===
+docs/ 내 파일 목록 확인:
+- 중복 문서 식별 (HANDOFF_CONTEXT.md vs PROGRESS.md 등 겹치는 내용)
+- 각 문서의 역할이 명확한지 확인
+- PROJECT_INDEX.md가 실제 docs/ 파일과 일치하는지 확인
 
-실행 후 검증:
-- \d user_events → 테이블 존재 + 컬럼 확인
-- \d users → 6개 새 컬럼 존재 확인
-- SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'users' ORDER BY ordinal_position;
-
-=== 3단계: Railway 환경변수 확인 ===
-Railway Dashboard에서 Backend 서비스의 환경변수 확인 (직접 접근 불가하므로 코드 기준 체크):
-- config.py에서 KAKAO_CLIENT_ID, KAKAO_CLIENT_SECRET, KAKAO_REDIRECT_URI 확인
-- config.py에서 GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI 확인
-- frontend .env / Vercel 환경변수: NEXT_PUBLIC_KAKAO_*, NEXT_PUBLIC_GOOGLE_* 확인
-
-체크리스트를 출력할 것 (수동 확인용):
-┌──────────────────────────┬──────────┬─────────────────────┐
-│ 환경변수                  │ 위치     │ 설정 필요 값 (예시)  │
-├──────────────────────────┼──────────┼─────────────────────┤
-│ KAKAO_CLIENT_ID          │ Railway  │ Kakao Developer 앱키│
-│ ...                      │ ...      │ ...                 │
-└──────────────────────────┴──────────┴─────────────────────┘
-
-=== 4단계: 헬스체크 검증 ===
-프로덕션 Backend 재배포 후:
-curl https://backend-production-cff2.up.railway.app/api/v1/health
-→ DB 연결 OK, 새 테이블 접근 가능 확인
-
-=== 5단계: API 엔드포인트 스모크 테스트 ===
-마이그레이션 후 기존 기능 깨지지 않았는지 확인:
-1. curl 'https://backend-production-cff2.up.railway.app/api/v1/movies?page_size=1' → 200
-2. curl 'https://backend-production-cff2.up.railway.app/api/v1/recommendations?weather=sunny&limit=3' → 200 + recommendation_reason 포함
-3. curl 'https://backend-production-cff2.up.railway.app/api/v1/movies/search/semantic?q=따뜻한+가족+영화&limit=3' → 200
+=== 5단계: Git hooks / 린트 설정 확인 ===
+- .husky/ 디렉토리 존재 여부 확인
+- pre-commit hook 유무 → 없으면 lint-staged + husky 도입 검토 (설치는 하지 말고 검토만)
+- frontend/eslintrc 또는 eslint.config: 불필요한 규칙 비활성화 여부
+- backend/ruff.toml 또는 pyproject.toml의 ruff 설정: 규칙 최적화 여부
 
 === 규칙 ===
-- 기존 테이블 DROP/TRUNCATE 절대 금지
-- ALTER TABLE은 IF NOT EXISTS로 멱등성 보장
-- 마이그레이션 전 현재 users 행 수 확인 (데이터 유실 방지)
-- .md 문서 파일 건드리지 말 것
+- 기능 로직(.py 비즈니스 로직, .tsx 컴포넌트 로직) 수정 금지
+- hooks는 버그/타입/성능만 수정, 동작 변경 금지
+- 삭제 시에는 반드시 사유 주석으로 기록
+- skills 파일은 실제 코드 기준 팩트만 기술
 
 === 검증 ===
-1. 프로덕션 DB에 user_events 테이블 존재
-2. 프로덕션 DB users 테이블에 6개 신규 컬럼 존재
-3. 헬스체크 200 OK
-4. 기존 API 3개 스모크 테스트 통과
-5. 환경변수 체크리스트 출력 완료
-6. git add -A && git commit -m 'ops: Phase 38 프로덕션 DB 마이그레이션 (user_events + users 6컬럼)' && git push origin HEAD:main
+1. cd backend && ruff check app/ --select E,F,W
+2. cd frontend && npx tsc --noEmit
+3. cd frontend && npm run build
+4. 변경 파일 목록 + 각 파일 변경 요약
+5. git add -A && git commit -m 'chore: Phase 40 설정 경량화 및 고도화 (skills/hooks/docs)' && git push origin HEAD:main
 
-결과를 claude_results.md에 기존 내용을 전부 지우고 새로 작성 (덮어쓰기):
-- 마이그레이션 실행 결과 (성공/실패)
-- 테이블 구조 검증 결과
-- 환경변수 체크리스트
-- 스모크 테스트 결과
-- 프로덕션 소셜 로그인 활성화까지 남은 수동 작업 목록"
+결과를 claude_results.md에 덮어쓰기."

@@ -2,9 +2,10 @@
 
 ## 핵심 파일
 → `frontend/stores/` (Zustand 2개: authStore, interactionStore)
-→ `frontend/hooks/` (useWeather, useInfiniteScroll, useDebounce)
+→ `frontend/hooks/` (useWeather, useInfiniteScroll, useDebounce, useImpressionTracker)
 → `frontend/lib/api.ts` (24개 API 함수, fetchAPI 래퍼)
 → `frontend/lib/constants.ts` (캐시 키, 매직넘버)
+→ `frontend/lib/eventTracker.ts` (사용자 행동 이벤트 배치 전송, Beacon API)
 
 ## 데이터 흐름
 → `frontend/app/page.tsx` 참조

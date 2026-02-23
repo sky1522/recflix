@@ -17,22 +17,21 @@
 - 레이어별: UI/비즈니스 로직/데이터
 
 ### 현재 500줄+ 파일 (리팩토링 대상)
-- `backend/app/api/v1/recommendations.py` (770줄)
-  - calculate_hybrid_scores() 133줄 → 스코어별 함수 분리
-  - 가중치 상수, 태그 로직, 개인화 로직 분리 검토
-- `frontend/app/movies/[id]/page.tsx` (622줄)
-  - 히어로 배너, 상세 정보, 출연진, 유사 영화 → 서브 컴포넌트 분리 검토
-- `backend/scripts/transliterate_foreign_names.py` (520줄)
-  - 일회성 스크립트, 우선순위 낮음
+- `frontend/app/movies/page.tsx` (531줄) — 검색 필터/정렬/무한스크롤 분리 검토
+- `frontend/components/search/SearchAutocomplete.tsx` (522줄) — 자동완성 로직 분리 검토
+- `backend/scripts/transliterate_foreign_names.py` (520줄) — 일회성 스크립트, 우선순위 낮음
+
+### Phase 28에서 리팩토링 완료
+- `recommendations.py` (770→412줄): engine/constants/cf/reason/diversity 5개 모듈로 분리
+- `movies/[id]/page.tsx` (622→263줄): 4개 서브컴포넌트 분리
 
 ### 현재 300~499줄 파일 (분리 검토 대상)
-- `frontend/app/movies/page.tsx` (436줄) — 검색 필터/정렬/무한스크롤
 - `backend/app/services/weather.py` (420줄) — API 호출 + 역지오코딩 + 70개 도시명
 - `frontend/lib/curationMessages.ts` (415줄) — 258개 문구 데이터 (상수 파일, 분리 불필요)
 - `frontend/app/ratings/page.tsx` (413줄) — 평점 목록 페이지
+- `backend/app/api/v1/recommendations.py` (412줄) — 추천 API 라우터
 - `frontend/components/movie/FeaturedBanner.tsx` (407줄) — 배너 컴포넌트
 - `frontend/components/layout/Header.tsx` (373줄) — 네비게이션 + 모바일 메뉴
-- `frontend/components/search/SearchAutocomplete.tsx` (359줄) — 자동완성 검색
 
 ## 중복 제거
 - 두 파일에서 같은 로직 발견 시 → 공통 유틸로 추출

@@ -1,7 +1,7 @@
 # 데이터베이스
 
 ## 핵심 파일
-→ `backend/app/models/` (8개 모델: movie, user, rating, collection, similar_movie + __init__)
+→ `backend/app/models/` (9개 모델: movie, user, rating, collection, similar_movie, user_event + __init__)
 → `backend/app/database.py` (SQLAlchemy engine)
 → `data/DB_RESTORE_GUIDE.md`
 
@@ -43,6 +43,19 @@ PGPASSWORD=recflix123 pg_dump -h localhost -U recflix -d recflix --no-owner --no
 # Railway 복원
 PGPASSWORD=<railway_pw> pg_restore -h shinkansen.proxy.rlwy.net -p 20053 -U postgres -d railway --clean --if-exists --no-owner --no-acl dump.dump
 ```
+
+## users 테이블 (17컬럼)
+→ `backend/app/models/user.py` 참조
+- 인증: id, email(UNIQUE), hashed_password, mbti, created_at, updated_at
+- 소셜 로그인: kakao_id, google_id, auth_provider(default 'local'), profile_image
+- 개인화: onboarding_completed(default false), preferred_genres(TEXT)
+- A/B 테스트: experiment_group
+
+## user_events 테이블 (Phase 30, 프로덕션 적용 완료)
+→ `backend/app/models/user_event.py` 참조
+- 10종 이벤트: page_view, movie_click, search, filter, rating, collection, recommendation_click, scroll, impression, ab_assignment
+- 컬럼: id, user_id(nullable), event_type, event_data(JSONB), session_id, created_at, page_url
+- 인덱스: user_id, event_type, created_at, session_id, (event_type+created_at)
 
 ## 스키마 변경 시 체크리스트
 1. `models/` 수정

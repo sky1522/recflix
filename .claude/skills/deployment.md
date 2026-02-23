@@ -4,6 +4,7 @@
 → `DEPLOYMENT.md` (상세 배포 가이드)
 → `backend/railway.toml`
 → `frontend/vercel.json`
+→ `.github/workflows/ci.yml` (CI/CD 파이프라인)
 
 ## 프로덕션 URL
 | 서비스 | URL |
@@ -27,8 +28,15 @@
 ### Frontend 필수 환경변수
 - `NEXT_PUBLIC_API_URL`: Backend API URL
 
+## CI/CD 파이프라인
+→ `.github/workflows/ci.yml` 참조
+- **CI**: GitHub Actions — Backend Lint (ruff 0.1.13) + Frontend Build (next build)
+- **CD**: GitHub Actions → `railway up --service backend --environment production --detach`
+- **Vercel**: GitHub 연동 자동 배포 (push 시, Actions 불필요)
+- **Railway Token**: Project Token 사용 (Account Token 아님), GitHub Secrets `RAILWAY_TOKEN`
+
 ## 배포 프로세스
-- main 브랜치 push → Railway/Vercel 자동 배포
+- main 브랜치 push → CI/CD → Railway/Vercel 자동 배포
 - CORS: `backend/app/config.py`의 `CORS_ORIGINS`에 도메인 추가
 
 ## DB 마이그레이션
