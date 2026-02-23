@@ -183,7 +183,7 @@ def get_ab_report(
     # 그룹별 이벤트 집계
     rows = db.execute(text("""
         SELECT
-            COALESCE(metadata_->>'experiment_group', 'unknown') AS exp_group,
+            COALESCE(metadata->>'experiment_group', 'unknown') AS exp_group,
             event_type,
             COUNT(*) AS cnt,
             COUNT(DISTINCT user_id) AS unique_users
@@ -196,12 +196,12 @@ def get_ab_report(
     # 그룹별 평균 상세 체류 시간
     duration_rows = db.execute(text("""
         SELECT
-            COALESCE(metadata_->>'experiment_group', 'unknown') AS exp_group,
-            AVG((metadata_->>'duration_ms')::float) AS avg_duration
+            COALESCE(metadata->>'experiment_group', 'unknown') AS exp_group,
+            AVG((metadata->>'duration_ms')::float) AS avg_duration
         FROM user_events
         WHERE created_at >= :since
           AND event_type = 'movie_detail_leave'
-          AND metadata_->>'duration_ms' IS NOT NULL
+          AND metadata->>'duration_ms' IS NOT NULL
         GROUP BY exp_group
     """), {"since": since}).fetchall()
     duration_map = {r[0]: r[1] for r in duration_rows}
@@ -209,14 +209,14 @@ def get_ab_report(
     # 그룹별 섹션 클릭/노출
     section_rows = db.execute(text("""
         SELECT
-            COALESCE(metadata_->>'experiment_group', 'unknown') AS exp_group,
-            metadata_->>'section' AS section,
+            COALESCE(metadata->>'experiment_group', 'unknown') AS exp_group,
+            metadata->>'section' AS section,
             event_type,
             COUNT(*) AS cnt
         FROM user_events
         WHERE created_at >= :since
           AND event_type IN ('recommendation_impression', 'movie_click')
-          AND metadata_->>'section' IS NOT NULL
+          AND metadata->>'section' IS NOT NULL
         GROUP BY exp_group, section, event_type
     """), {"since": since}).fetchall()
 
@@ -273,7 +273,7 @@ def get_ab_report(
         user_count = db.execute(text("""
             SELECT COUNT(DISTINCT user_id) FROM user_events
             WHERE created_at >= :since
-              AND COALESCE(metadata_->>'experiment_group', 'unknown') = :group
+              AND COALESCE(metadata->>'experiment_group', 'unknown') = :group
               AND user_id IS NOT NULL
         """), {"since": since, "group": exp_group}).scalar() or 0
 
