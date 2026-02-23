@@ -156,10 +156,17 @@ def get_movies(
         ).subquery()
         q = q.filter(Movie.id.in_(select(movie_ids)))
 
-    # Filter by genres
+    # Filter by genres (JOIN causes duplicates — use subquery)
     if genres:
         genre_list = [g.strip() for g in genres.split(",")]
-        q = q.join(Movie.genres).filter(Genre.name.in_(genre_list))
+        genre_movie_ids = (
+            db.query(Movie.id)
+            .join(Movie.genres)
+            .filter(Genre.name.in_(genre_list))
+            .distinct()
+            .subquery()
+        )
+        q = q.filter(Movie.id.in_(select(genre_movie_ids)))
 
     # Filter by rating
     if min_rating is not None:

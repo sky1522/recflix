@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     # CORS - supports comma-separated string from environment
     CORS_ORIGINS: Union[str, List[str]] = "http://localhost:3000,http://127.0.0.1:3000"
 
+    # Rate Limiting
+    TRUSTED_PROXIES: List[str] = []
+
     # Server
     PORT: int = 8000
 

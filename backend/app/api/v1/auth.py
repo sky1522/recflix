@@ -17,6 +17,8 @@ from app.core.security import (
     create_refresh_token,
     decode_token,
     get_password_hash,
+    store_refresh_jti,
+    validate_and_rotate_refresh,
     verify_password,
 )
 from app.models import User
@@ -29,6 +31,7 @@ from app.schemas import (
     UserLogin,
     UserResponse,
 )
+from app.services.llm import get_redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +70,7 @@ def signup(request: Request, user_data: UserCreate, db: Session = Depends(get_db
 
 @router.post("/login", response_model=Token)
 @limiter.limit("5/minute")
-def login(request: Request, credentials: UserLogin, db: Session = Depends(get_db)):
+async def login(request: Request, credentials: UserLogin, db: Session = Depends(get_db)):
     """Login and get access token"""
     user = db.query(User).filter(User.email == credentials.email).first()
 
@@ -87,6 +90,13 @@ def login(request: Request, credentials: UserLogin, db: Session = Depends(get_db
     access_token = create_access_token(data={"sub": user.id})
     refresh_token = create_refresh_token(data={"sub": user.id})
 
+    # Store refresh jti in Redis for rotation
+    payload = decode_token(refresh_token)
+    if payload and payload.get("jti"):
+        redis = await get_redis_client()
+        ttl = 7 * 24 * 3600  # REFRESH_TOKEN_EXPIRE_DAYS
+        await store_refresh_jti(redis, str(user.id), payload["jti"], ttl)
+
     return Token(
         access_token=access_token,
         refresh_token=refresh_token
@@ -95,8 +105,8 @@ def login(request: Request, credentials: UserLogin, db: Session = Depends(get_db
 
 @router.post("/refresh", response_model=Token)
 @limiter.limit("5/minute")
-def refresh_token(request: Request, token_data: TokenRefresh, db: Session = Depends(get_db)):
-    """Refresh access token using refresh token"""
+async def refresh_token(request: Request, token_data: TokenRefresh, db: Session = Depends(get_db)):
+    """Refresh access token using refresh token (with jti rotation)."""
     payload = decode_token(token_data.refresh_token)
 
     if payload is None or payload.get("type") != "refresh":
@@ -114,20 +124,49 @@ def refresh_token(request: Request, token_data: TokenRefresh, db: Session = Depe
             detail="User not found or inactive"
         )
 
+    # Validate jti via Redis (rotation check)
+    jti = payload.get("jti")
+    redis = await get_redis_client()
+    if jti and redis:
+        is_valid, is_compromised = await validate_and_rotate_refresh(
+            redis, str(user.id), jti,
+        )
+        if is_compromised:
+            logger.warning("Refresh token reuse detected for user %s", user.id)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token reuse detected. Please login again.",
+            )
+        # is_valid=False + not compromised = Redis down or no record → fallback
+
     # Create new tokens
     access_token = create_access_token(data={"sub": user.id})
-    refresh_token = create_refresh_token(data={"sub": user.id})
+    new_refresh = create_refresh_token(data={"sub": user.id})
+
+    # Store new jti
+    new_payload = decode_token(new_refresh)
+    if new_payload and new_payload.get("jti") and redis:
+        ttl = 7 * 24 * 3600
+        await store_refresh_jti(redis, str(user.id), new_payload["jti"], ttl)
 
     return Token(
         access_token=access_token,
-        refresh_token=refresh_token,
+        refresh_token=new_refresh,
     )
 
 
-def _build_social_response(user: User, is_new: bool) -> SocialLoginResponse:
-    """Build SocialLoginResponse with JWT tokens."""
+async def _build_social_response(user: User, is_new: bool) -> SocialLoginResponse:
+    """Build SocialLoginResponse with JWT tokens (stores refresh jti)."""
     access_token = create_access_token(data={"sub": user.id})
     refresh_token_val = create_refresh_token(data={"sub": user.id})
+
+    # Store refresh jti for rotation
+    payload = decode_token(refresh_token_val)
+    if payload and payload.get("jti"):
+        redis = await get_redis_client()
+        ttl = 7 * 24 * 3600
+        await store_refresh_jti(redis, str(user.id), payload["jti"], ttl)
+
     return SocialLoginResponse(
         access_token=access_token,
         refresh_token=refresh_token_val,
@@ -138,7 +177,7 @@ def _build_social_response(user: User, is_new: bool) -> SocialLoginResponse:
 
 @router.post("/kakao", response_model=SocialLoginResponse)
 @limiter.limit("10/minute")
-def kakao_login(
+async def kakao_login(
     request: Request,
     body: SocialLoginRequest,
     db: Session = Depends(get_db),
@@ -182,7 +221,7 @@ def kakao_login(
     # 3. Find or create user
     user = db.query(User).filter(User.kakao_id == kakao_id).first()
     if user:
-        return _build_social_response(user, is_new=False)
+        return await _build_social_response(user, is_new=False)
 
     # Check if email already exists (link accounts)
     email = kakao_account.get("email")
@@ -195,7 +234,7 @@ def kakao_login(
                 user.auth_provider = "kakao"
             db.commit()
             db.refresh(user)
-            return _build_social_response(user, is_new=False)
+            return await _build_social_response(user, is_new=False)
 
     # Create new user
     nickname = profile.get("nickname", f"kakao_{kakao_id[:8]}")
@@ -215,12 +254,12 @@ def kakao_login(
     db.commit()
     db.refresh(user)
 
-    return _build_social_response(user, is_new=True)
+    return await _build_social_response(user, is_new=True)
 
 
 @router.post("/google", response_model=SocialLoginResponse)
 @limiter.limit("10/minute")
-def google_login(
+async def google_login(
     request: Request,
     body: SocialLoginRequest,
     db: Session = Depends(get_db),
@@ -265,7 +304,7 @@ def google_login(
     # 3. Find or create user
     user = db.query(User).filter(User.google_id == google_id).first()
     if user:
-        return _build_social_response(user, is_new=False)
+        return await _build_social_response(user, is_new=False)
 
     # Check if email already exists (link accounts)
     if email:
@@ -277,7 +316,7 @@ def google_login(
                 user.auth_provider = "google"
             db.commit()
             db.refresh(user)
-            return _build_social_response(user, is_new=False)
+            return await _build_social_response(user, is_new=False)
 
     # Create new user
     if not email:
@@ -296,4 +335,4 @@ def google_login(
     db.commit()
     db.refresh(user)
 
-    return _build_social_response(user, is_new=True)
+    return await _build_social_response(user, is_new=True)

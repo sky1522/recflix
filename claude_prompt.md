@@ -1,63 +1,57 @@
-claude "Phase 40: 프로젝트 설정 경량화 및 고도화 — md/skills/hooks 정리.
+claude "Phase 41: 안전/정확성 리팩토링 — Critical 이슈 수정.
 
 === Research ===
-먼저 다음을 읽고 현재 상태를 파악할 것:
-- CLAUDE.md (전체)
-- .claude/skills/ 디렉토리 전체 구조 + 각 스킬 파일 내용
-- .claude/settings.json 또는 .claude/config 등 설정 파일
-- .gitignore
-- frontend/hooks/ 디렉토리 전체 (useWeather.ts, useInfiniteScroll.ts, useDebounce.ts, useImpressionTracker.ts)
-- docs/ 디렉토리 전체 목록
+먼저 codex_results.md를 읽고 Critical 항목을 확인할 것.
+그리고 다음 파일들을 읽을 것:
+- backend/app/api/v1/movies.py (장르 필터 쿼리: 162, 184, 194번 라인 근처)
+- backend/app/core/security.py (refresh 토큰: 49, 64번 라인)
+- backend/app/api/v1/auth.py (refresh 엔드포인트: 96~100번 라인)
+- backend/app/core/rate_limit.py (rate limit key 함수)
+- backend/app/core/config.py (Redis 설정)
 
-=== 1단계: .claude/skills/ 정리 ===
-각 스킬 파일을 읽고 분석:
-- 중복되는 내용이 있으면 통합
-- outdated된 정보 (Phase 33~38 이전 기준) 업데이트
-- 실제 코드와 불일치하는 내용 수정
-- INDEX.md가 실제 스킬 파일과 일치하는지 확인, 불일치 시 수정
-- 각 스킬 파일이 100줄 이내인지 확인, 초과 시 핵심만 남기고 압축
+=== 1단계: /movies 장르 필터 distinct 수정 ===
+movies.py에서 장르 필터 적용 시:
+- JOIN 후 count 쿼리: count(distinct(Movie.id))로 변경
+- 페이지 데이터 쿼리: distinct(Movie.id) 적용 또는 서브쿼리 2-step 분리
+- 기존 정렬/페이지네이션 로직 유지
+⚠️ 장르 필터 미사용 시 기존 동작 변경 금지
 
-=== 2단계: CLAUDE.md 경량화 ===
-현재 CLAUDE.md를 분석:
-- skills/ 파일과 중복되는 상세 내용을 skills로 위임하고 CLAUDE.md에서는 요약만 유지
-- 핵심 구조 섹션: 실제 존재하는 파일만 남기고, 삭제된 파일 제거
-- 규칙 섹션: 중복/모호한 규칙 통합
-- 알려진 이슈 패턴: 해결 완료된 이슈 중 더 이상 재발 가능성 없는 것 제거
-- 목표: CLAUDE.md가 프로젝트 진입점으로서 간결하고 정확하게
+=== 2단계: Refresh 토큰 회전(Rotate) 구현 ===
+security.py + auth.py:
+- refresh 토큰 생성 시 jti(JWT ID) 부여 (uuid4)
+- Redis에 활성 refresh 토큰 jti 저장 (키: refresh_token:{user_id}, 값: jti, TTL: refresh 만료시간)
+- /auth/refresh 호출 시:
+  1. jti 검증 (Redis에 저장된 값과 일치하는지)
+  2. 새 access + refresh 토큰 발급
+  3. 이전 jti 즉시 삭제, 새 jti 저장
+  4. 불일치 시 401 + 해당 user의 모든 refresh 토큰 무효화 (탈취 의심)
+- Redis 미연결 시 기존 방식으로 graceful fallback (서비스 중단 방지)
 
-=== 3단계: frontend/hooks/ 고도화 ===
-각 훅을 읽고 분석:
-- useWeather.ts: localStorage 캐시 전략 적절한지, 에러 핸들링, 타입 안전성
-- useInfiniteScroll.ts: IntersectionObserver 정리(cleanup), 메모리 누수 가능성
-- useDebounce.ts: 제네릭 타입 활용, cleanup 로직
-- useImpressionTracker.ts: IntersectionObserver 임계값, 배치 전송 효율성
-- 공통 패턴이 있으면 추출 가능한지 확인
-- 불필요한 리렌더링 유발하는 패턴 수정 (의존성 배열 검증)
-- any 타입 사용 시 적절한 타입으로 교체
-
-=== 4단계: docs/ 정리 ===
-docs/ 내 파일 목록 확인:
-- 중복 문서 식별 (HANDOFF_CONTEXT.md vs PROGRESS.md 등 겹치는 내용)
-- 각 문서의 역할이 명확한지 확인
-- PROJECT_INDEX.md가 실제 docs/ 파일과 일치하는지 확인
-
-=== 5단계: Git hooks / 린트 설정 확인 ===
-- .husky/ 디렉토리 존재 여부 확인
-- pre-commit hook 유무 → 없으면 lint-staged + husky 도입 검토 (설치는 하지 말고 검토만)
-- frontend/eslintrc 또는 eslint.config: 불필요한 규칙 비활성화 여부
-- backend/ruff.toml 또는 pyproject.toml의 ruff 설정: 규칙 최적화 여부
+=== 3단계: Rate limit 프록시 인식 ===
+rate_limit.py:
+- key 함수를 커스텀으로 변경:
+  1. X-Forwarded-For 헤더에서 첫 번째 IP 추출 (신뢰 체인)
+  2. CF-Connecting-IP 헤더 우선 (Cloudflare 사용 시)
+  3. 인증 사용자면 user_id 기반 키 병행
+  4. 헤더 없으면 기존 get_remote_address fallback
+- 설정에 TRUSTED_PROXIES 리스트 추가 (config.py)
 
 === 규칙 ===
-- 기능 로직(.py 비즈니스 로직, .tsx 컴포넌트 로직) 수정 금지
-- hooks는 버그/타입/성능만 수정, 동작 변경 금지
-- 삭제 시에는 반드시 사유 주석으로 기록
-- skills 파일은 실제 코드 기준 팩트만 기술
+- 추천 로직(recommendations.py, recommendation_engine.py) 수정 금지
+- 기존 API 응답 형식 변경 금지
+- Redis 의존 기능은 반드시 fallback 포함
+- 함수 50줄 이내, 파일 500줄 이내 유지
 
 === 검증 ===
-1. cd backend && ruff check app/ --select E,F,W
-2. cd frontend && npx tsc --noEmit
-3. cd frontend && npm run build
-4. 변경 파일 목록 + 각 파일 변경 요약
-5. git add -A && git commit -m 'chore: Phase 40 설정 경량화 및 고도화 (skills/hooks/docs)' && git push origin HEAD:main
+1. cd backend && ruff check app/api/v1/movies.py app/core/security.py app/core/rate_limit.py app/api/v1/auth.py
+2. 장르 필터 테스트:
+   curl 'http://localhost:8000/api/v1/movies?genres=28&page_size=5' → total 정확, 중복 없음
+   curl 'http://localhost:8000/api/v1/movies?genres=28,12&page_size=5' → 다중 장르도 정확
+3. Refresh 토큰 테스트:
+   - 로그인 → refresh → 새 토큰 발급 확인
+   - 같은 refresh 토큰 재사용 → 401
+4. Rate limit: X-Forwarded-For 헤더 포함 요청이 정상 처리되는지
+5. cd frontend && npm run build
+6. git add -A && git commit -m 'fix: Phase 41 안전/정확성 (distinct 쿼리, 토큰 회전, rate limit)' && git push origin HEAD:main
 
 결과를 claude_results.md에 덮어쓰기."
