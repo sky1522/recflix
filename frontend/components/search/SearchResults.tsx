@@ -59,6 +59,9 @@ export default function SearchResults({
               return (
                 <button
                   key={`sem-${movie.id}`}
+                  id={`search-item-${currentIdx}`}
+                  role="option"
+                  aria-selected={isActive}
                   data-autocomplete-item
                   onClick={() => onMovieClick(movie.id)}
                   onMouseEnter={() => onSetActiveIndex(currentIdx)}
@@ -125,6 +128,9 @@ export default function SearchResults({
             return (
               <button
                 key={movie.id}
+                id={`search-item-${currentIdx}`}
+                role="option"
+                aria-selected={isActive}
                 data-autocomplete-item
                 onClick={() => {
                   trackEvent({
@@ -198,6 +204,9 @@ export default function SearchResults({
             return (
               <button
                 key={person.id}
+                id={`search-item-${currentIdx}`}
+                role="option"
+                aria-selected={isActive}
                 data-autocomplete-item
                 onClick={() => onPersonClick(person.name)}
                 onMouseEnter={() => onSetActiveIndex(currentIdx)}
@@ -239,6 +248,9 @@ export default function SearchResults({
           const isActive = currentIdx === activeIndex;
           return (
             <button
+              id={`search-item-${currentIdx}`}
+              role="option"
+              aria-selected={isActive}
               data-autocomplete-item
               onClick={onFullSearch}
               onMouseEnter={() => onSetActiveIndex(currentIdx)}

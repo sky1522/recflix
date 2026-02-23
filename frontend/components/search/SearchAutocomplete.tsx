@@ -262,6 +262,11 @@ export default function SearchAutocomplete({
             onFocus={() => setIsOpen(true)}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
+            role="combobox"
+            aria-expanded={!!showDropdown}
+            aria-controls="search-results-listbox"
+            aria-activedescendant={activeIndex >= 0 ? `search-item-${activeIndex}` : undefined}
+            aria-autocomplete="list"
             className={
               inputClassName ||
               `w-full ${compact ? "pl-10 pr-8 py-1.5 text-sm" : "pl-12 pr-10 py-3"} bg-dark-100 border border-white/10 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-primary-500 transition`
@@ -272,6 +277,7 @@ export default function SearchAutocomplete({
             <button
               type="button"
               onClick={handleClear}
+              aria-label="검색어 지우기"
               className={`absolute right-${compact ? "3" : "4"} top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition`}
             >
               <X className={compact ? "w-4 h-4" : "w-5 h-5"} />
@@ -298,7 +304,7 @@ export default function SearchAutocomplete({
                 </div>
               </div>
             ) : (
-              <div ref={listRef} className="max-h-96 overflow-y-auto">
+              <div ref={listRef} id="search-results-listbox" role="listbox" className="max-h-96 overflow-y-auto">
                 <SearchResults
                   query={query}
                   results={results}

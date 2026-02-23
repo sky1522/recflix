@@ -101,7 +101,7 @@ export default function HomePage() {
     const fetchRecommendations = async () => {
       if (!weather) return;
 
-      const key = `${weather.condition}-${mood}-${isAuthenticated}`;
+      const key = `${weather.condition}-${mood}-${user?.id || 'anon'}-${user?.mbti || 'none'}`;
 
       // Use cache if params haven't changed (e.g. back navigation)
       if (cachedRecommendations && cachedKey === key) {
@@ -128,7 +128,7 @@ export default function HomePage() {
     };
 
     fetchRecommendations();
-  }, [weather, mood, isAuthenticated]);  // isAuthenticated 추가: 로그인/로그아웃 시 추천 갱신
+  }, [weather, mood, isAuthenticated, user?.id, user?.mbti]);
 
   const handleWeatherChange = (condition: WeatherType) => {
     setManualWeather(condition);

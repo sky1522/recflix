@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Home, Film, Heart, Star, User, LogOut } from "lucide-react";
@@ -32,6 +33,14 @@ export default function HeaderMobileDrawer({
   onClose,
   onLogout,
 }: HeaderMobileDrawerProps) {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   return (
     <>
       {/* Backdrop */}
@@ -45,6 +54,9 @@ export default function HeaderMobileDrawer({
 
       {/* Menu Panel */}
       <motion.div
+        role="dialog"
+        aria-modal="true"
+        aria-label="메뉴"
         initial={{ x: "100%" }}
         animate={{ x: 0 }}
         exit={{ x: "100%" }}

@@ -56,6 +56,7 @@ function LoginContent() {
         <div className="relative bg-dark-100 rounded-xl p-6 md:p-8 shadow-xl">
           <button
             onClick={() => router.back()}
+            aria-label="닫기"
             className="absolute top-4 right-4 p-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded-full transition"
           >
             <X className="w-5 h-5" />
@@ -109,6 +110,7 @@ function LoginContent() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
                   className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-white/40 hover:text-white/60 transition"
                 >
                   {showPassword ? (

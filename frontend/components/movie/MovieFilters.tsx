@@ -45,6 +45,7 @@ export default function MovieFilters({
       <select
         value={selectedGenre}
         onChange={(e) => onUpdateParams({ genre: e.target.value, page: null })}
+        aria-label="장르 선택"
         className="px-4 py-2.5 bg-dark-100 border border-white/10 rounded-lg text-white focus:outline-none focus:border-primary-500 transition"
       >
         <option value="">모든 장르</option>
@@ -59,6 +60,7 @@ export default function MovieFilters({
       <select
         value={selectedAgeRating}
         onChange={(e) => onUpdateParams({ age_rating: e.target.value, page: null })}
+        aria-label="연령 등급 선택"
         className="px-4 py-2.5 bg-dark-100 border border-white/10 rounded-lg text-white focus:outline-none focus:border-primary-500 transition"
       >
         {AGE_RATING_OPTIONS.map((option) => (
@@ -72,6 +74,7 @@ export default function MovieFilters({
       <select
         value={sortBy}
         onChange={(e) => onUpdateParams({ sort: e.target.value, page: null })}
+        aria-label="정렬 방식"
         className="px-4 py-2.5 bg-dark-100 border border-white/10 rounded-lg text-white focus:outline-none focus:border-primary-500 transition"
       >
         {SORT_OPTIONS.map((option) => (

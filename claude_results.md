@@ -1,3 +1,110 @@
+# Phase 44: SEO 메타데이터 + Loading Skeleton + 접근성 + 캐시 키 (2026-02-23)
+
+## Step 1: 라우트별 SEO 메타데이터 레이아웃 (6개)
+
+| 라우트 | 파일 | title |
+|--------|------|-------|
+| `/login` | `app/login/layout.tsx` | 로그인 \| RecFlix |
+| `/signup` | `app/signup/layout.tsx` | 회원가입 \| RecFlix |
+| `/profile` | `app/profile/layout.tsx` | 내 프로필 \| RecFlix |
+| `/favorites` | `app/favorites/layout.tsx` | 찜한 영화 \| RecFlix |
+| `/ratings` | `app/ratings/layout.tsx` | 내 평점 \| RecFlix |
+| `/onboarding` | `app/onboarding/layout.tsx` | 취향 설정 \| RecFlix |
+
+각 layout.tsx에 `metadata` export (title, description, openGraph, twitter) 포함.
+
+## Step 2: Loading Skeleton (3개)
+
+| 파일 | 설명 |
+|------|------|
+| `app/loading.tsx` | 홈: 배너 + 3개 Movie Row × 6카드 |
+| `app/movies/loading.tsx` | 검색: 타이틀 + 검색바 + 필터 + 4×6 그리드 |
+| `app/movies/[id]/loading.tsx` | 상세: 히어로 + 포스터 + 정보 |
+
+## Step 3: 접근성 (Accessibility)
+
+### 3-1: Viewport 설정
+- `maximumScale`: 1 → 5
+- `userScalable`: false → true
+
+### 3-2: MovieModal
+- `role="dialog"` `aria-modal="true"` `aria-labelledby="modal-movie-title"` 추가
+- `tabIndex={-1}` + `ref={dialogRef}` + ESC 키 핸들러
+- 닫기 버튼 `aria-label="닫기"` 추가
+- h2에 `id="modal-movie-title"` 추가
+
+### 3-3: HeaderMobileDrawer
+- `role="dialog"` `aria-modal="true"` `aria-label="메뉴"` 추가
+- ESC 키 핸들러 (useEffect + keydown)
+
+### 3-4: SearchAutocomplete (Combobox ARIA)
+- input: `role="combobox"` `aria-expanded` `aria-controls` `aria-activedescendant` `aria-autocomplete="list"`
+- 결과 컨테이너: `id="search-results-listbox"` `role="listbox"`
+- 각 결과 항목 (SearchResults.tsx): `role="option"` `aria-selected` `id="search-item-{n}"`
+- 검색어 지우기 버튼: `aria-label="검색어 지우기"`
+
+### 3-5: Icon 버튼 aria-label
+- 로그인 닫기 버튼: `aria-label="닫기"`
+- 비밀번호 토글: `aria-label="비밀번호 보기"` / `"비밀번호 숨기기"`
+
+### 3-6: MovieFilters select aria-label
+- 장르: `aria-label="장르 선택"`
+- 연령등급: `aria-label="연령 등급 선택"`
+- 정렬: `aria-label="정렬 방식"`
+
+## Step 4: 홈 캐시 키 개선
+
+```
+Before: `${weather.condition}-${mood}-${isAuthenticated}`
+After:  `${weather.condition}-${mood}-${user?.id || 'anon'}-${user?.mbti || 'none'}`
+```
+
+동일 인증 상태여도 사용자/MBTI가 다르면 캐시 무효화.
+useEffect 의존성 배열에 `user?.id`, `user?.mbti` 추가.
+
+## 변경 파일 목록 (15개)
+
+### 신규 (9개)
+- `app/login/layout.tsx`
+- `app/signup/layout.tsx`
+- `app/profile/layout.tsx`
+- `app/favorites/layout.tsx`
+- `app/ratings/layout.tsx`
+- `app/onboarding/layout.tsx`
+- `app/loading.tsx`
+- `app/movies/loading.tsx`
+- `app/movies/[id]/loading.tsx`
+
+### 수정 (6개)
+- `app/layout.tsx` — viewport 접근성
+- `app/page.tsx` — 캐시 키 + deps
+- `app/login/page.tsx` — aria-label
+- `components/movie/MovieModal.tsx` — dialog ARIA
+- `components/movie/MovieFilters.tsx` — select aria-label
+- `components/layout/HeaderMobileDrawer.tsx` — dialog ARIA + ESC
+- `components/search/SearchAutocomplete.tsx` — combobox ARIA
+- `components/search/SearchResults.tsx` — option ARIA
+
+## 검증 결과
+- `tsc --noEmit`: 0 errors
+- `npm run build`: 성공 (13/13 pages)
+- `npm run lint`: 0 warnings/errors
+
+---
+
+# pg_trgm 검색 인덱스 프로덕션 적용 (2026-02-23)
+
+Railway 프로덕션 DB에 pg_trgm GIN 인덱스 3개 적용 완료.
+
+- `pg_trgm` 확장: 활성화 확인
+- `idx_movies_title_ko_trgm`: title_ko ILIKE 검색 가속
+- `idx_movies_title_trgm`: title ILIKE 검색 가속
+- `idx_movies_cast_ko_trgm`: cast_ko ILIKE 검색 가속
+
+모두 `CREATE INDEX CONCURRENTLY`로 무중단 생성.
+
+---
+
 # Phase 43B: Frontend 성능 — 파일 분할 + 애니메이션 경량화 결과
 
 ## 날짜

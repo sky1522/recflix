@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { Heart, Star, X } from "lucide-react";
@@ -26,6 +26,8 @@ export default function MovieModal({ movie, onClose }: MovieModalProps) {
   const { interactions, fetchInteraction, toggleFavorite, setRating } = useInteractionStore();
   const interaction = interactions[movie.id];
 
+  const dialogRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -49,11 +51,19 @@ export default function MovieModal({ movie, onClose }: MovieModalProps) {
 
     fetchData();
     document.body.style.overflow = "hidden";
+    // Focus dialog on open
+    dialogRef.current?.focus();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
 
     return () => {
       document.body.style.overflow = "unset";
+      document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [movie.id, isAuthenticated, fetchInteraction]);
+  }, [movie.id, isAuthenticated, fetchInteraction, onClose]);
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
@@ -101,6 +111,11 @@ export default function MovieModal({ movie, onClose }: MovieModalProps) {
         onClick={handleBackdropClick}
       >
         <motion.div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-movie-title"
+          tabIndex={-1}
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
@@ -109,6 +124,7 @@ export default function MovieModal({ movie, onClose }: MovieModalProps) {
           {/* Close Button */}
           <button
             onClick={onClose}
+            aria-label="닫기"
             className="absolute top-4 right-4 z-10 w-10 h-10 bg-dark-200/80 hover:bg-dark-200 rounded-full flex items-center justify-center transition"
           >
             <X className="w-6 h-6 text-white" />
@@ -128,7 +144,7 @@ export default function MovieModal({ movie, onClose }: MovieModalProps) {
           {/* Content */}
           <div className="p-6 md:p-8 -mt-20 relative">
             {/* Title & Meta */}
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">
+            <h2 id="modal-movie-title" className="text-3xl md:text-4xl font-bold text-white mb-2">
               {movie.title_ko || movie.title}
             </h2>
 
