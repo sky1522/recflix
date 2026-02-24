@@ -1,85 +1,60 @@
-claude "Phase 47B: 트레일러 YouTube 임베드 UI.
+claude "Phase 48A: async 블로킹 I/O 수정.
 
 === Research ===
 다음 파일들을 읽을 것:
-- frontend/app/movies/[id]/page.tsx (영화 상세 페이지)
-- frontend/app/movies/[id]/components/ (상세 페이지 컴포넌트들)
-- frontend/components/movie/FeaturedBanner.tsx (배너 구조)
-- frontend/components/movie/MovieCard.tsx (카드 구조)
-- frontend/components/movie/HybridMovieCard.tsx (카드 구조)
-- frontend/components/movie/MovieModal.tsx (모달 구조)
-- frontend/types/index.ts (Movie 타입 — trailer_key 필드 추가 필요)
-- frontend/lib/api.ts (API 함수)
+- backend/app/api/v1/auth.py (전체 — bcrypt 호출 지점, httpx.Client 사용 지점)
+- backend/app/core/security.py (verify_password, get_password_hash)
+- backend/app/core/deps.py (get_current_user)
+- backend/app/main.py (lifespan)
 
-=== 1단계: 타입 업데이트 ===
-frontend/types/index.ts:
-- Movie 타입에 trailer_key?: string 추가
-- MovieDetail 타입에도 동일 추가
+=== 1단계: bcrypt 블로킹 해소 ===
 
-=== 2단계: 영화 상세 페이지 트레일러 섹션 ===
-frontend/app/movies/[id]/components/MovieTrailer.tsx 생성:
+1-1. backend/app/core/security.py:
+  - verify_password()를 async로 변경하지 말 것 (동기 유틸 유지)
+  
+1-2. backend/app/api/v1/auth.py의 bcrypt 호출 지점:
+  - login 엔드포인트에서 verify_password() 호출 부분
+  - signup 엔드포인트에서 get_password_hash() 호출 부분
+  - 각각 asyncio.to_thread()로 래핑:
+    is_valid = await asyncio.to_thread(verify_password, password, user.hashed_password)
+    hashed = await asyncio.to_thread(get_password_hash, password)
+  
+⚠️ asyncio.to_thread는 Python 3.9+ (프로젝트 호환성 확인)
 
-2-1. 컴포넌트 구조:
-  - props: { trailerKey: string | null | undefined }
-  - trailerKey 없으면 null 반환 (섹션 숨김)
-  - 섹션 제목: '트레일러' (h2)
-  - YouTube iframe 임베드:
-    src: https://www.youtube.com/embed/{trailerKey}
-    allow: accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture
-    allowFullScreen
-  - 반응형: aspect-video (16:9), rounded-xl, overflow-hidden
-  - loading="lazy" (viewport 진입 시 로드)
+=== 2단계: httpx.AsyncClient 싱글턴 ===
 
-2-2. 상세 페이지에 배치:
-  - 영화 정보 섹션 아래, 유사 영화 섹션 위에 배치
-  - 기존 레이아웃 깨지지 않도록
+2-1. backend/app/core/http_client.py 생성 (신규):
+  - 모듈 레벨 AsyncClient 싱글턴
+  - lifespan에서 초기화/정리:
+    startup: http_client = httpx.AsyncClient(timeout=10.0)
+    shutdown: await http_client.aclose()
+  - get_http_client() 함수 export
 
-=== 3단계: FeaturedBanner 트레일러 버튼 ===
-frontend/components/movie/FeaturedBanner.tsx 수정:
+2-2. backend/app/api/v1/auth.py의 OAuth 부분:
+  - 현재: httpx.Client()를 매 요청마다 with 블록으로 생성
+  - 변경: get_http_client()로 싱글턴 사용, await client.post(...) / await client.get(...)
+  - Kakao, Google 양쪽 모두 적용
 
-3-1. '트레일러 보기' 버튼 추가:
-  - trailer_key가 있는 영화만 표시
-  - 기존 '자세히 보기' 버튼 옆에 배치
-  - 아이콘: ▶ (Play) + '트레일러' 텍스트
-  - 스타일: 반투명 배경, 기존 버튼과 조화
+2-3. backend/app/main.py lifespan:
+  - startup에 http_client 초기화 추가
+  - shutdown에 http_client.aclose() 추가
 
-3-2. 클릭 시 트레일러 모달:
-  - frontend/components/movie/TrailerModal.tsx 생성
-  - 전체 화면 오버레이 (bg-black/80)
-  - 중앙에 YouTube iframe (max-w-4xl, aspect-video)
-  - 닫기: X 버튼 + ESC 키 + 배경 클릭
-  - role='dialog' aria-modal='true' (접근성)
-  - focus trap (MovieModal과 동일 패턴)
-
-=== 4단계: MovieCard/MovieModal 트레일러 표시 ===
-
-4-1. MovieCard.tsx + HybridMovieCard.tsx:
-  - trailer_key 있는 영화: hover 시 작은 ▶ 아이콘 오버레이 (포스터 좌하단)
-  - 아이콘만 표시, 클릭은 기존 동작 유지 (상세 페이지 이동)
-
-4-2. MovieModal.tsx:
-  - trailer_key 있으면 모달 내에 '트레일러 보기' 버튼 추가
-  - 클릭 시 TrailerModal 열기
+⚠️ httpx.AsyncClient는 자동으로 커넥션 풀 관리
+⚠️ 기존 동기 httpx.Client 호출을 async로 전환하면서 응답 처리 로직은 동일하게 유지
 
 === 규칙 ===
-- YouTube iframe은 lazy loading 필수
-- trailer_key 없는 영화는 트레일러 관련 UI 일절 표시하지 않음
-- iframe sandbox 속성은 넣지 않음 (YouTube 재생에 필요한 기능 차단될 수 있음)
-- 새 컴포넌트는 300줄 이내
-- 기존 다크 테마 (zinc, dark 계열) 일관성 유지
-- any 타입 금지
+- verify_password, get_password_hash 함수 시그니처는 동기 유지 (호출부에서 to_thread)
+- OAuth 토큰 교환/프로필 조회 로직 자체는 변경 금지 (HTTP 클라이언트만 교체)
+- 에러 핸들링 기존 패턴 유지
 
 === 검증 ===
-1. cd frontend && npx tsc --noEmit → 0 errors
-2. cd frontend && npm run build → 성공
-3. cd frontend && npm run lint → 0 errors
-4. trailer_key 포함된 영화 상세 페이지: 트레일러 섹션 표시
-5. trailer_key 없는 영화: 트레일러 관련 UI 숨김
-6. FeaturedBanner: 트레일러 버튼 + 모달 동작
-7. git add -A && git commit -m 'feat: Phase 47B 트레일러 YouTube 임베드 UI' && git push origin HEAD:main
+1. cd backend && ruff check app/ → 0 issues
+2. cd backend && python -c 'from app.main import app; print(app.title)'
+3. cd backend && python -c 'import asyncio; from app.core.security import verify_password; print(asyncio.run(asyncio.to_thread(verify_password, \"test\", \"$2b$12$test\")))'
+4. git add -A && git commit -m 'perf: Phase 48A bcrypt to_thread + httpx AsyncClient 싱글턴' && git push origin HEAD:main
 
 결과를 claude_results.md에 덮어쓰기:
-- 새로 생성된 컴포넌트 목록 + 역할
-- 타입 변경 내용
-- 트레일러 표시 위치 요약 (상세/배너/카드/모달)
-- 접근성 처리 요약"
+- bcrypt to_thread 적용 지점 목록
+- httpx 변경 전/후 (Client → AsyncClient)
+- lifespan 변경 내용
+- http_client.py 구조"

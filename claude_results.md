@@ -1,56 +1,60 @@
-# Phase 47B: 트레일러 YouTube 임베드 UI
+# Phase 48A: async 블로킹 I/O 수정
 
-**날짜**: 2026-02-23
+**날짜**: 2026-02-24
 
 ## 변경/생성 파일
 
 | 파일 | 변경 내용 |
 |------|-----------|
-| `frontend/types/index.ts` | `Movie` 타입에 `trailer_key?: string \| null` 추가 |
-| `frontend/app/movies/[id]/components/MovieTrailer.tsx` | 상세 페이지 트레일러 섹션 (신규) |
-| `frontend/components/movie/TrailerModal.tsx` | 트레일러 모달 (신규) |
-| `frontend/app/movies/[id]/page.tsx` | MovieTrailer 배치 (출연진↔유사영화 사이) |
-| `frontend/components/movie/FeaturedBanner.tsx` | 트레일러 버튼 + TrailerModal 연동 |
-| `frontend/components/movie/MovieModal.tsx` | 트레일러 버튼 + TrailerModal 연동 |
-| `frontend/components/movie/MovieCard.tsx` | hover 시 ▶ 아이콘 오버레이 |
-| `frontend/components/movie/HybridMovieCard.tsx` | hover 시 ▶ 아이콘 오버레이 |
+| `backend/app/core/http_client.py` | httpx.AsyncClient 싱글턴 (신규) |
+| `backend/app/api/v1/auth.py` | bcrypt to_thread + httpx AsyncClient 전환 |
+| `backend/app/main.py` | lifespan에 http_client 초기화/정리 추가 |
 
-## 컴포넌트 역할
+## 1단계: bcrypt to_thread 적용 지점
 
-### MovieTrailer (신규)
-- 영화 상세 페이지 내 인라인 트레일러 섹션
-- YouTube iframe 임베드, `loading="lazy"`, `aspect-video` 반응형
-- `trailerKey` 없으면 null 반환 (섹션 숨김)
-
-### TrailerModal (신규)
-- 전체 화면 오버레이 (`bg-black/80`) + 중앙 YouTube iframe
-- `autoplay=1` 자동 재생
-- 닫기: X 버튼 + ESC 키 + 배경 클릭
-- `role="dialog"` `aria-modal="true"` 접근성
-- focus trap (MovieModal과 동일 패턴)
-
-## 트레일러 표시 위치 요약
-
-| 위치 | 동작 |
+| 함수 | 변경 |
 |------|------|
-| **영화 상세 페이지** | 출연진 아래, 유사 영화 위에 인라인 iframe |
-| **FeaturedBanner** | '미리보기' 옆 '트레일러' 버튼 → TrailerModal |
-| **MovieModal** | 찜하기 옆 '트레일러' 버튼 → TrailerModal |
-| **MovieCard** | hover 시 포스터 좌하단 ▶ 아이콘 (클릭은 기존 동작 유지) |
-| **HybridMovieCard** | hover 시 포스터 좌하단 ▶ 아이콘 (클릭은 기존 동작 유지) |
+| `signup` | `def` → `async def`, `get_password_hash()` → `await asyncio.to_thread(get_password_hash, ...)` |
+| `login` | `verify_password()` → `await asyncio.to_thread(verify_password, ...)` |
+| `kakao_login` | 신규 유저 생성 시 `get_password_hash()` → `await asyncio.to_thread(...)` |
+| `google_login` | 신규 유저 생성 시 `get_password_hash()` → `await asyncio.to_thread(...)` |
 
-## 접근성 처리
+## 2단계: httpx 변경 전/후
 
-- TrailerModal: `role="dialog"`, `aria-modal="true"`, `aria-label="트레일러"`
-- ESC 키로 닫기
-- focus trap (Tab/Shift+Tab 순환)
-- 닫을 때 트리거 요소로 포커스 복귀
-- 닫기 버튼: `aria-label="닫기"`
+**Before** (매 요청마다 동기 클라이언트 생성):
+```python
+with httpx.Client(timeout=10.0) as client:
+    token_resp = client.post(...)
+```
+
+**After** (싱글턴 AsyncClient 재사용):
+```python
+client = get_http_client()
+token_resp = await client.post(...)
+```
+
+적용 위치: Kakao OAuth (token + userinfo), Google OAuth (token + userinfo) — 총 4곳
+
+## http_client.py 구조
+
+- `init_http_client()`: AsyncClient 생성 (lifespan startup)
+- `close_http_client()`: AsyncClient 종료 (lifespan shutdown)
+- `get_http_client()`: 싱글턴 반환
+
+## lifespan 변경
+
+```python
+# startup
+await init_http_client()
+
+# shutdown
+await close_http_client()
+```
 
 ## 검증 결과
 
 | 항목 | 결과 |
 |------|------|
-| `npx tsc --noEmit` | 0 errors |
-| `npm run build` | 13/13 pages 성공 |
-| Lint (build 내장) | 0 errors |
+| `ruff check app/` | 0 issues |
+| `from app.main import app` | 정상 import |
+| `asyncio.to_thread` roundtrip | hash→verify True, wrong→False |

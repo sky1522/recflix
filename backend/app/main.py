@@ -52,8 +52,14 @@ async def lifespan(app: FastAPI):
     load_embeddings()
     logger.info("Semantic search: %s", "enabled" if is_semantic_search_available() else "disabled (no embeddings)")
 
+    # Initialize shared httpx.AsyncClient
+    from app.core.http_client import close_http_client, init_http_client
+    await init_http_client()
+
     yield
-    # Shutdown: cleanup if needed
+
+    # Shutdown: close shared httpx.AsyncClient
+    await close_http_client()
 
 
 app = FastAPI(

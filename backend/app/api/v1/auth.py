@@ -1,16 +1,17 @@
 """
 Authentication API endpoints
 """
+import asyncio
 import logging
 import random
 import secrets
 
-import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core.deps import get_db
+from app.core.http_client import get_http_client
 from app.core.rate_limit import limiter
 from app.core.security import (
     create_access_token,
@@ -80,7 +81,7 @@ async def _validate_oauth_state(state: str | None) -> bool:
 
 @router.post("/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute")
-def signup(request: Request, user_data: UserCreate, db: Session = Depends(get_db)):
+async def signup(request: Request, user_data: UserCreate, db: Session = Depends(get_db)):
     """Register a new user"""
     # Check if email already exists
     if db.query(User).filter(User.email == user_data.email).first():
@@ -90,9 +91,10 @@ def signup(request: Request, user_data: UserCreate, db: Session = Depends(get_db
         )
 
     # Create user with random experiment group
+    hashed = await asyncio.to_thread(get_password_hash, user_data.password)
     user = User(
         email=user_data.email,
-        password=get_password_hash(user_data.password),
+        password=hashed,
         nickname=user_data.nickname,
         mbti=user_data.mbti,
         birth_date=user_data.birth_date,
@@ -112,7 +114,11 @@ async def login(request: Request, credentials: UserLogin, db: Session = Depends(
     """Login and get access token"""
     user = db.query(User).filter(User.email == credentials.email).first()
 
-    if not user or not verify_password(credentials.password, user.password):
+    is_valid = (
+        user is not None
+        and await asyncio.to_thread(verify_password, credentials.password, user.password)
+    )
+    if not is_valid:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password"
@@ -259,17 +265,17 @@ async def kakao_login(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "잘못된 인증 요청입니다. 다시 시도해주세요.")
 
     # 1. Exchange code for access_token
-    with httpx.Client(timeout=10.0) as client:
-        token_resp = client.post(
-            "https://kauth.kakao.com/oauth/token",
-            data={
-                "grant_type": "authorization_code",
-                "client_id": settings.KAKAO_CLIENT_ID,
-                "client_secret": settings.KAKAO_CLIENT_SECRET,
-                "redirect_uri": settings.KAKAO_REDIRECT_URI,
-                "code": body.code,
-            },
-        )
+    client = get_http_client()
+    token_resp = await client.post(
+        "https://kauth.kakao.com/oauth/token",
+        data={
+            "grant_type": "authorization_code",
+            "client_id": settings.KAKAO_CLIENT_ID,
+            "client_secret": settings.KAKAO_CLIENT_SECRET,
+            "redirect_uri": settings.KAKAO_REDIRECT_URI,
+            "code": body.code,
+        },
+    )
 
     if token_resp.status_code != 200:
         logger.error("Kakao token exchange failed: %s", token_resp.text)
@@ -278,11 +284,10 @@ async def kakao_login(
     kakao_access_token = token_resp.json().get("access_token")
 
     # 2. Get user info
-    with httpx.Client(timeout=10.0) as client:
-        user_resp = client.get(
-            "https://kapi.kakao.com/v2/user/me",
-            headers={"Authorization": f"Bearer {kakao_access_token}"},
-        )
+    user_resp = await client.get(
+        "https://kapi.kakao.com/v2/user/me",
+        headers={"Authorization": f"Bearer {kakao_access_token}"},
+    )
 
     if user_resp.status_code != 200:
         logger.error("Kakao user info failed: %s", user_resp.text)
@@ -318,7 +323,7 @@ async def kakao_login(
 
     user = User(
         email=email,
-        password=get_password_hash(secrets.token_urlsafe(32)),
+        password=await asyncio.to_thread(get_password_hash, secrets.token_urlsafe(32)),
         nickname=nickname,
         kakao_id=kakao_id,
         profile_image=profile.get("profile_image_url"),
@@ -345,17 +350,17 @@ async def google_login(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "잘못된 인증 요청입니다. 다시 시도해주세요.")
 
     # 1. Exchange code for access_token
-    with httpx.Client(timeout=10.0) as client:
-        token_resp = client.post(
-            "https://oauth2.googleapis.com/token",
-            data={
-                "grant_type": "authorization_code",
-                "client_id": settings.GOOGLE_CLIENT_ID,
-                "client_secret": settings.GOOGLE_CLIENT_SECRET,
-                "redirect_uri": settings.GOOGLE_REDIRECT_URI,
-                "code": body.code,
-            },
-        )
+    client = get_http_client()
+    token_resp = await client.post(
+        "https://oauth2.googleapis.com/token",
+        data={
+            "grant_type": "authorization_code",
+            "client_id": settings.GOOGLE_CLIENT_ID,
+            "client_secret": settings.GOOGLE_CLIENT_SECRET,
+            "redirect_uri": settings.GOOGLE_REDIRECT_URI,
+            "code": body.code,
+        },
+    )
 
     if token_resp.status_code != 200:
         logger.error("Google token exchange failed: %s", token_resp.text)
@@ -364,11 +369,10 @@ async def google_login(
     google_access_token = token_resp.json().get("access_token")
 
     # 2. Get user info
-    with httpx.Client(timeout=10.0) as client:
-        user_resp = client.get(
-            "https://www.googleapis.com/oauth2/v2/userinfo",
-            headers={"Authorization": f"Bearer {google_access_token}"},
-        )
+    user_resp = await client.get(
+        "https://www.googleapis.com/oauth2/v2/userinfo",
+        headers={"Authorization": f"Bearer {google_access_token}"},
+    )
 
     if user_resp.status_code != 200:
         logger.error("Google user info failed: %s", user_resp.text)
@@ -403,7 +407,7 @@ async def google_login(
 
     user = User(
         email=email,
-        password=get_password_hash(secrets.token_urlsafe(32)),
+        password=await asyncio.to_thread(get_password_hash, secrets.token_urlsafe(32)),
         nickname=name,
         google_id=google_id,
         profile_image=picture,
