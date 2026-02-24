@@ -46,13 +46,13 @@ export default class ErrorBoundary extends React.Component<
           <div className="flex items-center justify-center gap-3">
             <button
               onClick={() => window.location.reload()}
-              className="px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition"
+              className="px-5 py-3 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition min-h-[44px]"
             >
               새로고침
             </button>
             <Link
               href="/"
-              className="px-5 py-2.5 bg-zinc-700 hover:bg-zinc-600 text-white font-medium rounded-lg transition"
+              className="px-5 py-3 bg-zinc-700 hover:bg-zinc-600 text-white font-medium rounded-lg transition min-h-[44px]"
             >
               홈으로
             </Link>

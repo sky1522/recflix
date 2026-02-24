@@ -334,14 +334,14 @@ function OnboardingMovieCard({
         {displayTitle}
       </p>
       {/* Star rating */}
-      <div className="flex gap-0.5">
+      <div className="flex gap-0">
         {[1, 2, 3, 4, 5].map((star) => (
           <button
             key={star}
             onClick={() => onRate(star)}
             onMouseEnter={() => setHoverStar(star)}
             onMouseLeave={() => setHoverStar(0)}
-            className="p-0"
+            className="p-1 min-w-[28px] min-h-[28px] flex items-center justify-center"
           >
             <Star
               className={`w-3.5 h-3.5 transition-colors ${

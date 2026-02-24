@@ -139,7 +139,7 @@ export default function Header() {
 
               <button
                 onClick={() => setSearchOpen(!searchOpen)}
-                className="md:hidden p-2 text-white/70 hover:text-white transition"
+                className="md:hidden p-2.5 text-white/70 hover:text-white transition min-w-[44px] min-h-[44px] flex items-center justify-center"
                 aria-label="검색"
               >
                 <Search className="w-5 h-5" />
@@ -183,7 +183,7 @@ export default function Header() {
 
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden p-2 text-white/70 hover:text-white transition z-10"
+                className="md:hidden p-2.5 text-white/70 hover:text-white transition z-10 min-w-[44px] min-h-[44px] flex items-center justify-center"
                 aria-label="메뉴"
               >
                 {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}

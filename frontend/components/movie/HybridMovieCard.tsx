@@ -119,9 +119,9 @@ export default function HybridMovieCard({ movie, index = 0, showQuickView = true
               </div>
             </div>
 
-            {/* Trailer indicator */}
+            {/* Trailer indicator — always visible on mobile, hover on desktop */}
             {movie.trailer_key && (
-              <span className="absolute bottom-2 left-2 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10">
+              <span className="absolute bottom-2 left-2 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10">
                 <svg className="w-3 h-3 text-white ml-0.5" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M6.3 2.841A1.5 1.5 0 004 4.11v11.78a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
                 </svg>

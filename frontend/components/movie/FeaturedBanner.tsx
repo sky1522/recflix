@@ -232,7 +232,7 @@ export default function FeaturedBanner({
             )}
 
             {/* Buttons: 상세보기(페이지) → 미리보기(모달) → 내 리스트 */}
-            <div className="flex space-x-3 mt-1">
+            <div className="flex flex-wrap gap-2 sm:gap-3 mt-1">
               <Link
                 href={`/movies/${movie.id}`}
                 className="flex items-center space-x-2 bg-white text-black px-4 md:px-6 py-2.5 md:py-3 rounded-md font-medium hover:bg-white/90 transition text-sm md:text-base"
@@ -286,8 +286,8 @@ export default function FeaturedBanner({
         </div>
       </div>
 
-      {/* 우측 고정 유도 섹션: 스크롤 시에도 따라다님 */}
-      <div className="fixed top-[72px] right-4 md:right-8 lg:right-12 z-40 flex flex-col items-end gap-2">
+      {/* 우측 고정 유도 섹션: 스크롤 시에도 따라다님 — 모바일에서는 하단 고정 */}
+      <div className="fixed bottom-4 left-4 right-4 sm:bottom-auto sm:left-auto sm:top-[72px] sm:right-4 md:right-8 lg:right-12 z-40 flex flex-col items-stretch sm:items-end gap-2">
         {/* MBTI 유도 섹션 */}
         <AnimatePresence>
           {showPrompt && randomMessage && (
@@ -296,11 +296,11 @@ export default function FeaturedBanner({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.5, ease: "easeOut" }}
-              className="w-80"
+              className="w-full sm:w-80"
             >
               <Link
                 href={isAuthenticated ? "/profile" : "/login"}
-                className="flex items-center gap-3 w-full px-4 py-2.5 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-2xl border border-white/20 transition-all duration-300 group"
+                className="flex items-center gap-3 w-full px-4 py-3 sm:py-2.5 bg-black/60 sm:bg-black/40 hover:bg-black/70 sm:hover:bg-black/60 backdrop-blur-md rounded-2xl border border-white/20 transition-all duration-300 group min-h-[44px]"
               >
                 <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex-shrink-0">
                   {isAuthenticated ? (
@@ -336,7 +336,7 @@ export default function FeaturedBanner({
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="w-80 flex flex-col gap-1.5 px-4 py-2.5 bg-black/40 backdrop-blur-md rounded-2xl border border-white/20"
+            className="w-full sm:w-80 flex flex-col gap-1.5 px-4 py-2.5 bg-black/60 sm:bg-black/40 backdrop-blur-md rounded-2xl border border-white/20"
           >
             <div className="text-xs text-white/70 text-center">
               {WEATHER_MESSAGE}
@@ -349,12 +349,12 @@ export default function FeaturedBanner({
                 </span>
               </div>
               <div className="w-px h-4 bg-white/20" />
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5 sm:gap-1">
                 {(["sunny", "rainy", "cloudy", "snowy"] as WeatherType[]).map((w) => (
                   <button
                     key={w}
                     onClick={() => onWeatherChange?.(w)}
-                    className={`p-1.5 rounded-full transition-all ${
+                    className={`p-2.5 sm:p-1.5 rounded-full transition-all ${
                       weather.condition === w
                         ? "bg-white/25 scale-110"
                         : "hover:bg-white/15"
@@ -370,7 +370,7 @@ export default function FeaturedBanner({
                   <div className="w-px h-4 bg-white/20" />
                   <button
                     onClick={onResetWeather}
-                    className="p-1.5 rounded-full transition-all hover:bg-white/15 text-white/70 hover:text-white"
+                    className="p-2.5 sm:p-1.5 rounded-full transition-all hover:bg-white/15 text-white/70 hover:text-white"
                     title="실시간 날씨로 복귀"
                   >
                     <RotateCcw className="w-4 h-4" />
@@ -386,17 +386,17 @@ export default function FeaturedBanner({
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="w-80 flex flex-col gap-1.5 px-4 py-2.5 bg-black/40 backdrop-blur-md rounded-2xl border border-white/20"
+          className="w-full sm:w-80 flex flex-col gap-1.5 px-4 py-2.5 bg-black/60 sm:bg-black/40 backdrop-blur-md rounded-2xl border border-white/20"
         >
           <div className="text-xs text-white/70 text-center">
             {MOOD_MESSAGE}
           </div>
-          <div className="grid grid-cols-4 gap-1">
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-1">
             {moodOrder.map((m) => (
               <button
                 key={m}
                 onClick={() => onMoodChange?.(mood === m ? null : m)}
-                className={`px-1.5 py-1 rounded-full text-xs transition-all whitespace-nowrap text-center ${
+                className={`px-2 py-2 sm:px-1.5 sm:py-1 rounded-full text-xs transition-all whitespace-nowrap text-center min-h-[36px] sm:min-h-0 ${
                   mood === m
                     ? "bg-white/25 scale-105"
                     : "hover:bg-white/15"

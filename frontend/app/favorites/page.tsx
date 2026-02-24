@@ -205,11 +205,11 @@ export default function FavoritesPage() {
                     >
                       <MovieCard movie={movie} index={0} />
 
-                      {/* Remove button */}
+                      {/* Remove button — always visible on mobile */}
                       <button
                         onClick={(e) => handleRemoveFavorite(movie.id, e)}
                         disabled={removingId === movie.id}
-                        className="absolute top-2 left-2 p-2 bg-black/70 hover:bg-red-600 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"
+                        className="absolute top-2 left-2 p-2 bg-black/70 hover:bg-red-600 rounded-full opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200 z-10 min-w-[40px] min-h-[40px] flex items-center justify-center"
                         title="찜 해제"
                       >
                         {removingId === movie.id ? (

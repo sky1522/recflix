@@ -59,7 +59,7 @@ function LoginContent() {
           <button
             onClick={() => router.back()}
             aria-label="닫기"
-            className="absolute top-4 right-4 p-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded-full transition"
+            className="absolute top-3 right-3 p-2.5 text-white/40 hover:text-white hover:bg-white/10 rounded-full transition min-w-[44px] min-h-[44px] flex items-center justify-center"
           >
             <X className="w-5 h-5" />
           </button>

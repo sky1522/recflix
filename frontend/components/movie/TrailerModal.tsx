@@ -83,7 +83,7 @@ export default function TrailerModal({ trailerKey, onClose }: TrailerModalProps)
           <button
             onClick={onClose}
             aria-label="닫기"
-            className="absolute -top-12 right-0 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition"
+            className="absolute -top-12 right-0 w-11 h-11 sm:w-10 sm:h-10 bg-white/20 sm:bg-white/10 hover:bg-white/30 sm:hover:bg-white/20 rounded-full flex items-center justify-center transition z-10"
           >
             <X className="w-6 h-6 text-white" />
           </button>

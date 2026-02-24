@@ -272,14 +272,14 @@ export default function MovieModal({ movie, onClose }: MovieModalProps) {
               {/* 별점 */}
               <div className="flex items-center space-x-3">
                 <span className="text-white/70 text-sm">내 평점:</span>
-                <div className="flex items-center space-x-1">
+                <div className="flex items-center space-x-0.5">
                   {[1, 2, 3, 4, 5].map((score) => (
                     <button
                       key={score}
                       onClick={() => handleRatingClick(score)}
                       onMouseEnter={() => setRatingHover(score)}
                       onMouseLeave={() => setRatingHover(0)}
-                      className="p-1 transition-transform hover:scale-110"
+                      className="p-1.5 sm:p-1 transition-transform hover:scale-110 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
                     >
                       <Star
                         className={`w-7 h-7 transition-colors ${

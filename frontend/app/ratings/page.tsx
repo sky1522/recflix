@@ -127,12 +127,12 @@ function RatingCard({
             </div>
           </div>
 
-          {/* Delete Button */}
+          {/* Delete Button — always visible on mobile */}
           <div className="flex justify-end mt-2">
             <button
               onClick={() => onDelete(movie.id)}
               disabled={isDeleting}
-              className="p-2 text-white/40 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition opacity-0 group-hover:opacity-100"
+              className="p-2 text-white/40 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition opacity-100 sm:opacity-0 sm:group-hover:opacity-100 min-w-[44px] min-h-[44px] flex items-center justify-center"
               title="평점 삭제"
             >
               {isDeleting ? (

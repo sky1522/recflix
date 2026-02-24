@@ -182,14 +182,14 @@ export default function MovieDetailPage() {
             >
               <div className="flex items-center gap-4 flex-wrap">
                 <h2 className="text-xl font-semibold text-white">내 평점</h2>
-                <div className="flex items-center gap-0.5">
+                <div className="flex items-center gap-0">
                   {[1, 2, 3, 4, 5].map((score) => (
                     <button
                       key={score}
                       onClick={() => handleRatingClick(score)}
                       onMouseEnter={() => setRatingHover(score)}
                       onMouseLeave={() => setRatingHover(0)}
-                      className="p-0.5 transition-transform hover:scale-110"
+                      className="p-1.5 sm:p-0.5 transition-transform hover:scale-110 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
                     >
                       <Star
                         className={`w-7 h-7 transition-colors ${

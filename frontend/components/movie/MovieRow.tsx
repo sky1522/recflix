@@ -96,7 +96,7 @@ export default function MovieRow({ title, description, subtitle, movies, display
           <button
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="ml-auto p-1.5 rounded-full hover:bg-white/10 transition-colors group/refresh flex-shrink-0"
+            className="ml-auto p-2.5 sm:p-1.5 rounded-full hover:bg-white/10 transition-colors group/refresh flex-shrink-0 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
             title="다른 영화 보기"
           >
             <RefreshCw

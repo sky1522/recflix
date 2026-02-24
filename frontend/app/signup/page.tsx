@@ -74,7 +74,8 @@ export default function SignupPage() {
         <div className="relative bg-dark-100 rounded-lg p-8">
           <button
             onClick={() => router.back()}
-            className="absolute top-4 right-4 p-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded-full transition"
+            aria-label="닫기"
+            className="absolute top-3 right-3 p-2.5 text-white/40 hover:text-white hover:bg-white/10 rounded-full transition min-w-[44px] min-h-[44px] flex items-center justify-center"
           >
             <X className="w-5 h-5" />
           </button>
@@ -96,7 +97,7 @@ export default function SignupPage() {
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                className="w-full px-4 py-2.5 bg-dark-200 border border-white/10 rounded-md text-white placeholder-white/40 focus:outline-none focus:border-primary-500 transition"
+                className="w-full px-4 py-3 bg-dark-200 border border-white/10 rounded-md text-white placeholder-white/40 focus:outline-none focus:border-primary-500 transition text-base"
                 placeholder="your@email.com"
                 required
               />
@@ -111,7 +112,7 @@ export default function SignupPage() {
                 name="nickname"
                 value={formData.nickname}
                 onChange={handleChange}
-                className="w-full px-4 py-2.5 bg-dark-200 border border-white/10 rounded-md text-white placeholder-white/40 focus:outline-none focus:border-primary-500 transition"
+                className="w-full px-4 py-3 bg-dark-200 border border-white/10 rounded-md text-white placeholder-white/40 focus:outline-none focus:border-primary-500 transition text-base"
                 placeholder="닉네임을 입력하세요"
                 required
               />
@@ -126,7 +127,7 @@ export default function SignupPage() {
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                className="w-full px-4 py-2.5 bg-dark-200 border border-white/10 rounded-md text-white placeholder-white/40 focus:outline-none focus:border-primary-500 transition"
+                className="w-full px-4 py-3 bg-dark-200 border border-white/10 rounded-md text-white placeholder-white/40 focus:outline-none focus:border-primary-500 transition text-base"
                 placeholder="6자 이상"
                 required
               />
@@ -141,7 +142,7 @@ export default function SignupPage() {
                 name="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={handleChange}
-                className="w-full px-4 py-2.5 bg-dark-200 border border-white/10 rounded-md text-white placeholder-white/40 focus:outline-none focus:border-primary-500 transition"
+                className="w-full px-4 py-3 bg-dark-200 border border-white/10 rounded-md text-white placeholder-white/40 focus:outline-none focus:border-primary-500 transition text-base"
                 placeholder="비밀번호를 다시 입력"
                 required
               />

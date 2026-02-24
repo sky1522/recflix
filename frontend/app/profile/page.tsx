@@ -113,7 +113,7 @@ export default function ProfilePage() {
               logout();
               router.push("/");
             }}
-            className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-md transition"
+            className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-md transition min-h-[44px]"
           >
             로그아웃
           </button>
