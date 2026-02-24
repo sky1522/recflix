@@ -50,6 +50,30 @@
 → `MovieHero.tsx`, `MovieSidebar.tsx` — 트레일러 재생 버튼
 → `trailer_key` 필드: YouTube video ID (null이면 버튼 숨김)
 
+## 모바일 UI/UX 패턴 (Phase 51)
+
+### 터치 영역 (Apple HIG 44px 기준)
+- 버튼/링크: `min-w-[44px] min-h-[44px]` + `flex items-center justify-center`
+- 데스크톱 복원: `sm:min-w-0 sm:min-h-0` (데스크톱에선 원래 크기)
+- 패딩 확대: 모바일 `p-2.5` → 데스크톱 `sm:p-1.5`
+
+### hover-only → 모바일 대응
+- 패턴: `opacity-100 sm:opacity-0 sm:group-hover:opacity-100`
+- 적용: 트레일러 표시기, 찜 해제 버튼, 평점 삭제 버튼
+
+### 반응형 위치 (thumb zone)
+- 모바일: `fixed bottom-4 left-4 right-4` (하단 고정, 엄지 닿는 영역)
+- 데스크톱: `sm:bottom-auto sm:left-auto sm:top-[72px] sm:right-4`
+- 너비: `w-full sm:w-80`
+
+### 가로 overflow 방지
+- `flex flex-wrap gap-2 sm:gap-3` (줄바꿈 허용)
+- `space-x-3` 대신 `gap-2` 사용 (wrap과 호환)
+
+### 배경 가시성
+- 모바일: `bg-black/60` (더 진하게, 야외 가독성)
+- 데스크톱: `sm:bg-black/40`
+
 ## 새 페이지 추가 시 체크리스트
 1. `app/경로/page.tsx` 생성
 2. 필요 시 `layout.tsx` (OG 메타태그)

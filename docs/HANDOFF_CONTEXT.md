@@ -159,6 +159,7 @@ genres(19), persons(97,206), keywords, countries: M:M 연결
 | 48 | 02/24 | async 최적화 (httpx 싱글톤, bcrypt to_thread) + Alembic 마이그레이션 |
 | 49 | 02/24 | 시맨틱 재랭킹 v2 + pytest 14건 + structlog 구조화 로깅 |
 | 50 | 02/24 | 문서 최종화 + v1.0.0 릴리스 |
+| 51 | 02/24 | 모바일 UI/UX 개선 (터치 영역 44px + thumb zone + hover-only 대응) |
 
 ---
 

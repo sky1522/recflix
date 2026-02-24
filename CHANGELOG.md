@@ -12,6 +12,14 @@ All notable changes to RecFlix will be documented in this file.
 
 ## [2026-02-24]
 
+### Fixed
+- **모바일 UI/UX 개선 (Post-v1.0.0)**
+  - 15개 파일 수정: 터치 영역 44px 미달 버튼/링크 전수 점검 (Apple HIG 기준)
+  - 유도섹션(FeaturedBanner): 모바일 하단 고정(thumb zone) + 데스크톱 기존 위치 유지
+  - hover-only UI → 모바일에서 항상 표시 (트레일러 표시기, 찜 해제, 평점 삭제)
+  - 배너 버튼 `flex-wrap` 적용 (360px 가로 overflow 방지)
+  - 대상 파일: FeaturedBanner, Header, MovieCard, HybridMovieCard, MovieRow, MovieModal, TrailerModal, movies/[id]/page, login/page, signup/page, onboarding/page, favorites/page, ratings/page, profile/page, ErrorBoundary
+
 ### Added
 - **pytest 기본 스위트 (Phase 49B)**: 14건 테스트 (10 passed, 4 skipped)
   - `conftest.py`: SQLite in-memory + JSONB→JSON 변환 + Redis mock + rate limit 비활성화

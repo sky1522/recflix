@@ -819,6 +819,7 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 - [x] **async 블로킹 해소 + Alembic 마이그레이션** (Phase 48) (2026-02-24)
 - [x] **pytest 14건 + structlog 구조화 로깅 + 시맨틱 재랭킹 v2** (Phase 49) (2026-02-24)
 - [x] **문서 최종화 + v1.0.0 릴리스** (Phase 50) (2026-02-24)
+- [x] **모바일 UI/UX 개선** (터치 영역 44px + 유도섹션 thumb zone + hover-only 대응) (2026-02-24)
 
 ### 향후 개선사항
 - [ ] PWA 지원

@@ -1,93 +1,96 @@
-claude "Phase 50 보완: 프로젝트 문서/skills 최종 동기화.
+claude "모바일 UI/UX 점검 + 유도섹션 터치 영역 개선.
 
 === Research ===
-다음 파일들을 모두 읽을 것:
-- README.md
-- CHANGELOG.md
-- PROGRESS.md
-- CLAUDE.md
-- docs/ARCHITECTURE.md
-- docs/HANDOFF_CONTEXT.md
-- docs/PROJECT_INDEX.md
-- docs/RECOMMENDATION_LOGIC.md
-- .claude/skills/ 전체 파일
-- claude_results.md
-- codex_results.md
+다음 파일들을 읽을 것:
+- frontend/app/page.tsx (홈 페이지 — 유도섹션 구조)
+- frontend/app/movies/[id]/page.tsx (영화 상세)
+- frontend/app/movies/[id]/components/ (상세 컴포넌트들)
+- frontend/components/movie/FeaturedBanner.tsx (배너 버튼)
+- frontend/components/movie/MovieCard.tsx (카드 터치)
+- frontend/components/movie/HybridMovieCard.tsx (카드 터치)
+- frontend/components/movie/MovieRow.tsx (가로 스크롤 Row)
+- frontend/components/movie/MovieModal.tsx (모달 — 모바일 크기)
+- frontend/components/movie/MovieFilters.tsx (필터 — 모바일 배치)
+- frontend/components/movie/MovieGrid.tsx (그리드 — 모바일 컬럼)
+- frontend/components/movie/TrailerModal.tsx (트레일러 모달)
+- frontend/components/movie/MovieTrailer.tsx (트레일러 섹션)
+- frontend/components/search/SearchAutocomplete.tsx (검색 — 모바일)
+- frontend/components/search/SearchResults.tsx (검색 결과)
+- frontend/components/layout/Header.tsx (헤더 — 모바일)
+- frontend/components/layout/HeaderMobileDrawer.tsx (모바일 메뉴)
+- frontend/components/ErrorBoundary.tsx
+- frontend/app/login/page.tsx (로그인 폼)
+- frontend/app/signup/page.tsx (회원가입 폼)
+- frontend/app/onboarding/page.tsx (온보딩)
+- frontend/app/favorites/page.tsx
+- frontend/app/ratings/page.tsx
+- frontend/app/profile/page.tsx
 
-그리고 현재 프로젝트 상태 확인:
-- backend/app/api/v1/ 디렉토리 (라우터 목록)
-- backend/app/models/ (모델 목록)
-- backend/app/middleware/ (미들웨어)
-- backend/app/core/ (security, rate_limit, http_client, logging_config)
-- backend/tests/ (테스트 파일 목록)
-- backend/alembic/ (마이그레이션)
-- frontend/app/ (페이지 목록)
-- frontend/components/ (컴포넌트 목록)
-- frontend/types/index.ts (타입 정의)
+=== 모바일 점검 기준 (360px ~ 430px 뷰포트) ===
 
-=== 1단계: CLAUDE.md 업데이트 ===
-Phase 46~50에서 추가/변경된 내용 반영:
-- 신규 파일: http_client.py, logging_config.py, request_id.py, ErrorBoundary.tsx, TrailerModal.tsx, MovieTrailer.tsx, MovieFilters.tsx, MovieGrid.tsx, SearchResults.tsx, HeaderMobileDrawer.tsx, loading.tsx 3개, layout.tsx 6개
-- 신규 디렉토리: backend/tests/, backend/alembic/, backend/app/middleware/
-- DB 변경: movies.trailer_key 컬럼
-- 의존성 추가: structlog, pytest, pytest-asyncio
-- 삭제된 코드: Base.metadata.create_all
-- 변경된 설정: Alembic 마이그레이션 체계
+1. 터치 영역:
+   - 모든 버튼/링크: 최소 44x44px (Apple HIG) 또는 48x48px (Material)
+   - 버튼 간 간격: 최소 8px
+   - 작은 아이콘 버튼: padding으로 터치 영역 확보
 
-=== 2단계: docs/HANDOFF_CONTEXT.md 업데이트 ===
-Phase 46~50 작업 반영:
-- 완료 항목 업데이트
-- 프로덕션 미반영 사항 정리 (있다면)
-- 현재 기술 부채 / 스코프 아웃 항목 정리
+2. 유도섹션 (홈 페이지 CTA, 추천 섹션 헤더, '더보기' 등):
+   - 버튼이 너무 작거나 밀집되어 있는지
+   - 텍스트가 잘리거나 줄바꿈이 어색한지
+   - CTA 버튼이 화면 하단에서 thumb zone에 있는지
 
-=== 3단계: docs/PROJECT_INDEX.md 업데이트 ===
-신규 생성된 파일/디렉토리 추가:
-- backend/tests/
-- backend/alembic/
-- backend/app/middleware/
-- backend/app/core/http_client.py
-- backend/app/core/logging_config.py
-- backend/scripts/README.md
-- backend/scripts/collect_trailers.py
-- backend/scripts/migrate_trailer.sql
-- frontend 신규 컴포넌트들
-- frontend 신규 layout.tsx/loading.tsx들
+3. 레이아웃:
+   - 가로 스크롤 Row: 터치 스와이프 가능한지, 스크롤바 숨김
+   - 그리드: 모바일에서 2컬럼인지 (1컬럼이면 너무 길어짐)
+   - 모달: 모바일에서 전체 화면 또는 적절한 크기
+   - 필터 바: 모바일에서 가로 스크롤 또는 접기
+   - 검색: 모바일에서 전체 너비 활용
 
-=== 4단계: docs/RECOMMENDATION_LOGIC.md 업데이트 ===
-Phase 46~49 추천 로직 변경 반영:
-- Section: 콜드스타트 — preferred_genres → personal_score 시드
-- Section: 피드백 루프 — interaction_version 캐시 무효화
-- Section: 시맨틱 재랭킹 v2 — 60/15/25 가중치 + log popularity
-- 기존 섹션 업데이트 (가중치 등 변경된 수치)
+4. 텍스트/폰트:
+   - 최소 14px (모바일 가독성)
+   - 긴 텍스트 truncate 또는 line-clamp
+   - 영화 제목이 2줄 이상일 때 레이아웃 깨짐
 
-=== 5단계: .claude/skills/ 최종 점검 ===
-각 skill 파일을 읽고 Phase 38~50 전체 변경사항이 빠짐없이 반영됐는지 확인:
-- workflow.md: Codex CLI + Claude Code 워크플로우
-- recommendation.md: 전체 추천 파이프라인 최신 상태
-- database.md: 모든 테이블/컬럼 최신 상태
-- deployment.md: CI/CD, Alembic, structlog
-- frontend-patterns.md: 모든 컴포넌트/훅 최신 상태
-- code-quality.md: pytest, ruff, 타입 현황
+5. 인터랙션:
+   - hover 의존 UI가 모바일에서 접근 불가하진 않은지
+   - 카드 ▶ 아이콘 (hover 전용) → 모바일에서 안 보임 → 대안 필요?
+   - 스와이프 제스처와 스크롤 충돌
 
-누락된 내용이 있으면 추가. 이미 최신이면 변경하지 않음.
+6. 특정 이슈 — 유도섹션 버튼:
+   - 홈 페이지에서 비로그인 사용자 유도 (회원가입, 온보딩 등) 섹션 확인
+   - 추천 섹션 상단의 '전체보기', '더보기' 같은 작은 버튼
+   - FeaturedBanner의 '자세히 보기', '트레일러' 버튼 — 모바일에서 크기/간격
+   - 영화 상세의 '찜하기', '평점', '트레일러' 버튼 — 모바일 배치
 
-=== 6단계: PROGRESS.md 최종 확인 ===
-Phase 1~50 전체가 완료 표시되어 있는지 확인.
-향후 과제(스코프 아웃) 섹션이 로드맵과 일치하는지 확인.
+=== 수정 방침 ===
 
-=== 7단계: codex_results.md / claude_results.md 정리 ===
-최종 상태를 깔끔하게 정리:
-- claude_results.md: Phase 50 완료 요약으로 덮어쓰기
-- codex_results.md: 마지막 조사 결과 유지 (참조용)
+발견된 이슈를 직접 수정:
 
-=== 규칙 ===
-- 코드 변경 금지 (문서만)
-- 기존 내용이 이미 최신이면 불필요한 수정 하지 않음
-- 파일 간 정보 일관성 유지 (수치, 파일 목록 등)
-- 간결하게 작성 (불필요한 반복 제거)
+- 버튼 최소 높이: min-h-[44px] 또는 py-3 확보
+- 버튼 간 간격: gap-3 이상
+- 모바일 전용 크기 조정: sm: 브레이크포인트 활용
+- 텍스트 truncate: line-clamp-1, line-clamp-2
+- 모달 모바일 대응: max-h-[90vh] overflow-y-auto, 또는 모바일에서 full-screen
+- hover 전용 UI → 모바일에서는 항상 표시 또는 터치 대안
+- 유도섹션 버튼: 모바일에서 full-width 또는 충분한 크기
+
+⚠️ 데스크톱 레이아웃은 변경하지 않음 (sm:/md:/lg: 브레이크포인트로 분리)
+⚠️ 기존 기능 동작 변경 금지
 
 === 검증 ===
-1. 모든 .md 파일 마크다운 문법 오류 없음
-2. CLAUDE.md의 파일 목록이 실제 파일과 일치
-3. skills 파일의 정보가 실제 코드와 일치
-4. git add -A && git commit -m 'docs: 프로젝트 문서 최종 동기화 (Phase 38-50)' && git push origin HEAD:main"
+1. cd frontend && npx tsc --noEmit → 0 errors
+2. cd frontend && npm run build → 성공
+3. cd frontend && npm run lint → 0 errors
+4. Chrome DevTools 모바일 뷰 (375px iPhone SE, 390px iPhone 14) 기준 확인 목록:
+   - 홈: 유도섹션 버튼 터치 가능
+   - 홈: MovieRow 스와이프 정상
+   - 홈: FeaturedBanner 버튼 크기 적절
+   - 검색: 자동완성 드롭다운 전체 너비
+   - 영화 상세: 버튼 그룹 모바일 배치
+   - 모달: 모바일에서 닫기/스크롤 정상
+5. git add -A && git commit -m 'fix: 모바일 UI/UX 개선 — 터치 영역 + 유도섹션 + 레이아웃' && git push origin HEAD:main
+
+결과를 claude_results.md에 덮어쓰기:
+- 발견된 이슈 목록 (파일 + 라인 + 문제)
+- 수정 내용 (파일별)
+- 모바일 터치 영역 개선 요약
+- 유도섹션 변경 전/후"
