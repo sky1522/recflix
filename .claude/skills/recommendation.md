@@ -79,6 +79,11 @@
 ## 시맨틱 검색 (semantic_search.py)
 → Voyage AI 임베딩 42,917편, NumPy 인메모리 코사인 유사도
 → API: `GET /movies/semantic-search?q={query}&limit=20`
+→ 재랭킹 v2: semantic 60% + popularity 15% (log1p) + quality 25%
+
+## 콜드스타트 (Phase 46)
+→ preferred_genres 기반 fallback (온보딩에서 설정)
+→ 찜/평점 없는 신규 사용자도 장르 기반 추천 가능
 
 ## 알고리즘 변경 시 체크리스트
 1. recommendation_engine.py 가중치/로직 수정

@@ -49,8 +49,15 @@
 2. 우선순위: 저위험(유틸 추출) → 중위험(모듈 분리) → 고위험(구조 통합)
 3. 실행: 기능 변경 없음 (순수 리팩토링), 각 단계 빌드 확인, 한 번에 한 파일
 
+## 테스트 (Phase 49)
+→ `backend/tests/` — pytest 기본 스위트
+→ `conftest.py`: SQLite in-memory + JSONB→JSON 변환 + Redis mock
+→ 실행: `cd backend && pytest -v --tb=short`
+→ CI: `backend-test` job (배포 필수 게이트)
+→ PostgreSQL 전용 기능 (pg_trgm, JSONB ordering)은 skip 마킹
+
 ## Python 고유
-- logging 사용 (print 금지) → Ruff T201 규칙
+- structlog 구조화 로깅 (logging 호환) → `logging_config.py`
 - ruff check + ruff format 통과
 - 타입 힌트 필수 (함수 인자, 반환값)
 - selectinload로 N+1 방지

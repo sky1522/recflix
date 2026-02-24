@@ -1,6 +1,6 @@
 # RecFlix 개발 진행 상황
 
-**최종 업데이트**: 2026-02-23
+**최종 업데이트**: 2026-02-24 (v1.0.0)
 
 ---
 
@@ -484,6 +484,112 @@
 | events.py 버그 수정 | ✅ | ab-report raw SQL `metadata_` → `metadata` (4곳) |
 | 프로덕션 스모크 테스트 | ✅ | /health, /movies, /recommendations, /semantic-search 정상 |
 
+### Phase 39: 문서 업데이트 (2026-02-23)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| Phase 33~38 문서 반영 | ✅ | CHANGELOG, PROGRESS, CLAUDE.md 동기화 |
+
+### Phase 40: 설정 경량화 및 고도화 (2026-02-23)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| skills/hooks/docs 고도화 | ✅ | clean_project.py, Makefile, gitignore 업데이트 |
+
+### Phase 41: 안전/정확성 (2026-02-23)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| distinct 쿼리 수정 | ✅ | 중복 결과 제거 |
+| refresh 토큰 회전 강화 | ✅ | JTI Redis 검증 + 탈취 감지 |
+| rate limit 강화 | ✅ | 프록시 인식 IP 추출 |
+
+### Phase 42: DB 성능 최적화 (2026-02-23)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| N+1 쿼리 제거 | ✅ | selectinload 적용 |
+| 쿼리 통합 | ✅ | 다중 쿼리 → 단일 쿼리 |
+| pg_trgm GIN 인덱스 | ✅ | 자동완성 성능 개선 |
+
+### Phase 43: API 내결함성 + 파일 분할 (2026-02-23)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| API 클라이언트 내결함성 | ✅ | 재시도, 타임아웃, fallback |
+| 검색 병렬화 | ✅ | Promise.all 병렬 API 호출 |
+| 파일 분할 | ✅ | 대형 컴포넌트 분리 |
+| 애니메이션 경량화 | ✅ | Framer Motion 최적화 |
+
+### Phase 44: SEO + 접근성 (2026-02-23)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| SEO 메타데이터 강화 | ✅ | 동적 OG 태그 개선 |
+| loading.tsx 추가 | ✅ | 스켈레톤 로딩 UI |
+| 접근성 개선 | ✅ | aria-label, role, focus 관리 |
+| 캐시 키 표준화 | ✅ | 캐시 키 네이밍 통일 |
+
+### Phase 45: 코드 품질 (2026-02-23)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| ruff 이슈 제거 | ✅ | 143→0 이슈 |
+| any 타입 제거 | ✅ | 8→0개 |
+| except 구체화 | ✅ | bare except → 구체적 예외 |
+| focus trap | ✅ | 모달/메뉴 키보드 트랩 |
+
+### Phase 46: 추천 콜드스타트 + GDPR + 보안 (2026-02-23)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 추천 콜드스타트 | ✅ | preferred_genres 기반 fallback |
+| 피드백 루프 | ✅ | 클릭/평점 반영 |
+| GDPR 계정 삭제 | ✅ | DELETE /users/me |
+| 보안 강화 | ✅ | JWT/CORS 검증 강화 |
+| Error Boundary 개선 | ✅ | 전역 에러 처리 개선 |
+
+### Phase 47: TMDB 트레일러 연동 (2026-02-23)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 트레일러 수집 스크립트 | ✅ | collect_trailers.py (28,486편, 66.4%) |
+| DB 스키마 | ✅ | trailer_key 컬럼 추가 |
+| API 스키마 | ✅ | MovieDetail/MovieListItem에 trailer_key 포함 |
+| YouTube 임베드 UI | ✅ | TrailerModal 컴포넌트 |
+| MovieHero/Sidebar 버튼 | ✅ | 트레일러 재생 버튼 추가 |
+
+### Phase 48: async 최적화 + Alembic (2026-02-24)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| bcrypt to_thread | ✅ | asyncio.to_thread() 래핑 |
+| httpx AsyncClient 싱글턴 | ✅ | lifespan 관리 + OAuth 통합 |
+| Alembic 초기화 | ✅ | Base.metadata.create_all() 제거, 빈 baseline |
+| Dockerfile 체크섬 | ✅ | SHA256 무결성 검증 (4개 파일) |
+
+### Phase 49: 시맨틱 재랭킹 + pytest + structlog (2026-02-24)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 시맨틱 재랭킹 v2 | ✅ | semantic 60%, popularity 15% (log), quality 25% |
+| 스크립트 문서화 | ✅ | backend/scripts/README.md (16개) |
+| pytest 기본 스위트 | ✅ | 14건 (10 passed, 4 skipped) |
+| structlog 구조화 로깅 | ✅ | JSON (prod) / colored (dev) |
+| X-Request-ID 미들웨어 | ✅ | structlog contextvars 바인딩 |
+| CI pytest 추가 | ✅ | backend-test job (배포 필수 게이트) |
+
+### Phase 50: 문서 최종화 + v1.0.0 릴리스 (2026-02-24)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| README.md 전체 재작성 | ✅ | Phase 이력, 아키텍처, 기술 스택 |
+| CHANGELOG.md Phase 46~50 | ✅ | v1.0.0 릴리스 항목 |
+| docs/ARCHITECTURE.md 신규 | ✅ | 시스템 구조, 데이터 흐름, DB 스키마, 캐시, 인증 |
+| PROGRESS.md Phase 39~50 | ✅ | 전체 완료 표시 |
+| .claude/skills/ 동기화 | ✅ | Phase 46~50 변경사항 반영 |
+| git tag v1.0.0 | ✅ | 프로덕션 릴리스 태그 |
+
 ---
 
 ## 프로젝트 구조
@@ -704,16 +810,21 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 - [x] **CI/CD 파이프라인** (GitHub Actions CI + Railway CD 자동 배포) (2026-02-20)
 - [x] **추천 이유 생성** (템플릿 기반 43개 패턴, $0 비용) (2026-02-20)
 - [x] **프로덕션 DB 마이그레이션** (user_events + users 7컬럼 + 타입 보정) (2026-02-23)
+- [x] **설정 경량화 + 안전/정확성 강화** (Phase 39-41) (2026-02-23)
+- [x] **DB 성능 최적화** (N+1 제거, pg_trgm GIN) (2026-02-23)
+- [x] **API 내결함성 + 파일 분할** (재시도, 병렬화, 애니메이션 경량화) (2026-02-23)
+- [x] **SEO + 접근성 + 코드 품질** (loading.tsx, ruff 0이슈, any 0개) (2026-02-23)
+- [x] **추천 콜드스타트 + GDPR 계정 삭제 + 보안 강화** (Phase 46) (2026-02-23)
+- [x] **TMDB 트레일러 연동** (28,486편, YouTube 임베드 UI) (2026-02-23)
+- [x] **async 블로킹 해소 + Alembic 마이그레이션** (Phase 48) (2026-02-24)
+- [x] **pytest 14건 + structlog 구조화 로깅 + 시맨틱 재랭킹 v2** (Phase 49) (2026-02-24)
+- [x] **문서 최종화 + v1.0.0 릴리스** (Phase 50) (2026-02-24)
 
 ### 향후 개선사항
 - [ ] PWA 지원
-- [x] **CI/CD 파이프라인** (GitHub Actions CI + Railway CD) (2026-02-20)
-- [x] **프로덕션 DB 마이그레이션** (Phase 29-32 스키마: user_events, users 7컬럼) (2026-02-23)
-- [x] **소셜 로그인 OAuth 수정** (Vercel 환경변수 `\n` + Pydantic 이메일) (2026-02-19)
-- [x] **SVD 모델 프로덕션 배포** (Dockerfile LFS 다운로드 + numpy 2.x) (2026-02-20)
-- [x] **시맨틱 검색** (Voyage AI 임베딩 + NumPy 코사인 유사도) (2026-02-20)
-- [x] **추천 다양성 정책** (장르 다양성 + 신선도 + serendipity) (2026-02-20)
-- [x] **추천 이유 생성** (템플릿 기반 43개 패턴, $0 비용) (2026-02-20)
+- [ ] 추천 알고리즘 평가 대시보드 (A/B 테스트 결과 시각화)
+- [ ] 사용자 리뷰/코멘트 기능
+- [ ] PostgreSQL CI 테스트 (JSONB/pg_trgm 포함)
 
 ---
 

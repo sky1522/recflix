@@ -1,121 +1,113 @@
-claude "Phase 49B: 핵심 API pytest + 구조화 로깅.
+claude "Phase 50: 프로젝트 완결 — 문서 최종화 + v1.0 릴리스.
 
 === Research ===
 다음 파일들을 읽을 것:
-- backend/app/main.py (앱 구조, 미들웨어)
-- backend/app/api/v1/auth.py (인증 엔드포인트)
-- backend/app/api/v1/recommendations.py (추천 엔드포인트)
-- backend/app/api/v1/movies.py (영화 엔드포인트)
-- backend/app/api/v1/health.py (헬스체크)
-- backend/app/database.py (DB 세션)
-- backend/app/core/config.py (설정)
-- backend/requirements.txt (pytest 포함 여부)
-- .github/workflows/ci.yml (현재 CI 구조)
+- README.md (현재 상태)
+- CHANGELOG.md (현재 상태)
+- PROGRESS.md (현재 상태)
+- docs/ 디렉토리 전체 구조
+- .claude/skills/ 디렉토리 전체 구조
+- backend/app/api/v1/ 디렉토리 (라우터 목록)
+- frontend/app/ 디렉토리 (페이지 목록)
+- backend/app/models/ (테이블 목록)
+- backend/requirements.txt (의존성)
+- frontend/package.json (의존성)
 
-=== 1단계: pytest 설정 ===
+=== 1단계: README.md 최종 업데이트 ===
+전체 재작성. 포함 내용:
 
-1-1. requirements.txt에 추가 (없으면):
-  pytest>=7.0
-  pytest-asyncio>=0.21
-  httpx (이미 있을 것)
+1-1. 프로젝트 소개:
+  - RecFlix: MBTI × 날씨 × 기분 기반 초개인화 영화 추천 플랫폼
+  - 42,917편 영화, 시맨틱 검색, 하이브리드 추천, 트레일러 재생
 
-1-2. backend/pytest.ini 또는 pyproject.toml [tool.pytest] 설정:
-  [pytest]
-  asyncio_mode = auto
-  testpaths = tests
+1-2. 주요 기능 (Features):
+  - 하이브리드 추천 (MBTI + Weather + Mood + CF + Personal)
+  - 시맨틱 검색 (Voyage AI 임베딩 42,917편)
+  - SVD 협업 필터링 (MovieLens 기반)
+  - 다양성 후처리 (장르 캡, 신선도, 세렌디피티)
+  - 추천 이유 생성 (43개 템플릿)
+  - YouTube 트레일러 재생 (28,486편 커버)
+  - 소셜 로그인 (카카오, Google)
+  - A/B 테스트 프레임워크
+  - 실시간 날씨 연동 (KMA)
 
-1-3. backend/tests/ 디렉토리 구조:
-  tests/
-    __init__.py
-    conftest.py (TestClient, 테스트 DB/모킹 설정)
-    test_health.py
-    test_auth.py
-    test_movies.py
-    test_recommendations.py
+1-3. 기술 스택:
+  Frontend: Next.js 14, TypeScript, TailwindCSS, Framer Motion, Zustand
+  Backend: FastAPI, SQLAlchemy, PostgreSQL, Redis
+  AI/ML: Voyage AI (임베딩), Claude API (감정 태그), SVD (협업 필터링)
+  Infra: Vercel, Railway, GitHub Actions, Sentry
+  Search: pg_trgm GIN 인덱스, NumPy 코사인 유사도
 
-1-4. conftest.py:
-  - FastAPI TestClient 설정 (from fastapi.testclient import TestClient)
-  - DB 세션 오버라이드: 프로덕션 DB 접속하지 않도록
-  - 방법 A: SQLite in-memory (가장 간단)
-  - 방법 B: 테스트용 PostgreSQL (CI에서 services)
-  - 방법 A로 시작 (빠른 셋업), PostgreSQL 특화 기능은 스킵 마킹
+1-4. 시스템 아키텍처 (텍스트 다이어그램):
+  User → Vercel (Next.js) → Railway (FastAPI) → PostgreSQL / Redis
+                                              → Voyage AI / Claude API
 
-=== 2단계: 핵심 테스트 작성 ===
+1-5. 추천 알고리즘 개요:
+  5개 신호 하이브리드: MBTI(30%) + Weather(20%) + Mood(15%) + CF(20%) + Personal(15%)
+  다양성 보장: 장르 캡 + LLM 30% 보장 + 세렌디피티
 
-2-1. test_health.py (3건):
-  - GET /health → 200, response에 status 포함
-  - GET /health/db → DB 연결 상태
-  - GET /health/redis → Redis 연결 상태 (Redis 없으면 graceful)
+1-6. 프로젝트 구조 (tree, 주요 디렉토리만)
 
-2-2. test_auth.py (5건):
-  - POST /auth/signup → 201 (정상)
-  - POST /auth/signup → 400 (중복 이메일)
-  - POST /auth/login → 200 (정상, access_token 반환)
-  - POST /auth/login → 401 (잘못된 비밀번호)
-  - POST /auth/refresh → 200 (정상 토큰 갱신)
+1-7. 로컬 개발 환경 설정 (Quick Start):
+  Backend: pip install, .env 설정, uvicorn 실행
+  Frontend: npm install, .env.local 설정, npm run dev
+  필수 환경변수 목록
 
-2-3. test_movies.py (5건):
-  - GET /movies → 200 (목록)
-  - GET /movies?genre=Action → 200 (필터)
-  - GET /movies/{id} → 200 (상세)
-  - GET /movies/{id} → 404 (존재하지 않는 ID)
-  - GET /movies/autocomplete?q=test → 200
+1-8. 배포: Vercel (Frontend) + Railway (Backend)
 
-2-4. test_recommendations.py (3건):
-  - GET /recommendations/popular → 200
-  - GET /recommendations/top-rated → 200
-  - GET /recommendations → 200 (비로그인 기본 추천)
+1-9. API 문서: /docs (Swagger UI)
 
-⚠️ 테스트는 프로덕션 DB에 절대 접속하지 않을 것
-⚠️ SQLite에서 안 되는 기능은 pytest.mark.skip으로 마킹
-⚠️ 각 테스트는 독립적 (순서 무관)
+1-10. Phase 이력 요약 (Phase 1~50, 한 줄씩)
 
-=== 3단계: CI에 pytest 추가 ===
-.github/workflows/ci.yml 수정:
-  - backend job에 pytest 단계 추가
-  - pip install -r requirements.txt
-  - cd backend && pytest -v --tb=short
-  - 실패 시 CI 실패 (필수 게이트)
+=== 2단계: CHANGELOG.md 업데이트 ===
+Phase 46~50 항목 추가:
+- Phase 46: 추천 콜드스타트 + 피드백 루프 + GDPR + 보안
+- Phase 47: TMDB 트레일러 연동 (28,486편)
+- Phase 48: async 블로킹 해소 + Alembic + Dockerfile 체크섬
+- Phase 49: 시맨틱 재랭킹 튜닝 + pytest + 구조화 로깅
+- Phase 50: 문서 최종화 + v1.0 릴리스
 
-=== 4단계: 구조화 로깅 ===
+=== 3단계: docs/ARCHITECTURE.md 작성 (신규) ===
+포함 내용:
+- 전체 시스템 구조 (텍스트 다이어그램)
+- 데이터 흐름: 사용자 요청 → 추천 → 응답
+- 추천 파이프라인 상세 (5개 신호 계산 → 하이브리드 → 다양성 → 이유 생성)
+- 데이터베이스 스키마 개요 (테이블 관계)
+- 캐시 전략 (Redis TTL, 프로세스 캐시)
+- 인증 흐름 (JWT + refresh 토큰 회전)
+- 외부 서비스 의존성 (TMDB, Voyage AI, Claude, KMA)
 
-4-1. requirements.txt에 추가:
-  structlog>=23.0
-  python-json-logger>=2.0
+=== 4단계: PROGRESS.md 최종 업데이트 ===
+Phase 46~50 완료 표시
 
-4-2. backend/app/core/logging_config.py 생성 (신규):
-  - structlog 설정: JSON 출력, timestamp, log_level
-  - 개발환경: 컬러 콘솔 출력
-  - 프로덕션: JSON 한 줄 출력
+=== 5단계: .claude/skills/ 최종 동기화 ===
+각 skill 파일에 Phase 46~50 변경사항 반영:
+- recommendation.md: preferred_genres 반영, 재랭킹 v2
+- database.md: trailer_key 컬럼, Alembic
+- deployment.md: Dockerfile 체크섬, structlog
+- frontend-patterns.md: ErrorBoundary, TrailerModal
+- code-quality.md: pytest, structlog
 
-4-3. backend/app/middleware/request_id.py 생성 (신규):
-  - 미들웨어: 각 요청에 X-Request-ID 헤더 추가 (uuid4)
-  - structlog context에 request_id 바인딩
-  - 응답 헤더에도 X-Request-ID 포함
-
-4-4. backend/app/main.py:
-  - structlog 초기화 (앱 시작 시)
-  - RequestIDMiddleware 추가
-
-⚠️ 기존 logging.info/warning/error 호출은 그대로 동작해야 함 (하위 호환)
-⚠️ structlog는 stdlib logging과 통합 가능
+=== 6단계: v1.0 릴리스 ===
+git tag -a v1.0.0 -m 'RecFlix v1.0.0 — 프로덕션 릴리스'
+git push origin v1.0.0
 
 === 규칙 ===
-- 테스트는 프로덕션 데이터/DB에 절대 접속 금지
-- SQLite 호환 안 되는 테스트는 skip 마킹
-- structlog 도입이 기존 로깅을 깨뜨리지 않을 것
-- 새 파일 300줄 이내
+- README는 한국어로 작성 (프로젝트 언어 통일)
+- 아키텍처 문서는 개발자가 프로젝트를 빠르게 이해할 수 있는 수준
+- Phase 이력은 간결하게 (한 줄 요약)
+- 기존 코드 변경 금지 (문서만)
 
 === 검증 ===
-1. cd backend && pytest -v --tb=short → 전체 통과
-2. cd backend && ruff check app/ tests/ → 0 issues
-3. cd backend && python -c 'from app.main import app; print(app.title)'
-4. cd backend && python -c 'import structlog; log = structlog.get_logger(); log.info(\"test\", key=\"value\")'
-5. git add -A && git commit -m 'feat: Phase 49B pytest 기본 스위트 + 구조화 로깅' && git push origin HEAD:main
+1. README.md 렌더링 확인 (마크다운 문법 오류 없음)
+2. docs/ARCHITECTURE.md 렌더링 확인
+3. .claude/skills/ 파일들 내용 일관성
+4. git tag v1.0.0 존재 확인
+5. git add -A && git commit -m 'docs: Phase 50 문서 최종화 + v1.0.0 릴리스' && git push origin HEAD:main && git push origin v1.0.0
 
 결과를 claude_results.md에 덮어쓰기:
-- pytest 테스트 목록 + 결과 (pass/fail/skip)
-- conftest.py 설정 요약
-- CI 변경 내용
-- structlog 설정 요약
-- request_id 미들웨어 동작"
+- 업데이트된 문서 목록
+- README 섹션 구성
+- ARCHITECTURE.md 구조
+- skills 변경 요약
+- v1.0.0 태그 정보"

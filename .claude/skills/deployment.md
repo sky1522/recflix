@@ -30,10 +30,20 @@
 
 ## CI/CD 파이프라인
 → `.github/workflows/ci.yml` 참조
-- **CI**: GitHub Actions — Backend Lint (ruff 0.1.13) + Frontend Build (next build)
+- **CI**: GitHub Actions — Backend Lint (ruff) + Backend Test (pytest) + Frontend Build (next build)
 - **CD**: GitHub Actions → `railway up --service backend --environment production --detach`
 - **Vercel**: GitHub 연동 자동 배포 (push 시, Actions 불필요)
 - **Railway Token**: Project Token 사용 (Account Token 아님), GitHub Secrets `RAILWAY_TOKEN`
+- **deploy-backend needs**: backend-lint + backend-test + frontend-build (모두 통과 필수)
+
+## 구조화 로깅 (Phase 49)
+→ `backend/app/core/logging_config.py` — structlog 설정
+→ Production: JSON one-line, Development: colored console
+→ `backend/app/middleware/request_id.py` — X-Request-ID 미들웨어
+
+## Dockerfile 체크섬 (Phase 48)
+→ 4개 다운로드 파일에 SHA256 무결성 검증 추가
+→ svd_model.pkl, movie_embeddings.npy, embedding_metadata.json, movie_id_index.json
 
 ## 배포 프로세스
 - main 브랜치 push → CI/CD → Railway/Vercel 자동 배포

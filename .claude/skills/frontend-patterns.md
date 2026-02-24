@@ -43,6 +43,12 @@
 
 ## 에러 처리
 → `frontend/app/error.tsx` (전역), `frontend/app/not-found.tsx` (404), `frontend/app/movies/[id]/error.tsx`
+→ ErrorBoundary: Phase 46에서 개선 (graceful degradation)
+
+## 트레일러 (Phase 47)
+→ `TrailerModal` 컴포넌트 — YouTube iframe 임베드
+→ `MovieHero.tsx`, `MovieSidebar.tsx` — 트레일러 재생 버튼
+→ `trailer_key` 필드: YouTube video ID (null이면 버튼 숨김)
 
 ## 새 페이지 추가 시 체크리스트
 1. `app/경로/page.tsx` 생성

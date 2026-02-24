@@ -2,11 +2,72 @@
 
 All notable changes to RecFlix will be documented in this file.
 
-## [Unreleased]
+## [v1.0.0] — 2026-02-24
+
+### 프로덕션 릴리스
+
+50개 Phase를 거쳐 완성된 RecFlix v1.0.0 릴리스.
+
+---
+
+## [2026-02-24]
+
+### Added
+- **pytest 기본 스위트 (Phase 49B)**: 14건 테스트 (10 passed, 4 skipped)
+  - `conftest.py`: SQLite in-memory + JSONB→JSON 변환 + Redis mock + rate limit 비활성화
+  - `test_health.py` (2건), `test_auth.py` (5건), `test_movies.py` (4건), `test_recommendations.py` (3건)
+  - CI: `backend-test` job 추가 (배포 필수 게이트)
+- **구조화 로깅 (Phase 49B)**: structlog 도입
+  - Production: JSON one-line 출력 (Railway 로그 파싱 가능)
+  - Development: Colored console 출력
+  - `X-Request-ID` 미들웨어 (structlog contextvars 바인딩)
+- **시맨틱 재랭킹 v2 (Phase 49A)**: semantic 50→60%, popularity 30→15%, quality 20→25%
+  - popularity 입력: vote_count → movie.popularity (log 스케일)
+- **스크립트 운영 가이드 (Phase 49A)**: `backend/scripts/README.md` (16개 스크립트 문서화)
+- **Alembic 마이그레이션 (Phase 48B)**: `Base.metadata.create_all()` 제거, Alembic 관리로 전환
+- **Dockerfile SHA256 체크섬 (Phase 48B)**: 4개 다운로드 파일 무결성 검증
+
+### Changed
+- **async 블로킹 해소 (Phase 48A)**:
+  - bcrypt: `asyncio.to_thread()` 래핑 (signup/login)
+  - OAuth HTTP: `httpx.AsyncClient` 싱글턴 (lifespan 관리)
+
+### Technical Details
+- 신규 파일: `logging_config.py`, `request_id.py`, `pytest.ini`, `conftest.py`, 4개 테스트, `scripts/README.md`
+- 신규 의존성: structlog, python-json-logger, pytest, pytest-asyncio
+- Alembic 초기화: `alembic/` 디렉토리 + 빈 baseline 마이그레이션
 
 ---
 
 ## [2026-02-23]
+
+### Added
+- **TMDB 트레일러 연동 (Phase 47)**
+  - 수집 스크립트: `collect_trailers.py` (28,486편, 66.4% 커버)
+  - DB: `trailer_key` 컬럼 추가 (YouTube video ID)
+  - Frontend: TrailerModal (YouTube iframe 임베드), MovieHero/MovieSidebar 트레일러 버튼
+- **추천 콜드스타트 + 피드백 루프 (Phase 46A)**
+  - preferred_genres 기반 콜드스타트 추천
+  - 클릭/평점 피드백 반영 로직
+  - ErrorBoundary 개선
+- **보안 강화 + GDPR 계정 삭제 (Phase 46B)**
+  - `DELETE /users/me` (GDPR 계정 삭제)
+  - JWT 보안 강화, CORS 검증 강화
+- **코드 품질 (Phase 45)**: ruff 143→0 이슈, any 8→0, except 구체화, focus trap
+- **SEO 메타데이터 + 접근성 (Phase 44)**: loading.tsx, 캐시 키 표준화
+- **파일 분할 + 애니메이션 경량화 (Phase 43B)**
+- **API 내결함성 + 검색 병렬화 (Phase 43A)**
+- **DB 성능 (Phase 42)**: N+1 제거, 쿼리 통합, pg_trgm GIN 인덱스
+- **안전/정확성 (Phase 41)**: distinct 쿼리, 토큰 회전, rate limit 강화
+- **설정 경량화 (Phase 40)**: skills/hooks/docs 고도화
+- **프로덕션 DB 마이그레이션 (Phase 38)**: user_events + users 7컬럼
+
+### Fixed
+- **events.py ab-report 쿼리 버그**: `metadata_` → `metadata` (DB 컬럼명)
+
+---
+
+## [2026-02-20]
 
 ### Added
 - **프로덕션 DB 마이그레이션 (Phase 38)**: Phase 29-32 스키마를 Railway PostgreSQL에 적용

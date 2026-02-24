@@ -1,296 +1,295 @@
 # RecFlix
 
-**실시간 컨텍스트(날씨/기분)와 성격 특성(MBTI)을 결합한 초개인화 영화 큐레이션 플랫폼**
+**MBTI x 날씨 x 기분 기반 초개인화 영화 추천 플랫폼**
 
-## Live Demo
+42,917편 영화 데이터베이스에서 사용자의 성격(MBTI), 실시간 날씨, 현재 기분을 조합하여
+개인 맞춤 영화를 추천하는 풀스택 웹 서비스입니다.
 
-| Service | URL |
-|---------|-----|
+| 서비스 | URL |
+|--------|-----|
 | **Frontend** | https://jnsquery-reflix.vercel.app |
 | **Backend API** | https://backend-production-cff2.up.railway.app |
 | **API Docs** | https://backend-production-cff2.up.railway.app/docs |
-
-## Features
-
-- **MBTI 기반 영화 추천** (16개 유형별)
-- **실시간 날씨 연동 추천** (OpenWeatherMap)
-- **기분(Mood) 기반 추천** (8가지: 평온한, 긴장된, 활기찬, 몽글몽글한, 상상에빠진, 유쾌한, 울적한, 답답한)
-- **협업 필터링** (MovieLens 25M 기반 SVD, CF 25% 가중치)
-- **시맨틱 검색** - 자연어 질의로 영화 탐색 (Voyage AI 임베딩 42,917편)
-- **추천 이유 표시** - 템플릿 기반 43개 패턴의 한국어 추천 이유
-- **추천 다양성 정책** - 장르 다양성, 신선도 보장, serendipity 삽입, 섹션 간 중복 제거
-- **소셜 로그인** - Kakao / Google OAuth
-- **온보딩 2단계** - 장르 선택 + 영화 평가
-- **감정 태그 기반 큐레이션** (7대 클러스터: healing, tension, energy, romance, deep, fantasy, light)
-- **새로고침 버튼** - 섹션별 영화 재셔플 (API 호출 없음)
-- **LLM 캐치프레이즈** - Claude API로 영화별 맞춤 문구 생성
-- **컨텍스트 큐레이션** - 시간대/계절/기온 기반 동적 서브타이틀 (258개 문구)
-- **검색 자동완성** - 키보드 네비게이션, Redis 캐싱, 키워드 하이라이팅
-- **SEO 동적 OG 태그** - SNS 공유 시 포스터/제목/줄거리 프리뷰
-- **CI/CD 자동 배포** - GitHub Actions (lint + build + Railway CD)
-- 별점 평가 & 찜하기 기능
-- Netflix/Watcha 스타일 UI
-
-## Tech Stack
-
-| Layer | Technologies |
-|-------|-------------|
-| **Frontend** | Next.js 14, TailwindCSS, Framer Motion, Zustand, lucide-react |
-| **Backend** | FastAPI, SQLAlchemy, Pydantic, Redis, scipy (SVD) |
-| **Database** | PostgreSQL 16, Redis (Memurai) |
-| **External API** | OpenWeatherMap, Claude API (Anthropic), Voyage AI (시맨틱 검색 임베딩) |
-| **CI/CD** | GitHub Actions (lint + build + Railway CD), Vercel (자동 배포) |
-| **Monitoring** | Sentry (에러 모니터링), slowapi (Rate Limiting) |
-| **Deployment** | Vercel (Frontend), Railway (Backend + PostgreSQL + Redis) |
+| **GitHub** | https://github.com/sky1522/recflix |
 
 ---
 
-## Quick Start (팀원용 로컬 환경 세팅)
+## 주요 기능
 
-### Prerequisites
+### 추천 시스템
+- **하이브리드 추천 엔진** — MBTI + Weather + Mood + CF + Personal 5축 스코어링
+- **SVD 협업 필터링** — MovieLens 25M 기반 (50K users x 17.5K items, RMSE 0.8768)
+- **시맨틱 검색** — Voyage AI 임베딩 42,917편, NumPy 코사인 유사도
+- **다양성 후처리** — 장르 캡, 신선도 보장, 세렌디피티 삽입, 섹션 간 중복 제거
+- **추천 이유 생성** — 43개 템플릿 기반 한국어 추천 이유 ($0, 0ms)
+- **자체 유사 영화** — emotion/mbti/장르 복합 유사도 (429,170개 관계)
+- **콜드스타트 대응** — 인기도 fallback + 온보딩 2단계
 
-- **PostgreSQL 16** ([다운로드](https://www.postgresql.org/download/))
-- **Redis** (Windows: [Memurai](https://www.memurai.com/get-memurai) / macOS: `brew install redis`)
-- **Python 3.11+**
-- **Node.js 20+**
+### 콘텐츠
+- **42,917편 영화 DB** — TMDB 기반, 22컬럼, 100% 한글화
+- **YouTube 트레일러** — 28,486편 커버 (66.4%)
+- **감정 태그** — LLM 1,711편 + 키워드 41,206편 (7대 클러스터)
+- **258개 큐레이션 문구** — 시간대/계절/기온/날씨/기분/MBTI별 동적 서브타이틀
 
-### Step 1. 저장소 클론
+### 사용자 기능
+- **소셜 로그인** — 카카오, Google OAuth
+- **MBTI 프로필** — 16유형별 추천 가중치
+- **별점 평가** — 0.5~5.0 (Optimistic UI)
+- **찜하기** — 컬렉션 관리
+- **온보딩** — 장르 선택 + 영화 평가 2단계
+
+### 인프라
+- **CI/CD** — GitHub Actions (lint + test + build + Railway CD)
+- **구조화 로깅** — structlog (prod: JSON, dev: colored console) + X-Request-ID
+- **에러 모니터링** — Sentry (backend + frontend)
+- **Rate Limiting** — slowapi (39개 엔드포인트)
+- **A/B 테스트** — 3그룹 분기 (control/test_a/test_b)
+- **Alembic 마이그레이션** — DB 스키마 버전 관리
+
+---
+
+## 기술 스택
+
+| 레이어 | 기술 |
+|--------|------|
+| **Frontend** | Next.js 14 (App Router), TypeScript, TailwindCSS, Framer Motion, Zustand |
+| **Backend** | FastAPI, SQLAlchemy 2.0, Pydantic v2, structlog |
+| **Database** | PostgreSQL 16, Redis (캐싱) |
+| **AI/ML** | Voyage AI (임베딩), Claude API (감정 태그/캐치프레이즈), SVD (협업 필터링) |
+| **Search** | pg_trgm GIN 인덱스, NumPy 코사인 유사도 |
+| **Infra** | Vercel, Railway, GitHub Actions, Sentry, Alembic |
+
+---
+
+## 시스템 아키텍처
+
+```
+┌─────────┐     ┌──────────────┐     ┌──────────────────┐
+│  User   │────▶│  Vercel      │────▶│  Railway         │
+│ Browser │◀────│  (Next.js)   │◀────│  (FastAPI)       │
+└─────────┘     └──────────────┘     └────────┬─────────┘
+                                              │
+                          ┌───────────────────┼───────────────────┐
+                          │                   │                   │
+                    ┌─────▼─────┐     ┌───────▼──────┐   ┌───────▼──────┐
+                    │ PostgreSQL│     │    Redis     │   │  External   │
+                    │ (Railway) │     │  (Railway)   │   │  APIs       │
+                    │ 42,917편  │     │  캐시/세션    │   │ Voyage AI   │
+                    └───────────┘     └──────────────┘   │ Claude API  │
+                                                         │ TMDB API    │
+                                                         │ KMA 날씨    │
+                                                         └─────────────┘
+```
+
+---
+
+## 추천 알고리즘
+
+### 하이브리드 스코어링 (v3)
+
+**CF 활성화 + Mood 선택 시:**
+```
+Score = (0.20 x MBTI) + (0.15 x Weather) + (0.25 x Mood) + (0.15 x Personal) + (0.25 x CF)
+```
+
+**CF 비활성화 시 (fallback v2):**
+```
+Score = (0.25 x MBTI) + (0.20 x Weather) + (0.30 x Mood) + (0.25 x Personal)
+```
+
+| 신호 | 설명 |
+|------|------|
+| **MBTI** | 16유형별 장르 선호도 JSONB 매칭 |
+| **Weather** | 실시간 날씨 조건별 영화 분위기 매칭 |
+| **Mood** | 8가지 기분 → 7대 감성 클러스터 매핑 |
+| **Personal** | 찜/고평점 영화 장르 기반 개인화 |
+| **CF** | MovieLens SVD item_bias 품질 시그널 |
+
+후처리: 품질 보정 (x0.85~1.0) → 장르 다양성 → 신선도 → 세렌디피티 → 중복 제거
+
+상세 로직: [docs/RECOMMENDATION_LOGIC.md](docs/RECOMMENDATION_LOGIC.md) |
+아키텍처: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+
+---
+
+## 프로젝트 구조
+
+```
+recflix/
+├── backend/
+│   ├── app/
+│   │   ├── api/v1/                # API 라우터 (15개 모듈)
+│   │   │   ├── recommendations.py         # 홈 추천 API
+│   │   │   ├── recommendation_engine.py   # Hybrid 스코어링 엔진
+│   │   │   ├── recommendation_cf.py       # SVD 협업 필터링
+│   │   │   ├── recommendation_reason.py   # 추천 이유 생성 (43개 템플릿)
+│   │   │   ├── diversity.py               # 다양성 후처리
+│   │   │   ├── semantic_search.py         # 시맨틱 검색 (인메모리 벡터)
+│   │   │   ├── movies.py                  # 검색, 상세, 자동완성, 장르
+│   │   │   ├── auth.py                    # JWT + Kakao/Google OAuth
+│   │   │   ├── events.py                  # 사용자 행동 이벤트 (10종)
+│   │   │   └── health.py                  # 헬스체크 (DB/Redis/SVD/임베딩)
+│   │   ├── core/                  # 설정, 보안, DI, Rate Limiting, 로깅
+│   │   ├── middleware/            # X-Request-ID 미들웨어
+│   │   ├── models/                # SQLAlchemy 모델 (6개 테이블)
+│   │   ├── schemas/               # Pydantic 스키마
+│   │   └── services/              # 외부 서비스 (날씨, LLM)
+│   ├── alembic/                   # DB 마이그레이션
+│   ├── scripts/                   # 배치 스크립트 (16개)
+│   ├── tests/                     # pytest (14건)
+│   └── requirements.txt
+├── frontend/
+│   ├── app/                       # Next.js App Router (10개 페이지)
+│   ├── components/                # React 컴포넌트
+│   ├── hooks/                     # Custom Hooks (4개)
+│   ├── stores/                    # Zustand 스토어 (2개)
+│   ├── lib/                       # API 클라이언트, 이벤트 트래커, 유틸
+│   └── types/                     # TypeScript 타입 정의
+├── .github/workflows/ci.yml      # CI/CD (lint + test + build + Railway CD)
+├── docs/                          # 프로젝트 문서
+└── data/                          # DB 덤프 + 복원 가이드
+```
+
+---
+
+## 로컬 개발 환경 설정
+
+### 사전 요구사항
+
+- PostgreSQL 16
+- Redis (Windows: Memurai / macOS: `brew install redis`)
+- Python 3.11+
+- Node.js 20+
+
+### 1. 저장소 클론
 
 ```bash
 git clone https://github.com/sky1522/recflix.git
 cd recflix
 ```
 
-### Step 2. DB 생성 및 데이터 복원
-
-프로젝트에 42,917편의 영화 데이터가 포함된 DB dump 파일이 있습니다.
+### 2. DB 생성 및 데이터 복원
 
 ```bash
-# PostgreSQL 접속 후 DB/유저 생성
-psql -U postgres
-```
+psql -U postgres -c "CREATE USER recflix WITH PASSWORD 'recflix123';"
+psql -U postgres -c "CREATE DATABASE recflix OWNER recflix;"
 
-```sql
-CREATE USER recflix WITH PASSWORD 'recflix123';
-CREATE DATABASE recflix OWNER recflix;
-\q
-```
-
-```bash
-# DB 복원 (42,917편 영화 + 추천 점수 + 감성 태그)
-# macOS / Linux
+# 42,917편 영화 데이터 복원
 PGPASSWORD=recflix123 pg_restore -h localhost -U recflix -d recflix \
   --clean --if-exists --no-owner --no-acl data/recflix_db.dump
-
-# Windows (Git Bash 또는 PowerShell)
-$env:PGPASSWORD="recflix123"; & "C:\Program Files\PostgreSQL\16\bin\pg_restore.exe" `
-  -h localhost -U recflix -d recflix `
-  --clean --if-exists --no-owner --no-acl data/recflix_db.dump
 ```
 
-복원 확인:
-```bash
-PGPASSWORD=recflix123 psql -h localhost -U recflix -d recflix -c "SELECT COUNT(*) FROM movies;"
-# 결과: 42917
-```
-
-> DB 스키마 및 컬럼 상세 설명은 [data/DB_RESTORE_GUIDE.md](data/DB_RESTORE_GUIDE.md) 참조
-
-### Step 3. Backend 환경 설정 및 실행
+### 3. Backend 실행
 
 ```bash
 cd backend
-
-# 환경변수 설정
-cp .env.example .env
-```
-
-`.env` 파일을 열어 아래 값을 설정:
-
-```env
-DATABASE_URL=postgresql://recflix:recflix123@localhost:5432/recflix
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=recflix123
-JWT_SECRET_KEY=your-secret-key-here        # openssl rand -hex 32 로 생성
-WEATHER_API_KEY=your-openweathermap-key     # https://openweathermap.org/api 에서 발급
-ANTHROPIC_API_KEY=your-anthropic-key        # (선택) LLM 캐치프레이즈 기능용
-```
-
-```bash
-# Python 가상환경 생성 및 의존성 설치
-python -m venv venv
-
-# 가상환경 활성화
-# Windows
-venv\Scripts\activate
-# macOS/Linux
-source venv/bin/activate
-
-# 의존성 설치
+python -m venv venv && source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-
-# 서버 실행
+cp .env.example .env  # 환경변수 설정
 uvicorn app.main:app --reload --port 8000
 ```
 
-### Step 4. Frontend 환경 설정 및 실행
+**필수 환경변수** (`backend/.env`):
+```env
+DATABASE_URL=postgresql://recflix:recflix123@localhost:5432/recflix
+REDIS_HOST=localhost
+REDIS_PORT=6379
+JWT_SECRET_KEY=<openssl rand -hex 32>
+WEATHER_API_KEY=<OpenWeatherMap API Key>
+```
+
+### 4. Frontend 실행
 
 ```bash
 cd frontend
-
-# 환경변수 설정
-cp .env.example .env.local
-```
-
-`.env.local` 내용 확인 (기본값 그대로 사용 가능):
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
-```
-
-```bash
-# 의존성 설치 및 실행
 npm install
+cp .env.example .env.local  # 기본값 사용 가능
 npm run dev
 ```
 
-### Step 5. 접속 확인
+### 5. 접속 확인
 
-| Service | URL |
-|---------|-----|
+| 서비스 | URL |
+|--------|-----|
 | Frontend | http://localhost:3000 |
 | Backend API | http://localhost:8000 |
-| API Docs (Swagger) | http://localhost:8000/docs |
+| Swagger Docs | http://localhost:8000/docs |
 
 ---
 
-## 기존 팀원: 최신 코드 & DB 업데이트
+## 배포
 
-이미 로컬 환경이 있는 팀원은 아래 명령어로 최신화:
-
-```bash
-# 1. 최신 코드 받기
-git pull origin main
-
-# 2. DB 최신화 (cast_ko 100% 한글화 등 데이터 변경 반영)
-# macOS / Linux
-PGPASSWORD=recflix123 pg_restore -h localhost -U recflix -d recflix \
-  --clean --if-exists --no-owner --no-acl data/recflix_db.dump
-
-# Windows
-$env:PGPASSWORD="recflix123"; & "C:\Program Files\PostgreSQL\16\bin\pg_restore.exe" `
-  -h localhost -U recflix -d recflix `
-  --clean --if-exists --no-owner --no-acl data/recflix_db.dump
-
-# 3. Backend 의존성 업데이트 (새 패키지 추가 시)
-cd backend && pip install -r requirements.txt
-
-# 4. Frontend 의존성 업데이트 (새 패키지 추가 시)
-cd frontend && npm install
-```
-
-> **주의**: `pg_restore --clean`은 기존 테이블을 삭제 후 재생성합니다.
-> 로컬에서 테스트한 평점/찜 데이터 등이 초기화됩니다.
+| 서비스 | 플랫폼 | 방식 |
+|--------|--------|------|
+| Frontend | Vercel | GitHub 연동 자동 배포 (push 시) |
+| Backend | Railway | GitHub Actions CD (`railway up`) |
+| Database | Railway | PostgreSQL 16 + Redis |
 
 ---
 
-## Project Structure
+## API 문서
 
-```
-recflix/
-├── backend/
-│   ├── app/
-│   │   ├── api/v1/          # API 라우터
-│   │   │   ├── recommendations.py       # 홈 추천 API
-│   │   │   ├── recommendation_engine.py # Hybrid 스코어링 엔진
-│   │   │   ├── recommendation_cf.py     # SVD 협업 필터링
-│   │   │   ├── recommendation_reason.py # 추천 이유 생성 (43개 템플릿)
-│   │   │   ├── recommendation_constants.py # 가중치/다양성 상수
-│   │   │   ├── diversity.py             # 다양성 후처리 (5개 함수)
-│   │   │   ├── semantic_search.py       # 시맨틱 검색 (인메모리 벡터)
-│   │   │   ├── movies.py               # 검색, 상세, 자동완성
-│   │   │   ├── auth.py                  # JWT + Kakao/Google OAuth
-│   │   │   ├── events.py               # 사용자 행동 이벤트 (10종)
-│   │   │   └── health.py               # 헬스체크 (DB/Redis/SVD/임베딩)
-│   │   ├── core/            # 설정, 보안, 의존성, Rate Limiting
-│   │   ├── models/          # SQLAlchemy 모델 (user_event.py 포함)
-│   │   ├── schemas/         # Pydantic 스키마
-│   │   └── services/        # 비즈니스 로직 (날씨, LLM 등)
-│   ├── scripts/             # DB 마이그레이션, 음역 변환, SVD 학습
-│   ├── data/embeddings/     # 시맨틱 검색 임베딩 (git-lfs)
-│   └── requirements.txt
-├── frontend/
-│   ├── app/                 # Next.js App Router (페이지 + OAuth 콜백 + 온보딩)
-│   ├── components/          # React 컴포넌트
-│   ├── hooks/               # Custom Hooks (useWeather, useImpressionTracker 등)
-│   ├── stores/              # Zustand 스토어
-│   ├── lib/                 # API 클라이언트, eventTracker, 유틸
-│   └── types/               # TypeScript 타입 정의
-├── .github/workflows/       # CI/CD (GitHub Actions)
-├── data/
-│   ├── recflix_db.dump      # DB 덤프 (42,917편, 22MB)
-│   └── DB_RESTORE_GUIDE.md  # DB 복원 상세 가이드
-└── docs/
-    ├── RECOMMENDATION_LOGIC.md  # 추천 알고리즘 상세
-    ├── HANDOFF_CONTEXT.md       # 프로젝트 핸드오프 컨텍스트
-    └── PROJECT_REVIEW.md        # 프로젝트 리뷰 & 로드맵
-```
+Swagger UI: https://backend-production-cff2.up.railway.app/docs
 
-## Database
+주요 엔드포인트:
+- `GET /api/v1/recommendations` — 홈 추천 (MBTI + Weather + Mood)
+- `GET /api/v1/movies` — 영화 검색 (필터, 정렬, 페이지네이션)
+- `GET /api/v1/movies/search/semantic` — 시맨틱 검색
+- `POST /api/v1/auth/signup` / `login` / `refresh` — 인증
+- `GET /api/v1/health` — 헬스체크
 
-- **영화**: 42,917편 (TMDB 기반, 22컬럼)
-- **출연진**: cast_ko 100% 한글화 (42,759편)
-- **추천 점수**: JSONB (mbti_scores, weather_scores, emotion_tags)
-- **감성 분석**: LLM 1,711편 + 키워드 기반 41,206편
+---
 
-상세 스키마: [data/DB_RESTORE_GUIDE.md](data/DB_RESTORE_GUIDE.md)
+## Phase 이력
 
-## Recommendation Algorithm
+| Phase | 날짜 | 내용 |
+|-------|------|------|
+| 1-8 | 02-02~03 | 기본 기능 구현 + 프로덕션 배포 (Vercel + Railway) |
+| 9 | 02-03 | 프로덕션 배포 (GitHub + Vercel + Railway + PostgreSQL) |
+| 10 | 02-04 | LLM 캐치프레이즈 (Claude API + Redis) + UX 개선 |
+| 11 | 02-09 | emotion_tags 7대 클러스터 + 기분 추천 + LLM 2-Tier |
+| 12 | 02-10 | 도메인 변경 + CORS 정리 |
+| 13 | 02-10 | 신규 CSV 42,917편 마이그레이션 + 6컬럼 추가 |
+| 14 | 02-10 | 알고리즘 v2 튜닝 + 연령등급 필터링 + 품질 보정 연속화 |
+| 15 | 02-11 | 보안 대응 (DB 교체) + Vercel Image Optimization + 인기도 로그 스케일 |
+| 16 | 02-11 | Favicon + 로고 + 날씨 한글 도시명 + 배너 개선 |
+| 17 | 02-12 | DB 스키마 정리 (24→22컬럼) + overview 통합 |
+| 18 | 02-12 | cast_ko 한글 음역 변환 (33,442개, Claude API $11.69) |
+| 19 | 02-13 | cast_ko 100% 한글화 (외국어 4,253개 추가) |
+| 20 | 02-13 | SEO 동적 OG 메타태그 (카카오톡 프리뷰) |
+| 21 | 02-13 | 자체 유사 영화 계산 (429,170개 관계) + 에러 바운더리 |
+| 22 | 02-13 | 검색 자동완성 강화 (키보드, Redis 캐싱, 하이라이팅) |
+| 23 | 02-13 | 큐레이션 서브타이틀 시스템 (186개 문구) |
+| 24 | 02-13 | 기분 8개 카테고리 확장 (울적한, 답답한 추가) |
+| 25 | 02-13 | 서브타이틀 고도화 (3종 랜덤, 제목 우측 배치) |
+| 26 | 02-13 | 컨텍스트 큐레이션 (시간대/계절/기온, 258개 문구) |
+| 27 | 02-19 | CLAUDE.md + .claude/skills/ 8개 도메인 스킬 |
+| 28 | 02-19 | 코드 리팩토링 (recommendations 770→347줄, movies/[id] 622→263줄) |
+| 29 | 02-19 | Sentry + Rate Limiting + 에러 핸들링 표준화 |
+| 30 | 02-19 | 사용자 행동 이벤트 (10종, eventTracker, Beacon API) |
+| 31 | 02-19 | SVD 협업 필터링 (MovieLens 25M, CF 25% 통합) |
+| 32 | 02-19 | A/B 테스트 + 소셜 로그인 (Kakao/Google) + 온보딩 |
+| 33 | 02-20 | 시맨틱 검색 (Voyage AI 임베딩 42,917편) |
+| 34 | 02-20 | 추천 다양성/신선도 정책 |
+| 35 | 02-20 | SVD 모델 프로덕션 배포 (Dockerfile LFS + numpy 2.x) |
+| 36 | 02-20 | 헬스체크 + CI/CD 파이프라인 (GitHub Actions) |
+| 37 | 02-20 | 추천 이유 생성 (43개 템플릿, $0 비용) |
+| 38 | 02-23 | 프로덕션 DB 마이그레이션 (user_events + users 7컬럼) |
+| 39 | 02-23 | 문서 업데이트 (Phase 33~38 반영) |
+| 40 | 02-23 | 설정 경량화 (skills/hooks/docs 고도화) |
+| 41 | 02-23 | 안전/정확성 (distinct 쿼리, 토큰 회전, rate limit 강화) |
+| 42 | 02-23 | DB 성능 (N+1 제거, 쿼리 통합, pg_trgm GIN) |
+| 43 | 02-23 | API 내결함성 + 검색 병렬화 + 파일 분할 + 애니메이션 경량화 |
+| 44 | 02-23 | SEO 메타데이터 + loading.tsx + 접근성 + 캐시 키 |
+| 45 | 02-23 | 코드 품질 (ruff 143→0, any 8→0, except 구체화, focus trap) |
+| 46 | 02-23 | 추천 콜드스타트 + 피드백 루프 + GDPR 계정 삭제 + 보안 강화 |
+| 47 | 02-23 | TMDB 트레일러 수집 (28,486편) + YouTube 임베드 UI |
+| 48 | 02-24 | async 블로킹 해소 (bcrypt to_thread) + Alembic + Dockerfile 체크섬 |
+| 49 | 02-24 | 시맨틱 재랭킹 v2 + pytest (14건) + 구조화 로깅 (structlog) |
+| **50** | **02-24** | **문서 최종화 + v1.0.0 릴리스** |
 
-**Hybrid v3 (CF 활성화 + Mood 선택 시):**
-```
-Score = (0.20 × MBTI) + (0.15 × Weather) + (0.25 × Mood) + (0.15 × Personal) + (0.25 × CF)
-```
+---
 
-**CF 비활성화 시 (기존 v2):**
-```
-Score = (0.25 × MBTI) + (0.20 × Weather) + (0.30 × Mood) + (0.25 × Personal)
-```
-
-- **MBTI**: 16개 유형별 장르 선호도 매칭
-- **Weather**: 날씨 조건별 영화 분위기 매칭
-- **Mood**: 8가지 기분 → 7대 감성 클러스터 매핑
-- **Personal**: 찜한 영화 장르 기반 개인화
-- **CF**: MovieLens 25M SVD item_bias 기반 품질 시그널
-- **Quality**: weighted_score 기반 연속 품질 보정 (×0.85~1.0)
-- **Diversity**: 장르 다양성 + 신선도 + serendipity 후처리
-- **Age Rating**: 연령등급 필터링 지원 (all/family/teen/adult)
-
-자세한 추천 로직은 [docs/RECOMMENDATION_LOGIC.md](docs/RECOMMENDATION_LOGIC.md) 참조
-
-## Environment Variables
-
-```env
-# Database
-DATABASE_URL=postgresql://recflix:recflix123@localhost:5432/recflix
-
-# Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=recflix123
-
-# JWT (Generate with: openssl rand -hex 32)
-JWT_SECRET_KEY=your-jwt-secret-key-here
-
-# Weather API (https://openweathermap.org/api)
-WEATHER_API_KEY=your-openweathermap-api-key-here
-
-# Anthropic API (for LLM features, optional)
-ANTHROPIC_API_KEY=your-anthropic-api-key-here
-```
-
-See `backend/.env.example` and `frontend/.env.example` for full templates.
-
-## License
+## 라이선스
 
 MIT License

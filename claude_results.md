@@ -1,74 +1,58 @@
-# Phase 49B: pytest 기본 스위트 + 구조화 로깅
+# Phase 50: 문서 최종화 + v1.0.0 릴리스
 
 **날짜**: 2026-02-24
 
-## 변경/생성 파일
+## 업데이트된 문서 목록
 
 | 파일 | 변경 내용 |
 |------|-----------|
-| `backend/tests/__init__.py` | 테스트 패키지 (신규) |
-| `backend/tests/conftest.py` | 공유 픽스처: SQLite, JSONB→JSON, Redis mock (신규) |
-| `backend/tests/test_health.py` | 헬스체크 테스트 2건 (신규) |
-| `backend/tests/test_auth.py` | 인증 테스트 5건 (신규) |
-| `backend/tests/test_movies.py` | 영화 테스트 4건 (신규) |
-| `backend/tests/test_recommendations.py` | 추천 테스트 3건 (신규) |
-| `backend/pytest.ini` | pytest 설정 (신규) |
-| `backend/app/core/logging_config.py` | structlog 설정 (신규) |
-| `backend/app/middleware/__init__.py` | 미들웨어 패키지 (신규) |
-| `backend/app/middleware/request_id.py` | X-Request-ID 미들웨어 (신규) |
-| `backend/app/main.py` | structlog 초기화 + RequestIDMiddleware 추가 |
-| `.github/workflows/ci.yml` | backend-test job 추가 (pytest) |
-| `backend/requirements.txt` | structlog, python-json-logger 추가 |
+| `README.md` | 전체 재작성 (프로젝트 소개~Phase 이력 50개) |
+| `CHANGELOG.md` | Phase 46~50 + v1.0.0 릴리스 항목 추가 |
+| `docs/ARCHITECTURE.md` | 신규 작성 (시스템 아키텍처 문서) |
+| `PROGRESS.md` | Phase 39~50 완료 표시 + 향후 과제 정리 |
+| `.claude/skills/recommendation.md` | 재랭킹 v2 + 콜드스타트 추가 |
+| `.claude/skills/database.md` | trailer_key + Alembic 추가 |
+| `.claude/skills/deployment.md` | CI pytest + structlog + Dockerfile 체크섬 |
+| `.claude/skills/frontend-patterns.md` | ErrorBoundary + TrailerModal 추가 |
+| `.claude/skills/code-quality.md` | pytest + structlog 추가 |
 
-## pytest 테스트 결과
+## README.md 섹션 구성
 
-```
-10 passed, 4 skipped in 6.61s
-```
+1. 프로젝트 소개 (MBTI x 날씨 x 기분)
+2. 주요 기능 (추천/콘텐츠/사용자/인프라)
+3. 기술 스택 (6 레이어 테이블)
+4. 시스템 아키텍처 (텍스트 다이어그램)
+5. 추천 알고리즘 (v3 공식 + 5축 설명)
+6. 프로젝트 구조 (tree)
+7. 로컬 개발 환경 설정 (Quick Start 5단계)
+8. 배포 (Vercel + Railway)
+9. API 문서 (주요 엔드포인트)
+10. Phase 이력 (1~50, 한 줄씩)
 
-| 테스트 | 결과 |
-|--------|------|
-| `test_health_returns_200` | PASSED |
-| `test_health_contains_components` | PASSED |
-| `test_signup_success` | PASSED |
-| `test_signup_duplicate_email` | PASSED |
-| `test_login_success` | PASSED |
-| `test_login_wrong_password` | PASSED |
-| `test_refresh_token` | PASSED |
-| `test_get_movies_returns_200` | PASSED |
-| `test_get_movies_with_genre_filter` | PASSED |
-| `test_get_movie_not_found` | PASSED |
-| `test_autocomplete` | SKIPPED (pg_trgm) |
-| `test_get_recommendations_home` | SKIPPED (JSONB cast) |
-| `test_get_popular` | SKIPPED (JSONB ordering) |
-| `test_get_top_rated` | SKIPPED (JSONB ordering) |
+## docs/ARCHITECTURE.md 구조
 
-## conftest.py 설정 요약
+- 전체 시스템 구조 (텍스트 다이어그램)
+- 데이터 흐름: 홈 추천 요청 6단계
+- 데이터베이스 스키마 (6 테이블 관계)
+- JSONB GIN 인덱스
+- 캐시 전략 (Redis 4계층 + 프로세스 2계층 + localStorage 2계층)
+- 인증 흐름 (JWT + Refresh Token 회전 + OAuth)
+- 외부 서비스 의존성 (5개 서비스, graceful degradation)
+- CI/CD 파이프라인 흐름
+- 로깅 구조 (structlog)
 
-- **DB**: SQLite in-memory + StaticPool (테스트 간 격리)
-- **JSONB→JSON**: `Base.metadata` 순회하여 JSONB 컬럼을 JSON으로 변환
-- **Rate Limiting**: `limiter.enabled = False`로 비활성화
-- **Redis Mock**: `get_redis_client`를 None 반환 함수로 패치 (5개 모듈)
-- **Foreign Keys**: SQLite PRAGMA foreign_keys=ON
+## skills 변경 요약
 
-## CI 변경 내용
+| 스킬 | 추가 내용 |
+|------|-----------|
+| recommendation | 재랭킹 v2 (60/15/25), 콜드스타트 |
+| database | trailer_key, Alembic 마이그레이션, 체크리스트 업데이트 |
+| deployment | CI pytest, structlog, Dockerfile 체크섬 |
+| frontend-patterns | ErrorBoundary 개선, TrailerModal |
+| code-quality | pytest 테스트 스위트, structlog 구조화 로깅 |
 
-- `backend-test` job 추가: `pip install -r requirements.txt` → `pytest -v --tb=short`
-- `deploy-backend` needs에 `backend-test` 추가 (테스트 통과 필수)
+## v1.0.0 태그 정보
 
-## structlog 설정 요약
-
-- **Production**: JSON one-line output (Railway 로그 파싱 가능)
-- **Development**: Colored console output (human-readable)
-- **통합**: stdlib logging과 완전 호환 (기존 `logging.info()` 코드 변경 불필요)
-- **Request ID**: `X-Request-ID` 미들웨어로 모든 요청에 UUID 바인딩
-- **Noisy loggers**: `uvicorn.access`, `httpx`, `httpcore` → WARNING 레벨
-
-## 검증 결과
-
-| 항목 | 결과 |
-|------|------|
-| `pytest -v --tb=short` | 10 passed, 4 skipped |
-| `ruff check app/ tests/` | 0 issues |
-| `from app.main import app` | 정상 (RecFlix) |
-| `import structlog; log.info("test")` | 정상 출력 |
+- `git tag -a v1.0.0 -m 'RecFlix v1.0.0 — 프로덕션 릴리스'`
+- 50개 Phase 완료
+- 42,917편 영화 DB + 5축 하이브리드 추천 + 시맨틱 검색

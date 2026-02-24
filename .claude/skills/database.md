@@ -57,11 +57,23 @@ PGPASSWORD=<railway_pw> pg_restore -h shinkansen.proxy.rlwy.net -p 20053 -U post
 - 컬럼: id, user_id(nullable), event_type, event_data(JSONB), session_id, created_at, page_url
 - 인덱스: user_id, event_type, created_at, session_id, (event_type+created_at)
 
+## trailer_key (Phase 47)
+→ movies 테이블에 `trailer_key` 컬럼 추가 (YouTube video ID)
+→ 28,486/42,917편 (66.4%) 커버
+→ `collect_trailers.py` 스크립트로 TMDB API 수집
+
+## Alembic 마이그레이션 (Phase 48)
+→ `backend/alembic/` 디렉토리
+→ `Base.metadata.create_all()` 제거, Alembic 관리로 전환
+→ 초기 마이그레이션은 빈 baseline (stamp head)
+→ env.py: settings.DATABASE_URL 동적 설정
+
 ## 스키마 변경 시 체크리스트
 1. `models/` 수정
 2. `schemas/` Pydantic 스키마 동기화
 3. JSONB 인덱스 확인 (GIN)
-4. 마이그레이션 스크립트 작성
-5. 로컬 테스트 → pg_dump → Railway pg_restore
-6. CLAUDE.md DB 모델 섹션 업데이트
-7. 빌드 확인
+4. `alembic revision --autogenerate -m "설명"` (Alembic 마이그레이션)
+5. `alembic upgrade head` (로컬 적용)
+6. 로컬 테스트 → pg_dump → Railway pg_restore
+7. CLAUDE.md DB 모델 섹션 업데이트
+8. 빌드 확인
