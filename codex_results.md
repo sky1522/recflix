@@ -1,6 +1,6 @@
-# RecFlix 추천 알고리즘 + 웹서비스 프로덕션 점검 (Phase 45 기준)
+# RecFlix 추천 알고리즘 + 웹서비스 프로덕션 점검 (Phase 45 기준, Phase 50 해결 반영)
 
-작성일: 2026-02-23  
+작성일: 2026-02-23 (Phase 46~50 해결 사항 반영: 2026-02-24)
 분석 범위: 추천 엔진/검색/데이터 파이프라인/운영·배포·보안/UX
 
 ---
@@ -15,21 +15,11 @@
 - 예상 난이도: Medium
 - 예상 소요: 1.0 Phase
 
-### [A-2] 온보딩 선호 장르가 추천 계산에 직접 반영되지 않음
-- 현재 상태: `preferred_genres`를 저장하지만 추천 스코어 계산에서는 사용하지 않음.  
-  근거: `backend/app/api/v1/users.py:71`, `backend/app/api/v1/recommendation_engine.py:201`
-- 문제/리스크: 신규 사용자 콜드스타트에서 추천 정밀도가 빠르게 올라가지 않음.
-- 개선 방안: 평점/찜 데이터가 적은 구간에서 `preferred_genres`를 personal prior로 반영.
-- 예상 난이도: Low
-- 예상 소요: 0.5 Phase
+### [A-2] ~~온보딩 선호 장르가 추천 계산에 직접 반영되지 않음~~ → ✅ Phase 46 해결
+- **해결**: 콜드스타트 보완 — 상호작용 <5건 시 preferred_genres → genre_counts fallback
 
-### [A-3] 피드백 루프 체감 지연 (프론트 추천 캐시 키 설계)
-- 현재 상태: 추천 캐시 키가 `weather/mood/user/mbti` 중심이며 평점·찜 변경은 반영되지 않음.  
-  근거: `frontend/app/page.tsx:37`, `frontend/app/page.tsx:104`
-- 문제/리스크: 사용자가 방금 평점/찜을 바꿔도 홈 추천이 즉시 갱신되지 않는 UX 발생.
-- 개선 방안: 평점/찜 mutate 시 캐시 무효화 또는 `interaction_version` 키 도입.
-- 예상 난이도: Low
-- 예상 소요: 0.5 Phase
+### [A-3] ~~피드백 루프 체감 지연~~ → ✅ Phase 46 해결
+- **해결**: interaction_version 캐시 무효화 키 도입 — 평점/찜 변경 시 추천 즉시 갱신
 
 ### [A-4] `weighted_score >= 6.0` 고정 하한으로 롱테일 노출 제한
 - 현재 상태: 추천 주요 경로에서 6.0 하한이 고정으로 적용됨.  
@@ -39,29 +29,14 @@
 - 예상 난이도: Medium
 - 예상 소요: 1.0 Phase
 
-### [B-1] async 엔드포인트 내부 블로킹 I/O/CPU 처리
-- 현재 상태: async 라우트에서 동기 HTTP/DB 또는 고비용 연산이 섞여 있음.  
-  근거: `backend/app/api/v1/auth.py:187`, `backend/app/api/v1/movies.py:327`
-- 문제/리스크: 이벤트 루프 블로킹으로 동시성 하락, 피크 타임 지연/타임아웃 위험.
-- 개선 방안: sync 라우트로 통일해 threadpool 사용 또는 async stack(SQLAlchemy async + AsyncClient)으로 일관 전환.
-- 예상 난이도: High
-- 예상 소요: 1.5 Phase
+### [B-1] ~~async 엔드포인트 내부 블로킹 I/O/CPU 처리~~ → ✅ Phase 48 해결
+- **해결**: bcrypt → asyncio.to_thread(), httpx AsyncClient 싱글톤 (lifespan 관리), OAuth 통합
 
-### [B-2] 런타임 `create_all` + 수동 SQL 마이그레이션 구조
-- 현재 상태: 앱 시작 시 `Base.metadata.create_all` 실행, Alembic 체계 없음.  
-  근거: `backend/app/main.py:42`, `backend/scripts/migrate_add_columns.py`
-- 문제/리스크: 스키마 drift, 배포 순서 의존, 롤백 난이도 상승.
-- 개선 방안: Alembic 도입, 배포 단계에서 migrate 강제, 런타임 DDL 제거.
-- 예상 난이도: Medium
-- 예상 소요: 1.0 Phase
+### [B-2] ~~런타임 `create_all` + 수동 SQL 마이그레이션 구조~~ → ✅ Phase 48 해결
+- **해결**: Alembic 도입, Base.metadata.create_all() 제거, 빈 baseline stamp
 
-### [B-3] Rate limit 신뢰 경계 취약
-- 현재 상태: `TRUSTED_PROXIES` 미설정 시 전달 헤더를 사실상 신뢰함.  
-  근거: `backend/app/core/rate_limit.py:20`
-- 문제/리스크: 헤더 스푸핑으로 IP 기반 제한 우회 가능.
-- 개선 방안: 운영 프록시 CIDR 필수 설정, 미설정 시 XFF 무시가 기본이 되도록 반전.
-- 예상 난이도: Low
-- 예상 소요: 0.5 Phase
+### [B-3] ~~Rate limit 신뢰 경계 취약~~ → ✅ Phase 41 해결
+- **해결**: 프록시 인식 IP 추출 강화
 
 ### [B-4] 인증 토큰 localStorage 저장
 - 현재 상태: access/refresh 토큰을 localStorage에 저장.  
@@ -71,13 +46,8 @@
 - 예상 난이도: Medium
 - 예상 소요: 1.0 Phase
 
-### [B-5] 빌드 시 외부 대용량 파일 직접 다운로드
-- 현재 상태: Docker build 중 GitHub URL에서 모델/임베딩 직접 curl.  
-  근거: `backend/Dockerfile:28`
-- 문제/리스크: 재현성/공급망/가용성 리스크, 빌드 실패 시 배포 불안정.
-- 개선 방안: 버전 고정 아티팩트 저장소(S3/Release) + 체크섬 검증 + fallback.
-- 예상 난이도: Medium
-- 예상 소요: 0.5 Phase
+### [B-5] ~~빌드 시 외부 대용량 파일 직접 다운로드~~ → ✅ Phase 48 해결
+- **해결**: Dockerfile에 SHA256 체크섬 무결성 검증 추가 (4개 파일)
 
 ---
 
@@ -107,13 +77,8 @@
 - 예상 난이도: Medium
 - 예상 소요: 0.5 Phase
 
-### [A-8] 시맨틱 검색 재랭킹의 인기 편향
-- 현재 상태: `semantic 0.50 + popularity 0.30 + quality 0.20`.  
-  근거: `backend/app/api/v1/movies.py:269`
-- 문제/리스크: 질의 의도보다 대중성이 상단을 과점할 가능성.
-- 개선 방안: 질의 타입별 동적 가중치, 오프라인 NDCG 기반 튜닝.
-- 예상 난이도: Medium
-- 예상 소요: 0.5 Phase
+### [A-8] ~~시맨틱 검색 재랭킹의 인기 편향~~ → ✅ Phase 49 해결
+- **해결**: 재랭킹 v2 — semantic 60% + popularity 15% (log1p) + quality 25% (인기 편향 감소)
 
 ### [A-9] 한국어 질의 전처리 부재
 - 현재 상태: 임베딩 전 형태소/동의어/오탈자 정규화 파이프라인 미확인.  
@@ -131,21 +96,11 @@
 - 예상 난이도: Medium
 - 예상 소요: 0.5 Phase
 
-### [B-7] 관측성(로그 구조화/SLO/알람) 고도화 필요
-- 현재 상태: Sentry는 연결되어 있으나 로그는 plain text 위주.  
-  근거: `backend/app/main.py:18`, `backend/app/main.py:29`
-- 문제/리스크: 장애 탐지/원인분석(RCA) 속도 저하.
-- 개선 방안: JSON 로그, request-id 상관관계, 5xx/latency/error budget 알람.
-- 예상 난이도: Medium
-- 예상 소요: 0.5 Phase
+### [B-7] ~~관측성(로그 구조화/SLO/알람) 고도화 필요~~ → ✅ Phase 49 해결
+- **해결**: structlog 구조화 로깅 (JSON prod/colored dev) + X-Request-ID 미들웨어
 
-### [B-8] 테스트 게이트 부족
-- 현재 상태: CI는 lint/build 중심, 타입체크는 non-blocking.  
-  근거: `.github/workflows/ci.yml:31`, `.github/workflows/ci.yml:74`
-- 문제/리스크: 회귀가 main 배포로 직행할 위험.
-- 개선 방안: 핵심 API contract test + 추천 스모크 테스트를 필수 게이트로 추가.
-- 예상 난이도: Medium
-- 예상 소요: 1.0 Phase
+### [B-8] ~~테스트 게이트 부족~~ → ✅ Phase 49 해결
+- **해결**: pytest 기본 스위트 (14건) + CI backend-test job (배포 필수 게이트)
 
 ### [B-9] 데이터 갱신 파이프라인 자동화 부족
 - 현재 상태: 점수/태그/유사도 계산이 스크립트 수동 실행 중심.  
@@ -155,13 +110,8 @@
 - 예상 난이도: Medium
 - 예상 소요: 1.0 Phase
 
-### [B-10] GDPR/탈퇴 삭제 플로우 미비
-- 현재 상태: `/users/me` 조회/수정만 존재, 탈퇴·완전삭제 엔드포인트 없음.  
-  근거: `backend/app/api/v1/users.py:17`
-- 문제/리스크: 개인정보 삭제 요청 대응 어려움.
-- 개선 방안: `/users/me` DELETE + 연관 데이터 삭제/익명화 정책 + 감사로그.
-- 예상 난이도: Medium
-- 예상 소요: 0.5 Phase
+### [B-10] ~~GDPR/탈퇴 삭제 플로우 미비~~ → ✅ Phase 46 해결
+- **해결**: DELETE /users/me 엔드포인트 + 연관 데이터 삭제 (ratings, collections, events)
 
 ---
 
@@ -198,40 +148,35 @@
 
 ---
 
-## 추천 로드맵 (Phase 순서)
+## 로드맵 실행 결과 (Phase 46~50)
 
-### Phase 46 — 런칭 차단 이슈 해소
-- [B-1] async 블로킹 제거
-- [B-2] Alembic 전환
-- [B-3] Trusted proxy 강제
-- [B-4] 토큰 저장 방식 개선 착수
-- [B-5] 아티팩트 공급망 고정
+### 해결된 항목 (10/19)
+- ✅ [A-2] 콜드스타트 — Phase 46
+- ✅ [A-3] 피드백 루프 — Phase 46
+- ✅ [A-8] 재랭킹 v2 — Phase 49
+- ✅ [B-1] async 블로킹 — Phase 48
+- ✅ [B-2] Alembic — Phase 48
+- ✅ [B-3] Rate limit — Phase 41
+- ✅ [B-5] 체크섬 — Phase 48
+- ✅ [B-7] structlog — Phase 49
+- ✅ [B-8] pytest — Phase 49
+- ✅ [B-10] GDPR — Phase 46
 
-### Phase 47 — 추천 품질 핵심 보정
+### 미해결 항목 (향후 과제)
 - [A-1] LLM 소스 판별 정확화
-- [A-2] 온보딩 선호 반영
-- [A-3] 피드백 루프 실시간화
 - [A-4] 롱테일 노출 조정
-
-### Phase 48 — 운영성 강화
-- [B-6] 응답 페이로드 경량화
-- [B-7] 구조화 로그/SLO/알람
-- [B-8] 테스트 게이트 강화
-- [B-10] GDPR/탈퇴 처리
-
-### Phase 49 — 데이터/모델 고도화
-- [A-5] CF v2
+- [A-5] CF v2 (RecFlix 자체 데이터 기반)
 - [A-6] 시간 감쇠 반영
-- [A-8] 재랭킹 튜닝
 - [A-9] 한국어 검색 전처리
-- [B-9] 배치 자동화
-
-### Phase 50+ — 성장 최적화
-- [A-10] 온라인 최적화(밴딧)
-- [A-11] 통합 품질 대시보드
-- [B-11], [B-12] 환경/인덱스 운영 고도화
+- [B-4] 토큰 저장 방식 (HttpOnly Cookie)
+- [B-6] 응답 페이로드 경량화
+- [B-9] 데이터 갱신 배치 자동화
+- [A-10] 컨텍스트 밴딧
+- [A-11] 품질 대시보드
+- [B-11] staging 환경
+- [B-12] 인덱스 운영 자동화
 
 ---
 
 ## 총평
-현재 구조는 “서비스 동작” 수준은 충족하지만, 런칭 안정성과 추천 신뢰도를 함께 확보하려면 **동시성/보안/데이터 정합성(🔴)** 항목을 먼저 닫는 것이 필수입니다. 이후 1~2개 Phase 내에 추천 품질과 운영 자동화를 보강하면, 트래픽 증가에도 안정적으로 확장 가능한 구조로 갈 수 있습니다.
+Phase 46~50에서 19개 지적사항 중 10개를 해결하여 **v1.0.0 릴리스** 달성. 핵심 운영 이슈(async 블로킹, Alembic, structlog, pytest, GDPR)와 추천 품질(콜드스타트, 피드백 루프, 재랭킹 v2)이 모두 해결됨. 남은 항목은 주로 고도화(CF v2, 밴딧, staging 환경) 및 UX 개선(토큰 보안, 페이로드 경량화) 영역.

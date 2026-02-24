@@ -39,6 +39,10 @@ backend/
       security.py           # JWT 토큰 생성/검증 (bcrypt)
       exceptions.py         # 공통 에러 스키마 (AppException)
       rate_limit.py         # slowapi Rate Limiting
+      http_client.py        # httpx AsyncClient 싱글톤 (lifespan 관리)
+      logging_config.py     # structlog 구조화 로깅 설정
+    middleware/
+      request_id.py         # X-Request-ID 미들웨어 (structlog contextvars)
     models/
       movie.py              # Movie + Genre + Person + Keyword + Country
       user.py               # User (17컬럼, OAuth + A/B 테스트)
@@ -58,6 +62,9 @@ backend/
     regenerate_emotion_tags.py   # 키워드 기반 감성 태그
     transliterate_cast_names.py  # 출연진 한글 음역
     transliterate_persons.py     # persons 테이블 한글화
+    collect_trailers.py          # TMDB 트레일러 수집
+  tests/                         # pytest 테스트 스위트
+  alembic/                       # DB 마이그레이션 (Alembic)
 
 frontend/
   app/
@@ -81,13 +88,19 @@ frontend/
       MovieModal.tsx       # 상세 모달 (별점, 찜)
       FeaturedBanner.tsx   # 대표 영화 배너
       HybridMovieCard.tsx  # 추천 태그 표시 카드
+      TrailerModal.tsx     # YouTube 트레일러 모달
+      MovieGrid.tsx        # 영화 그리드 레이아웃
+      MovieFilters.tsx     # 영화 필터 컴포넌트
     layout/
       Header.tsx           # 네비게이션 + 검색 + 날씨 인디케이터
+      HeaderMobileDrawer.tsx # 모바일 네비게이션 드로어
     weather/
       WeatherBanner.tsx    # 날씨 정보 + 테마 전환
     search/
       SearchAutocomplete.tsx # 자동완성 (키보드, 하이라이팅)
+      SearchResults.tsx    # 검색 결과 컴포넌트
       HighlightText.tsx    # 검색어 하이라이팅
+    ErrorBoundary.tsx      # 에러 바운더리 (전역)
   lib/
     api.ts                 # 24개 API 함수 (fetchAPI 래퍼)
     eventTracker.ts        # 사용자 행동 이벤트 배치 전송 (Beacon API)
@@ -107,12 +120,13 @@ frontend/
     index.ts               # TypeScript 타입 정의
 
 .github/workflows/
-  ci.yml                   # CI/CD (lint + build + Railway CD)
+  ci.yml                   # CI/CD (lint + test + build + Railway CD)
 
 scripts/
   clean_project.py         # 프로젝트 정리 스크립트
 
 docs/
+  ARCHITECTURE.md          # 시스템 아키텍처 문서
   RECOMMENDATION_LOGIC.md  # 추천 알고리즘 상세
   HANDOFF_CONTEXT.md       # 프로젝트 핸드오프 컨텍스트
   PROJECT_INDEX.md         # 프로젝트 파일 인덱스
@@ -122,12 +136,13 @@ docs/
 ## DB 모델
 
 ```
-movies: 22컬럼, 42,917행
+movies: 23컬럼, 42,917행
   id=TMDB PK, title(영어), title_ko(한국어), certification, runtime,
   vote_average, vote_count, popularity, overview(한국어), tagline,
   poster_path, release_date, is_adult,
   director, director_ko, cast_ko(100% 한글, 쉼표 구분),
   production_countries_ko, release_season, weighted_score,
+  trailer_key(YouTube video ID, nullable),
   mbti_scores JSONB(16종), weather_scores JSONB(4종), emotion_tags JSONB(7종)
   GIN 인덱스: mbti_scores, weather_scores, emotion_tags
 
@@ -181,7 +196,7 @@ cd frontend && npm run dev
 
 1. 작업 완료 시: `git add -A && git commit -m 'type(scope): 설명' && git push origin HEAD:main`
 2. 결과는 `claude_results.md`에 저장 (날짜, 변경 파일, 핵심 변경사항, 검증 결과)
-3. Python: `logging` 모듈 사용 (`print()` 금지), Ruff 린트/포맷, 함수 100줄 이내
+3. Python: structlog 구조화 로깅 (`print()` 금지), Ruff 린트/포맷, 함수 100줄 이내
 4. TypeScript: ESLint core-web-vitals, 상수는 `constants.ts`, 모듈 레벨 mutable 변수 금지
 5. 환경변수에 시크릿 하드코딩 금지 (`.env` 파일에만)
 6. DB 스키마 변경 시 JSONB GIN 인덱스 확인

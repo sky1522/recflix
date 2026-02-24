@@ -84,6 +84,11 @@
 ## 콜드스타트 (Phase 46)
 → preferred_genres 기반 fallback (온보딩에서 설정)
 → 찜/평점 없는 신규 사용자도 장르 기반 추천 가능
+→ 상호작용 5건 이상이면 preferred_genres 무시 (실제 데이터 우선)
+
+## 피드백 루프 (Phase 46)
+→ interaction_version 캐시 무효화 키 도입
+→ 평점/찜 변경 시 홈 추천이 즉시 갱신됨
 
 ## 알고리즘 변경 시 체크리스트
 1. recommendation_engine.py 가중치/로직 수정

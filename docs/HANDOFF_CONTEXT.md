@@ -1,6 +1,6 @@
 # RecFlix 프로젝트 컨텍스트 핸드오프
 
-> 클로드 웹 새 채팅에 붙여넣기용. 2026-02-23 기준. (Phase 38 완료 반영)
+> 클로드 웹 새 채팅에 붙여넣기용. 2026-02-24 기준. (Phase 50 완료, v1.0.0)
 
 ---
 
@@ -18,8 +18,8 @@
 | Backend 배포 | Railway — https://backend-production-cff2.up.railway.app |
 | API 문서 | https://backend-production-cff2.up.railway.app/docs |
 | GitHub | https://github.com/sky1522/recflix |
-| 총 커밋 | 213개+, Phase 38까지 완료 |
-| 소스 파일 | Backend 52개 (.py) / Frontend 46개 (.ts/.tsx) |
+| 총 커밋 | 250개+, Phase 50 완료 (v1.0.0) |
+| 소스 파일 | Backend 60개+ (.py) / Frontend 50개+ (.ts/.tsx) |
 
 ---
 
@@ -29,24 +29,30 @@
 ```
 backend/app/
   api/v1/
-    recommendations.py        # 홈 추천 API (347줄)
-    recommendation_engine.py  # Hybrid 스코어링 엔진 (330줄)
-    recommendation_constants.py # 가중치 상수 (76줄)
+    recommendations.py        # 홈 추천 API (412줄)
+    recommendation_engine.py  # Hybrid 스코어링 엔진 (396줄)
+    recommendation_constants.py # 가중치/다양성 상수 (115줄)
     recommendation_cf.py      # SVD 협업 필터링 모듈
-    recommendation_reason.py  # 추천 이유 생성 (228줄, 43개 템플릿)
+    recommendation_reason.py  # 추천 이유 생성 (239줄, 43개 템플릿)
     movies.py                 # 검색/상세/자동완성/장르/시맨틱검색
-    auth.py                   # 회원가입, JWT 로그인, 토큰 갱신
-    users.py                  # 프로필, MBTI 설정
+    auth.py                   # 회원가입, JWT 로그인, Kakao/Google OAuth
+    users.py                  # 프로필, MBTI 설정, GDPR 삭제
     ratings.py / collections.py / interactions.py
     events.py                 # 사용자 행동 이벤트 (10종)
     health.py                 # 헬스체크 (DB/Redis/SVD/임베딩)
     llm.py                    # Claude API 캐치프레이즈
   core/
     deps.py / security.py / config.py / exceptions.py / rate_limit.py
+    http_client.py            # httpx AsyncClient 싱글톤
+    logging_config.py         # structlog 구조화 로깅
+  middleware/
+    request_id.py             # X-Request-ID (structlog contextvars)
   models/
     movie.py / user.py / rating.py / collection.py / similar_movie.py / user_event.py
   services/
     weather.py (OpenWeatherMap + 역지오코딩) / llm.py (Claude + Redis)
+backend/tests/                # pytest 테스트 스위트 (14건)
+backend/alembic/              # DB 마이그레이션 (Alembic)
 
 frontend/
   app/
@@ -70,17 +76,17 @@ frontend/
 
 ### DB 스키마 (핵심)
 ```
-movies: 22컬럼, 42,917행
+movies: 23컬럼, 42,917행
   id(TMDB PK), title(영어), title_ko(한국어), certification, runtime,
   vote_average, vote_count, popularity, overview(한국어), tagline,
   poster_path, release_date, is_adult,
   director, director_ko, cast_ko(100% 한글, 쉼표 구분),
-  production_countries_ko, release_season, weighted_score,
+  production_countries_ko, release_season, weighted_score, trailer_key(YouTube ID),
   mbti_scores JSONB(16종), weather_scores JSONB(4종), emotion_tags JSONB(7종)
 
 similar_movies: 429,170개 (영화별 Top 10)
 users: 17컬럼, email UNIQUE, mbti, bcrypt password + kakao_id, google_id, experiment_group, auth_provider, onboarding_completed, preferred_genres 등
-user_events: 10종 이벤트, JSONB metadata (프로덕션 생성 완료, Phase 38)
+user_events: 10종 이벤트, JSONB metadata (프로덕션 적용 완료)
 ratings: user_id+movie_id UNIQUE, score 0.5~5.0
 collections + collection_movies: 찜 관리
 genres(19), persons(97,206), keywords, countries: M:M 연결
@@ -106,13 +112,15 @@ genres(19), persons(97,206), keywords, countries: M:M 연결
 - **CF**: MovieLens 25M → SVD (k=100, RMSE 0.8768), item_bias 기반 품질 시그널
 - **추천 이유**: 템플릿 기반 43개 패턴 (MBTI 11 + Weather 12 + Mood 10 + Quality 4 + Compound 6)
 - **다양성 정책**: 장르 다양성 + 신선도 가중치 + serendipity + 중복 제거
-- **시맨틱 검색**: Voyage AI 임베딩 42,917편, NumPy 코사인 유사도
+- **시맨틱 검색**: Voyage AI 임베딩 42,917편, NumPy 코사인 유사도, 재랭킹 v2 (semantic 60% + popularity 15% + quality 25%)
+- **콜드스타트**: preferred_genres 기반 fallback (상호작용 <5건 시)
+- **피드백 루프**: interaction_version 캐시 무효화 (평점/찜 변경 즉시 반영)
 
 ---
 
 ## 4. CI/CD 파이프라인
 
-- **CI**: GitHub Actions — Backend Lint (ruff 0.1.13) + Frontend Build (next build)
+- **CI**: GitHub Actions — Backend Lint (ruff) + Backend Test (pytest) + Frontend Build (next build)
 - **CD**: GitHub Actions → `railway up --service backend --environment production --detach`
 - **Vercel**: GitHub 연동 자동 배포 (push 시)
 - **Railway Token**: Project Token (Account Token 아님), GitHub Secrets `RAILWAY_TOKEN`
@@ -120,7 +128,7 @@ genres(19), persons(97,206), keywords, countries: M:M 연결
 
 ---
 
-## 5. 완료된 Phase 요약 (1~38)
+## 5. 완료된 Phase 요약 (1~50)
 
 | Phase | 날짜 | 핵심 |
 |-------|------|------|
@@ -144,19 +152,22 @@ genres(19), persons(97,206), keywords, countries: M:M 연결
 | 35 | 02/20 | SVD 모델 프로덕션 배포 (Dockerfile LFS) |
 | 36 | 02/20 | 헬스체크 + CI/CD (GitHub Actions) |
 | 37 | 02/20 | 추천 이유 생성 (템플릿 43개 패턴) |
-| 38 | 02/23 | 프로덕션 DB 마이그레이션 (user_events + users 7컬럼 + events.py 버그 수정) |
+| 38 | 02/23 | 프로덕션 DB 마이그레이션 (user_events + users 7컬럼) |
+| 39-45 | 02/23 | 문서화, 설정 경량화, 안전/정확성, DB 성능, 내결함성, SEO/접근성, 코드 품질 |
+| 46 | 02/23 | 추천 콜드스타트 + GDPR 계정 삭제 + 보안 강화 + Error Boundary |
+| 47 | 02/23 | TMDB 트레일러 연동 (28,486편, YouTube 임베드 UI) |
+| 48 | 02/24 | async 최적화 (httpx 싱글톤, bcrypt to_thread) + Alembic 마이그레이션 |
+| 49 | 02/24 | 시맨틱 재랭킹 v2 + pytest 14건 + structlog 구조화 로깅 |
+| 50 | 02/24 | 문서 최종화 + v1.0.0 릴리스 |
 
 ---
 
-## 6. 프로덕션 미반영 사항
+## 6. 프로덕션 상태
 
-### 6.1 DB 마이그레이션 — ✅ 완료 (Phase 38, 2026-02-23)
-Phase 29~32 스키마가 **프로덕션 Railway DB에 적용 완료**:
-- `user_events` 테이블 생성 (7컬럼 + 5개 인덱스)
-- `users` 테이블 7컬럼 추가 (experiment_group, kakao_id, google_id, profile_image, auth_provider, onboarding_completed, preferred_genres)
-- 타입/제약조건 보정 완료 (preferred_genres TEXT, auth_provider/onboarding_completed NOT NULL)
-- 마이그레이션 SQL: `backend/scripts/migrate_phase4.sql`
-- events.py ab-report 쿼리 버그 수정 (metadata_ → metadata, 4곳)
+### 6.1 DB 마이그레이션 — ✅ 완료
+- Phase 38: user_events, users 7컬럼 + 타입 보정
+- Phase 47: trailer_key 컬럼 추가 (28,486편 커버)
+- Phase 48: Alembic 마이그레이션 체계 전환 (Base.metadata.create_all 제거)
 
 ### 6.2 남은 수동 작업
 - **OAuth 환경변수**: Railway/Vercel에 Kakao/Google OAuth 프로덕션 값 설정 필요
@@ -231,7 +242,8 @@ cd frontend && npm run dev
 | 문서 | 경로 | 설명 |
 |------|------|------|
 | 프로젝트 규칙 | `CLAUDE.md` | 구조/규칙/이슈패턴 (루트) |
-| 진행 상황 | `PROGRESS.md` | Phase 1-37 상세 |
+| 아키텍처 | `docs/ARCHITECTURE.md` | 시스템 구조/데이터 흐름/캐시/인증 |
+| 진행 상황 | `PROGRESS.md` | Phase 1-50 상세 |
 | 변경 이력 | `CHANGELOG.md` | 날짜별 변경사항 |
 | 추천 로직 | `docs/RECOMMENDATION_LOGIC.md` | 알고리즘 상세 |
 | 아키텍처 결정 | `DECISION.md` | 7개 주요 결정 |

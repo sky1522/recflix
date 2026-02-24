@@ -5,12 +5,13 @@
 → `backend/app/database.py` (SQLAlchemy engine)
 → `data/DB_RESTORE_GUIDE.md`
 
-## movies 테이블 (22컬럼, 42,917행)
+## movies 테이블 (23컬럼, 42,917행)
 → `backend/app/models/movie.py` 참조
 
 ### 컬럼 구조
 - 기본 정보 (13): id(TMDB PK), title, title_ko, certification, runtime, vote_average, vote_count, popularity, overview, tagline, poster_path, release_date, is_adult
 - 추가 정보 (6): director, director_ko, cast_ko, production_countries_ko, release_season, weighted_score
+- 트레일러 (1): trailer_key (YouTube video ID, nullable, 66.4% 커버)
 - 점수 JSONB (3): mbti_scores(16종), weather_scores(4종), emotion_tags(7종)
 
 ### GIN 인덱스

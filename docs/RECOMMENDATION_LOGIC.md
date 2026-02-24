@@ -1,6 +1,6 @@
 # RecFlix 추천 시스템 로직
 
-> 마지막 업데이트: 2026-02-23
+> 마지막 업데이트: 2026-02-24
 
 ---
 
@@ -319,9 +319,10 @@ Mood 없음: (0.35 × MBTI) + (0.25 × Weather) + (0.40 × Personal)
 ```python
 personal_score = 0.0
 
-# 0. 콜드스타트 보완 (상호작용 < 5건 시)
+# 0. 콜드스타트 보완 (Phase 46, 상호작용 < 5건 시)
 #    온보딩 preferred_genres(한글) → Genre 테이블로 영어 변환 → genre_counts에 가중치 1 추가
 #    상호작용 5건 이상이면 preferred_genres 무시 (기존 데이터로 충분)
+#    → 신규 사용자도 온보딩에서 선택한 장르 기반으로 즉시 개인화 추천 가능
 
 # 1. 장르 매칭 보너스 (최대 0.9)
 matching_genres = movie_genres & user_top_genres
@@ -516,14 +517,17 @@ const displayedMovies = useMemo(() => {
 6. 재랭킹: 유사도 + 인기도 + 품질 복합점수
 ```
 
-### 12.3 재랭킹 공식
+### 12.3 재랭킹 공식 (v2, Phase 49)
 
 ```python
-# 시맨틱 유사도 0.7 + 인기도 0.15 + 품질 0.15
-pop_log = log10(popularity + 1) / 3  # 정규화
+# 시맨틱 유사도 60% + 인기도 15% (log) + 품질 25%
+pop_log = log1p(popularity) / log1p(max_popularity)  # log 정규화
 quality_norm = weighted_score / 10
-final_score = 0.7 * semantic_score + 0.15 * pop_log + 0.15 * quality_norm
+final_score = 0.60 * semantic_score + 0.15 * pop_log + 0.25 * quality_norm
 ```
+
+> **v2 변경점 (Phase 49)**: 인기도 편향 감소를 위해 log1p 정규화 도입,
+> 품질 가중치 15%→25% 상향, 시맨틱 유사도 70%→60% 하향.
 
 ### 12.4 API 엔드포인트
 
@@ -701,6 +705,8 @@ RUN git lfs pull --include="data/embeddings/*,data/svd_model.pkl"
 | 2026-02-20 | 다양성 후처리: 장르 다양성, 신선도, serendipity, 중복 제거 (diversity.py 신규) |
 | 2026-02-20 | SVD 모델 프로덕션 배포: Dockerfile LFS 다운로드, numpy 2.x 호환 |
 | 2026-02-20 | 시맨틱 검색: Voyage AI 임베딩 42,917편, NumPy 인메모리 코사인 유사도 (semantic_search.py 신규) |
+| 2026-02-24 | 시맨틱 재랭킹 v2: semantic 60% + popularity 15% (log1p) + quality 25% (기존 70/15/15) |
+| 2026-02-23 | 피드백 루프: interaction_version 캐시 무효화 (평점/찜 변경 시 추천 즉시 갱신) |
 | 2026-02-23 | 콜드스타트 보완: 상호작용 <5건 시 온보딩 preferred_genres → genre_counts fallback |
 | 2026-02-19 | CF 통합 (v3): MovieLens 25M SVD item_bias → 25% 가중치, recommendation_cf.py 신규 |
 | 2026-02-13 | 기분 카테고리 확장: 6개 → 8개 (gloomy 울적한, stifled 답답한 추가) |
