@@ -13,12 +13,11 @@ from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.core.exceptions import AppException
+from app.core.logging_config import setup_logging
 from app.core.rate_limit import limiter
+from app.middleware.request_id import RequestIDMiddleware
 
-logging.basicConfig(
-    level=logging.DEBUG if settings.DEBUG else logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
+setup_logging()
 logger = logging.getLogger(__name__)
 
 from app.api.v1.router import api_router  # noqa: E402
@@ -79,6 +78,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Request ID middleware (binds request_id to structlog context)
+app.add_middleware(RequestIDMiddleware)
 
 
 # --- Global exception handlers (unified {error, message} format) ---

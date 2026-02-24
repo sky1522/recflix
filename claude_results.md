@@ -1,4 +1,4 @@
-# Phase 49A: 시맨틱 재랭킹 튜닝 + scripts 문서화
+# Phase 49B: pytest 기본 스위트 + 구조화 로깅
 
 **날짜**: 2026-02-24
 
@@ -6,46 +6,69 @@
 
 | 파일 | 변경 내용 |
 |------|-----------|
-| `backend/app/api/v1/movies.py` | `_calculate_relevance` 재랭킹 공식 v2 |
-| `backend/scripts/README.md` | 배치 스크립트 운영 가이드 (신규) |
+| `backend/tests/__init__.py` | 테스트 패키지 (신규) |
+| `backend/tests/conftest.py` | 공유 픽스처: SQLite, JSONB→JSON, Redis mock (신규) |
+| `backend/tests/test_health.py` | 헬스체크 테스트 2건 (신규) |
+| `backend/tests/test_auth.py` | 인증 테스트 5건 (신규) |
+| `backend/tests/test_movies.py` | 영화 테스트 4건 (신규) |
+| `backend/tests/test_recommendations.py` | 추천 테스트 3건 (신규) |
+| `backend/pytest.ini` | pytest 설정 (신규) |
+| `backend/app/core/logging_config.py` | structlog 설정 (신규) |
+| `backend/app/middleware/__init__.py` | 미들웨어 패키지 (신규) |
+| `backend/app/middleware/request_id.py` | X-Request-ID 미들웨어 (신규) |
+| `backend/app/main.py` | structlog 초기화 + RequestIDMiddleware 추가 |
+| `.github/workflows/ci.yml` | backend-test job 추가 (pytest) |
+| `backend/requirements.txt` | structlog, python-json-logger 추가 |
 
-## 재랭킹 공식 Before/After
+## pytest 테스트 결과
 
-| 항목 | Before (v1) | After (v2) |
-|------|-------------|------------|
-| **semantic** | 0.50 | **0.60** |
-| **popularity** | 0.30 | **0.15** |
-| **quality** | 0.20 | **0.25** |
+```
+10 passed, 4 skipped in 6.61s
+```
 
-## popularity 정규화 변경
+| 테스트 | 결과 |
+|--------|------|
+| `test_health_returns_200` | PASSED |
+| `test_health_contains_components` | PASSED |
+| `test_signup_success` | PASSED |
+| `test_signup_duplicate_email` | PASSED |
+| `test_login_success` | PASSED |
+| `test_login_wrong_password` | PASSED |
+| `test_refresh_token` | PASSED |
+| `test_get_movies_returns_200` | PASSED |
+| `test_get_movies_with_genre_filter` | PASSED |
+| `test_get_movie_not_found` | PASSED |
+| `test_autocomplete` | SKIPPED (pg_trgm) |
+| `test_get_recommendations_home` | SKIPPED (JSONB cast) |
+| `test_get_popular` | SKIPPED (JSONB ordering) |
+| `test_get_top_rated` | SKIPPED (JSONB ordering) |
 
-| 항목 | Before | After |
-|------|--------|-------|
-| **입력** | `vote_count` | `popularity` (TMDB 인기도) |
-| **정규화** | `log1p(vote_count) / log1p(50000)` | `log1p(popularity) / log1p(1000)` |
-| **효과** | 투표수 기반, 대작 편향 | 인기도 log 스케일, 인디 영화 노출 증가 |
+## conftest.py 설정 요약
 
-예시: popularity 10 vs 10000
-- Before: 차이 비율 ~3x
-- After (log): `log(11)/log(1001)` ≈ 0.35 vs `log(10001)/log(1001)` ≈ 1.33 → 차이 ~3.8x로 압축
+- **DB**: SQLite in-memory + StaticPool (테스트 간 격리)
+- **JSONB→JSON**: `Base.metadata` 순회하여 JSONB 컬럼을 JSON으로 변환
+- **Rate Limiting**: `limiter.enabled = False`로 비활성화
+- **Redis Mock**: `get_redis_client`를 None 반환 함수로 패치 (5개 모듈)
+- **Foreign Keys**: SQLite PRAGMA foreign_keys=ON
 
-## scripts/README.md 요약
+## CI 변경 내용
 
-- 전체 16개 스크립트 분류: 수집/갱신, 유사도 계산, 데이터 처리, DB 마이그레이션
-- 필수 환경변수 4개 (DATABASE_URL, TMDB_API_KEY, ANTHROPIC_API_KEY, VOYAGE_API_KEY)
-- 월 1회 정기 갱신 체크리스트: trailers → similar_movies → (선택) emotion_tags
-- 각 스크립트 실행 예시 포함
+- `backend-test` job 추가: `pip install -r requirements.txt` → `pytest -v --tb=short`
+- `deploy-backend` needs에 `backend-test` 추가 (테스트 통과 필수)
 
-## GitHub Actions 워크플로우
+## structlog 설정 요약
 
-**생략** — 사유:
-- `compute_similar_movies.py`에 `DATABASE_URL`이 localhost로 하드코딩됨
-- 환경변수 대응 수정은 "비즈니스 로직 외 변경 금지" 규칙에 해당
-- 대신 `scripts/README.md`에 수동 실행 가이드 문서화
+- **Production**: JSON one-line output (Railway 로그 파싱 가능)
+- **Development**: Colored console output (human-readable)
+- **통합**: stdlib logging과 완전 호환 (기존 `logging.info()` 코드 변경 불필요)
+- **Request ID**: `X-Request-ID` 미들웨어로 모든 요청에 UUID 바인딩
+- **Noisy loggers**: `uvicorn.access`, `httpx`, `httpcore` → WARNING 레벨
 
 ## 검증 결과
 
 | 항목 | 결과 |
 |------|------|
-| `ruff check app/` | 0 issues |
-| `from app.main import app` | 정상 |
+| `pytest -v --tb=short` | 10 passed, 4 skipped |
+| `ruff check app/ tests/` | 0 issues |
+| `from app.main import app` | 정상 (RecFlix) |
+| `import structlog; log.info("test")` | 정상 출력 |

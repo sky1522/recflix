@@ -25,6 +25,24 @@ jobs:
       - name: Run ruff check (critical rules)
         run: cd backend && ruff check app/ --select E9,F63,F7,F82
 
+  backend-test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: cd backend && pip install -r requirements.txt
+
+      - name: Run pytest
+        run: cd backend && pytest -v --tb=short
+
   backend-typecheck:
     name: Backend Type Check
     runs-on: ubuntu-latest
@@ -71,7 +89,7 @@ jobs:
 
   deploy-backend:
     name: Deploy Backend (Railway)
-    needs: [backend-lint, frontend-build]
+    needs: [backend-lint, backend-test, frontend-build]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
