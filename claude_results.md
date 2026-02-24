@@ -1,4 +1,4 @@
-# Phase 48A: async 블로킹 I/O 수정
+# Phase 48B: Alembic 마이그레이션 + Dockerfile 체크섬
 
 **날짜**: 2026-02-24
 
@@ -6,55 +6,54 @@
 
 | 파일 | 변경 내용 |
 |------|-----------|
-| `backend/app/core/http_client.py` | httpx.AsyncClient 싱글턴 (신규) |
-| `backend/app/api/v1/auth.py` | bcrypt to_thread + httpx AsyncClient 전환 |
-| `backend/app/main.py` | lifespan에 http_client 초기화/정리 추가 |
+| `backend/alembic.ini` | Alembic 설정 (신규, sqlalchemy.url 동적) |
+| `backend/alembic/env.py` | 모델 로드 + settings.DATABASE_URL 연동 |
+| `backend/alembic/versions/e2b032d303d8_*.py` | 초기 스냅샷 (빈 baseline, stamp용) |
+| `backend/app/main.py` | `Base.metadata.create_all()` 제거 |
+| `backend/Dockerfile` | 다운로드 파일 SHA256 체크섬 검증 추가 |
 
-## 1단계: bcrypt to_thread 적용 지점
+## Alembic 설정 구조
 
-| 함수 | 변경 |
-|------|------|
-| `signup` | `def` → `async def`, `get_password_hash()` → `await asyncio.to_thread(get_password_hash, ...)` |
-| `login` | `verify_password()` → `await asyncio.to_thread(verify_password, ...)` |
-| `kakao_login` | 신규 유저 생성 시 `get_password_hash()` → `await asyncio.to_thread(...)` |
-| `google_login` | 신규 유저 생성 시 `get_password_hash()` → `await asyncio.to_thread(...)` |
-
-## 2단계: httpx 변경 전/후
-
-**Before** (매 요청마다 동기 클라이언트 생성):
-```python
-with httpx.Client(timeout=10.0) as client:
-    token_resp = client.post(...)
+```
+backend/
+  alembic.ini          # sqlalchemy.url은 env.py에서 동적 설정
+  alembic/
+    env.py             # app.config.settings.DATABASE_URL 사용
+    versions/
+      e2b032d303d8_*.py  # baseline (빈 migration, stamp만)
 ```
 
-**After** (싱글턴 AsyncClient 재사용):
-```python
-client = get_http_client()
-token_resp = await client.post(...)
-```
+**env.py 핵심**:
+- `from app.database import Base` + `from app.models import *` → autogenerate 지원
+- `config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)` → .env 기반
 
-적용 위치: Kakao OAuth (token + userinfo), Google OAuth (token + userinfo) — 총 4곳
+## 초기 리비전
 
-## http_client.py 구조
+- Revision ID: `e2b032d303d8`
+- 내용: 빈 upgrade/downgrade (기존 DB에 stamp만)
+- `alembic stamp head` 실행 완료 (로컬 DB)
 
-- `init_http_client()`: AsyncClient 생성 (lifespan startup)
-- `close_http_client()`: AsyncClient 종료 (lifespan shutdown)
-- `get_http_client()`: 싱글턴 반환
+## create_all 제거
 
-## lifespan 변경
+- `Base.metadata.create_all(bind=engine)` 라인 제거
+- `from app.database import Base, engine` import 제거
+- 주석: `# Schema migrations managed by Alembic (alembic upgrade head)`
 
-```python
-# startup
-await init_http_client()
+## Dockerfile 체크섬 추가
 
-# shutdown
-await close_http_client()
-```
+| 파일 | SHA256 |
+|------|--------|
+| `svd_model.pkl` | `343853948b2e84...` |
+| `movie_embeddings.npy` | `e76cb82509c1be...` |
+| `embedding_metadata.json` | `767501ded5a042...` |
+| `movie_id_index.json` | `6c248d08dcc1ed...` |
+
+패턴: `curl -fSL -o <file> <url> && echo "<hash>  <file>" | sha256sum -c -`
 
 ## 검증 결과
 
 | 항목 | 결과 |
 |------|------|
-| `ruff check app/` | 0 issues |
-| `from app.main import app` | 정상 import |
-| `asyncio.to_thread` roundtrip | hash→verify True, wrong→False |
+| `alembic heads` | e2b032d303d8 (head) |
+| `from app.main import app` | 정상 (create_all 없이) |
+| `ruff check app/ alembic/` | 0 issues |

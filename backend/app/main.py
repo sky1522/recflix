@@ -22,8 +22,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 from app.api.v1.router import api_router  # noqa: E402
-from app.database import Base, engine  # noqa: E402
-from app.models import *  # noqa: E402, F401, F403 - Import all models for table creation
 
 # --- Sentry initialization (skip if DSN is empty) ---
 if settings.SENTRY_DSN:
@@ -39,8 +37,7 @@ if settings.SENTRY_DSN:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan events"""
-    # Startup: Create database tables
-    Base.metadata.create_all(bind=engine)
+    # Schema migrations managed by Alembic (alembic upgrade head)
     logger.info("Environment: %s", settings.APP_ENV)
     logger.info("Database: %s", "connected" if settings.DATABASE_URL else "NOT SET")
     logger.info("Redis: %s", "enabled" if settings.REDIS_URL else "disabled")

@@ -1,60 +1,65 @@
-claude "Phase 48A: async 블로킹 I/O 수정.
+claude "Phase 48B: Alembic 마이그레이션 도입 + Dockerfile 체크섬 검증.
 
 === Research ===
 다음 파일들을 읽을 것:
-- backend/app/api/v1/auth.py (전체 — bcrypt 호출 지점, httpx.Client 사용 지점)
-- backend/app/core/security.py (verify_password, get_password_hash)
-- backend/app/core/deps.py (get_current_user)
-- backend/app/main.py (lifespan)
+- backend/app/main.py (create_all 위치)
+- backend/app/database.py (엔진/세션 설정)
+- backend/app/models/ 전체 (모든 모델 import 확인)
+- backend/requirements.txt (alembic 포함 여부)
+- backend/Dockerfile (curl 다운로드 부분)
 
-=== 1단계: bcrypt 블로킹 해소 ===
+=== 1단계: Alembic 초기화 ===
 
-1-1. backend/app/core/security.py:
-  - verify_password()를 async로 변경하지 말 것 (동기 유틸 유지)
-  
-1-2. backend/app/api/v1/auth.py의 bcrypt 호출 지점:
-  - login 엔드포인트에서 verify_password() 호출 부분
-  - signup 엔드포인트에서 get_password_hash() 호출 부분
-  - 각각 asyncio.to_thread()로 래핑:
-    is_valid = await asyncio.to_thread(verify_password, password, user.hashed_password)
-    hashed = await asyncio.to_thread(get_password_hash, password)
-  
-⚠️ asyncio.to_thread는 Python 3.9+ (프로젝트 호환성 확인)
+1-1. cd backend && alembic init alembic
+  (alembic이 requirements.txt에 있는지 확인, 없으면 추가)
 
-=== 2단계: httpx.AsyncClient 싱글턴 ===
+1-2. backend/alembic.ini 수정:
+  - sqlalchemy.url은 비워두고 env.py에서 동적 설정
 
-2-1. backend/app/core/http_client.py 생성 (신규):
-  - 모듈 레벨 AsyncClient 싱글턴
-  - lifespan에서 초기화/정리:
-    startup: http_client = httpx.AsyncClient(timeout=10.0)
-    shutdown: await http_client.aclose()
-  - get_http_client() 함수 export
+1-3. backend/alembic/env.py 수정:
+  - from app.database import Base
+  - from app.models import * (모든 모델 로드)
+  - from app.core.config import settings
+  - config.set_main_option('sqlalchemy.url', settings.DATABASE_URL)
+  - target_metadata = Base.metadata
 
-2-2. backend/app/api/v1/auth.py의 OAuth 부분:
-  - 현재: httpx.Client()를 매 요청마다 with 블록으로 생성
-  - 변경: get_http_client()로 싱글턴 사용, await client.post(...) / await client.get(...)
-  - Kakao, Google 양쪽 모두 적용
+1-4. 초기 마이그레이션 생성 (현재 스키마 스냅샷):
+  alembic revision --autogenerate -m "initial schema snapshot"
+  ⚠️ 이미 테이블이 존재하므로 이 리비전은 스탬프만:
+  alembic stamp head
 
-2-3. backend/app/main.py lifespan:
-  - startup에 http_client 초기화 추가
-  - shutdown에 http_client.aclose() 추가
+=== 2단계: create_all 제거 ===
 
-⚠️ httpx.AsyncClient는 자동으로 커넥션 풀 관리
-⚠️ 기존 동기 httpx.Client 호출을 async로 전환하면서 응답 처리 로직은 동일하게 유지
+2-1. backend/app/main.py:
+  - Base.metadata.create_all(bind=engine) 라인 제거
+  - 주석으로 'Alembic manages schema migrations' 추가
+
+=== 3단계: Dockerfile 체크섬 검증 ===
+
+3-1. backend/Dockerfile의 curl 다운로드 부분에 SHA256 체크섬 추가:
+  - 현재 다운로드 파일 목록 확인
+  - 각 파일의 SHA256 해시 계산 (로컬에서)
+  - Dockerfile에 검증 추가:
+    RUN curl -L -o model.pkl https://... && \
+        echo "expected_hash  model.pkl" | sha256sum -c -
+
+⚠️ 해시값은 실제 파일을 다운로드해서 계산해야 함
+⚠️ 다운로드 URL이 변경 불가능한(immutable) 경로인지 확인
 
 === 규칙 ===
-- verify_password, get_password_hash 함수 시그니처는 동기 유지 (호출부에서 to_thread)
-- OAuth 토큰 교환/프로필 조회 로직 자체는 변경 금지 (HTTP 클라이언트만 교체)
-- 에러 핸들링 기존 패턴 유지
+- Alembic 초기 리비전은 stamp만 (이미 존재하는 DB에 적용하지 않음)
+- create_all 제거 후에도 앱 정상 시작 확인
+- Dockerfile 체크섬은 빌드 실패 시 명확한 에러 메시지
 
 === 검증 ===
-1. cd backend && ruff check app/ → 0 issues
-2. cd backend && python -c 'from app.main import app; print(app.title)'
-3. cd backend && python -c 'import asyncio; from app.core.security import verify_password; print(asyncio.run(asyncio.to_thread(verify_password, \"test\", \"$2b$12$test\")))'
-4. git add -A && git commit -m 'perf: Phase 48A bcrypt to_thread + httpx AsyncClient 싱글턴' && git push origin HEAD:main
+1. cd backend && alembic check (또는 alembic heads)
+2. cd backend && python -c 'from app.main import app; print(app.title)' (create_all 없이)
+3. cd backend && ruff check app/ alembic/ → 0 issues
+4. Dockerfile 문법 확인 (docker build --check 또는 hadolint)
+5. git add -A && git commit -m 'chore: Phase 48B Alembic 마이그레이션 + Dockerfile 체크섬' && git push origin HEAD:main
 
 결과를 claude_results.md에 덮어쓰기:
-- bcrypt to_thread 적용 지점 목록
-- httpx 변경 전/후 (Client → AsyncClient)
-- lifespan 변경 내용
-- http_client.py 구조"
+- Alembic 설정 구조
+- 초기 리비전 정보
+- create_all 제거 확인
+- Dockerfile 체크섬 추가 내역"
