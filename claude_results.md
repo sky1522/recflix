@@ -1,4 +1,4 @@
-# Phase 48B: Alembic 마이그레이션 + Dockerfile 체크섬
+# Phase 49A: 시맨틱 재랭킹 튜닝 + scripts 문서화
 
 **날짜**: 2026-02-24
 
@@ -6,54 +6,46 @@
 
 | 파일 | 변경 내용 |
 |------|-----------|
-| `backend/alembic.ini` | Alembic 설정 (신규, sqlalchemy.url 동적) |
-| `backend/alembic/env.py` | 모델 로드 + settings.DATABASE_URL 연동 |
-| `backend/alembic/versions/e2b032d303d8_*.py` | 초기 스냅샷 (빈 baseline, stamp용) |
-| `backend/app/main.py` | `Base.metadata.create_all()` 제거 |
-| `backend/Dockerfile` | 다운로드 파일 SHA256 체크섬 검증 추가 |
+| `backend/app/api/v1/movies.py` | `_calculate_relevance` 재랭킹 공식 v2 |
+| `backend/scripts/README.md` | 배치 스크립트 운영 가이드 (신규) |
 
-## Alembic 설정 구조
+## 재랭킹 공식 Before/After
 
-```
-backend/
-  alembic.ini          # sqlalchemy.url은 env.py에서 동적 설정
-  alembic/
-    env.py             # app.config.settings.DATABASE_URL 사용
-    versions/
-      e2b032d303d8_*.py  # baseline (빈 migration, stamp만)
-```
+| 항목 | Before (v1) | After (v2) |
+|------|-------------|------------|
+| **semantic** | 0.50 | **0.60** |
+| **popularity** | 0.30 | **0.15** |
+| **quality** | 0.20 | **0.25** |
 
-**env.py 핵심**:
-- `from app.database import Base` + `from app.models import *` → autogenerate 지원
-- `config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)` → .env 기반
+## popularity 정규화 변경
 
-## 초기 리비전
+| 항목 | Before | After |
+|------|--------|-------|
+| **입력** | `vote_count` | `popularity` (TMDB 인기도) |
+| **정규화** | `log1p(vote_count) / log1p(50000)` | `log1p(popularity) / log1p(1000)` |
+| **효과** | 투표수 기반, 대작 편향 | 인기도 log 스케일, 인디 영화 노출 증가 |
 
-- Revision ID: `e2b032d303d8`
-- 내용: 빈 upgrade/downgrade (기존 DB에 stamp만)
-- `alembic stamp head` 실행 완료 (로컬 DB)
+예시: popularity 10 vs 10000
+- Before: 차이 비율 ~3x
+- After (log): `log(11)/log(1001)` ≈ 0.35 vs `log(10001)/log(1001)` ≈ 1.33 → 차이 ~3.8x로 압축
 
-## create_all 제거
+## scripts/README.md 요약
 
-- `Base.metadata.create_all(bind=engine)` 라인 제거
-- `from app.database import Base, engine` import 제거
-- 주석: `# Schema migrations managed by Alembic (alembic upgrade head)`
+- 전체 16개 스크립트 분류: 수집/갱신, 유사도 계산, 데이터 처리, DB 마이그레이션
+- 필수 환경변수 4개 (DATABASE_URL, TMDB_API_KEY, ANTHROPIC_API_KEY, VOYAGE_API_KEY)
+- 월 1회 정기 갱신 체크리스트: trailers → similar_movies → (선택) emotion_tags
+- 각 스크립트 실행 예시 포함
 
-## Dockerfile 체크섬 추가
+## GitHub Actions 워크플로우
 
-| 파일 | SHA256 |
-|------|--------|
-| `svd_model.pkl` | `343853948b2e84...` |
-| `movie_embeddings.npy` | `e76cb82509c1be...` |
-| `embedding_metadata.json` | `767501ded5a042...` |
-| `movie_id_index.json` | `6c248d08dcc1ed...` |
-
-패턴: `curl -fSL -o <file> <url> && echo "<hash>  <file>" | sha256sum -c -`
+**생략** — 사유:
+- `compute_similar_movies.py`에 `DATABASE_URL`이 localhost로 하드코딩됨
+- 환경변수 대응 수정은 "비즈니스 로직 외 변경 금지" 규칙에 해당
+- 대신 `scripts/README.md`에 수동 실행 가이드 문서화
 
 ## 검증 결과
 
 | 항목 | 결과 |
 |------|------|
-| `alembic heads` | e2b032d303d8 (head) |
-| `from app.main import app` | 정상 (create_all 없이) |
-| `ruff check app/ alembic/` | 0 issues |
+| `ruff check app/` | 0 issues |
+| `from app.main import app` | 정상 |

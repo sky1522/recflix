@@ -1,65 +1,61 @@
-claude "Phase 48B: Alembic 마이그레이션 도입 + Dockerfile 체크섬 검증.
+claude "Phase 49A: 시맨틱 재랭킹 인기 편향 감소 + similar_movies 갱신 자동화.
 
 === Research ===
 다음 파일들을 읽을 것:
-- backend/app/main.py (create_all 위치)
-- backend/app/database.py (엔진/세션 설정)
-- backend/app/models/ 전체 (모든 모델 import 확인)
-- backend/requirements.txt (alembic 포함 여부)
-- backend/Dockerfile (curl 다운로드 부분)
+- backend/app/api/v1/movies.py (시맨틱 검색 재랭킹 부분, 269번 라인 근처)
+- backend/scripts/compute_similar_movies.py (유사 영화 계산 스크립트)
+- backend/scripts/ 디렉토리 전체 확인
 
-=== 1단계: Alembic 초기화 ===
+=== 1단계: 시맨틱 재랭킹 인기 편향 감소 ===
+backend/app/api/v1/movies.py의 재랭킹 공식 수정:
 
-1-1. cd backend && alembic init alembic
-  (alembic이 requirements.txt에 있는지 확인, 없으면 추가)
+현재: relevance = semantic × 0.50 + popularity × 0.30 + quality × 0.20
+변경: relevance = semantic × 0.60 + popularity × 0.15 + quality × 0.25
 
-1-2. backend/alembic.ini 수정:
-  - sqlalchemy.url은 비워두고 env.py에서 동적 설정
+추가: popularity 점수에 log 스케일 적용
+- 현재 popularity 정규화 방식 확인
+- min-max 정규화라면: log(1 + popularity) / log(1 + max_popularity) 로 변경
+- 효과: 인기도 100 vs 10000의 차이를 압축 → 인디 영화 노출 증가
 
-1-3. backend/alembic/env.py 수정:
-  - from app.database import Base
-  - from app.models import * (모든 모델 로드)
-  - from app.core.config import settings
-  - config.set_main_option('sqlalchemy.url', settings.DATABASE_URL)
-  - target_metadata = Base.metadata
+⚠️ 기존 정규화 로직을 읽고 이해한 후 수정
+⚠️ 검색 결과 순서에 영향이 크므로 변경 내용 명확히 기록
 
-1-4. 초기 마이그레이션 생성 (현재 스키마 스냅샷):
-  alembic revision --autogenerate -m "initial schema snapshot"
-  ⚠️ 이미 테이블이 존재하므로 이 리비전은 스탬프만:
-  alembic stamp head
+=== 2단계: similar_movies 갱신 문서화 + 자동화 ===
 
-=== 2단계: create_all 제거 ===
+2-1. backend/scripts/compute_similar_movies.py 읽고:
+  - 현재 실행 방법 확인
+  - 필요 환경변수 확인
+  - 실행 시간 추정
 
-2-1. backend/app/main.py:
-  - Base.metadata.create_all(bind=engine) 라인 제거
-  - 주석으로 'Alembic manages schema migrations' 추가
+2-2. backend/scripts/README.md 생성 (신규):
+  - 전체 배치 스크립트 목록 + 설명 + 실행 방법
+  - 권장 실행 주기:
+    - collect_trailers.py: 월 1회 (신작 반영)
+    - compute_similar_movies.py: 월 1회 (유사 영화 갱신)
+    - llm_emotion_tags.py: 신작 추가 시
+  - 환경변수 목록
 
-=== 3단계: Dockerfile 체크섬 검증 ===
-
-3-1. backend/Dockerfile의 curl 다운로드 부분에 SHA256 체크섬 추가:
-  - 현재 다운로드 파일 목록 확인
-  - 각 파일의 SHA256 해시 계산 (로컬에서)
-  - Dockerfile에 검증 추가:
-    RUN curl -L -o model.pkl https://... && \
-        echo "expected_hash  model.pkl" | sha256sum -c -
-
-⚠️ 해시값은 실제 파일을 다운로드해서 계산해야 함
-⚠️ 다운로드 URL이 변경 불가능한(immutable) 경로인지 확인
+2-3. GitHub Actions 워크플로우 (선택적, 가능하면):
+  .github/workflows/data-refresh.yml
+  - schedule: cron '0 3 1 * *' (매월 1일 03시)
+  - 또는 workflow_dispatch (수동 트리거만)
+  - similar_movies + trailers 갱신
+  ⚠️ Railway DB 접속이 GitHub Actions에서 가능한지 확인 필요
+  ⚠️ 불가능하면 문서화만 하고 워크플로우는 생략
 
 === 규칙 ===
-- Alembic 초기 리비전은 stamp만 (이미 존재하는 DB에 적용하지 않음)
-- create_all 제거 후에도 앱 정상 시작 확인
-- Dockerfile 체크섬은 빌드 실패 시 명확한 에러 메시지
+- 재랭킹 공식 변경 시 기존 테스트/빌드 통과 필수
+- scripts/README.md는 운영자 관점으로 작성
+- 비즈니스 로직 외 변경 금지
 
 === 검증 ===
-1. cd backend && alembic check (또는 alembic heads)
-2. cd backend && python -c 'from app.main import app; print(app.title)' (create_all 없이)
-3. cd backend && ruff check app/ alembic/ → 0 issues
-4. Dockerfile 문법 확인 (docker build --check 또는 hadolint)
-5. git add -A && git commit -m 'chore: Phase 48B Alembic 마이그레이션 + Dockerfile 체크섬' && git push origin HEAD:main
+1. cd backend && ruff check app/ → 0 issues
+2. cd backend && python -c 'from app.main import app; print(app.title)'
+3. 재랭킹 공식 변경 확인 (코드 diff)
+4. git add -A && git commit -m 'feat: Phase 49A 시맨틱 재랭킹 튜닝 + scripts 문서화' && git push origin HEAD:main
 
 결과를 claude_results.md에 덮어쓰기:
-- Alembic 설정 구조
-- 초기 리비전 정보
-- create_all 제거 확인
-- Dockerfile 체크섬 추가 내역"
+- 재랭킹 공식 before/after
+- popularity 정규화 변경 내용
+- scripts/README.md 요약
+- GitHub Actions 워크플로우 상태 (생성/생략 + 사유)"

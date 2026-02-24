@@ -267,14 +267,19 @@ SEMANTIC_RESULT_CACHE_TTL = 1800  # 30분
 
 
 def _calculate_relevance(semantic_score: float, movie: Movie) -> float:
-    """시맨틱 유사도 + 인기도 + 품질을 결합한 복합 점수."""
-    vote_count = movie.vote_count or 0
-    popularity_score = min(math.log1p(vote_count) / math.log1p(50000), 1.0)
+    """시맨틱 유사도 + 인기도 + 품질을 결합한 복합 점수.
+
+    v2: 인기 편향 감소 — semantic 60%, quality 25%, popularity 15%.
+        popularity에 log 스케일 적용하여 인디 영화 노출 증가.
+    """
+    # popularity: log 스케일로 인기도 격차 압축
+    pop = movie.popularity or 0.0
+    popularity_score = min(math.log1p(pop) / math.log1p(1000), 1.0)
 
     weighted = movie.weighted_score or 0.0
     quality_score = min(max(weighted / 10.0, 0), 1.0)
 
-    return semantic_score * 0.50 + popularity_score * 0.30 + quality_score * 0.20
+    return semantic_score * 0.60 + popularity_score * 0.15 + quality_score * 0.25
 
 
 def _get_match_reason(
@@ -409,8 +414,8 @@ async def semantic_search(
     results = []
     for m, sem, relevance in scored_items[:limit]:
         ws = m.weighted_score or 0.0
-        vote_count = m.vote_count or 0
-        pop = min(math.log1p(vote_count) / math.log1p(50000), 1.0)
+        pop_raw = m.popularity or 0.0
+        pop = min(math.log1p(pop_raw) / math.log1p(1000), 1.0)
         qual = min(max(ws / 10.0, 0), 1.0)
         genres = [g.name for g in m.genres] if m.genres else []
 
