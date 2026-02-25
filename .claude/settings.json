@@ -8,5 +8,18 @@
       "command": "npx",
       "args": ["-y", "@anthropic/security-guidance-mcp"]
     }
+  },
+  "hooks": {
+    "PreToolUse": [{
+      "matcher": "Edit|Write|MultiEdit",
+      "hooks": [{ "type": "command", "command": ".claude/hooks/pre-edit.sh" }]
+    }],
+    "PostToolUse": [{
+      "matcher": "Edit|Write|MultiEdit",
+      "hooks": [{ "type": "command", "command": ".claude/hooks/post-edit.sh" }]
+    }],
+    "Stop": [{
+      "hooks": [{ "type": "command", "command": ".claude/hooks/post-task.sh" }]
+    }]
   }
 }
