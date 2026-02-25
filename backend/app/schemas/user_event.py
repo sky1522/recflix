@@ -59,16 +59,37 @@ class EventStats(BaseModel):
     unique_movies_clicked: int
 
 
+class ABComparison(BaseModel):
+    """A/B 그룹 간 통계 비교 결과"""
+    group_a: str
+    group_b: str
+    metric: str
+    value_a: float
+    value_b: float
+    difference: float
+    z_statistic: float | None = None
+    p_value: float | None = None
+    significant: bool
+    note: str | None = None
+
+
 class ABGroupStats(BaseModel):
     """A/B 그룹별 통계"""
     users: int
     total_clicks: int
     total_impressions: int
     ctr: float
+    ctr_ci_lower: float | None = None
+    ctr_ci_upper: float | None = None
     avg_detail_duration_ms: float | None
     rating_conversion: float
     favorite_conversion: float
     by_section: dict[str, dict[str, float | int]]
+    # Additional metrics
+    avg_rating_from_recs: float | None = None
+    return_rate: float | None = None
+    avg_session_events: float | None = None
+    funnel: dict[str, float | int] | None = None
 
 
 class ABReport(BaseModel):
@@ -77,3 +98,6 @@ class ABReport(BaseModel):
     groups: dict[str, ABGroupStats]
     winner: str | None
     confidence_note: str
+    comparisons: list[ABComparison] = []
+    minimum_sample_note: str | None = None
+    daily_active_users: dict[str, dict[str, int]] | None = None

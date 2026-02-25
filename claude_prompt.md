@@ -1,109 +1,81 @@
-claude "Phase 52A: 이벤트 트래킹 사각지대 해소 + 추천 컨텍스트 전파.
+claude "Phase 52B: A/B 리포트 강화 — 통계적 유의성 + 추가 메트릭.
 
 === Research ===
-codex_results.md를 읽고 이벤트 누락 목록을 확인할 것.
-그리고 다음 파일들을 읽을 것:
-- frontend/components/movie/MovieModal.tsx (찜/평점 핸들러)
-- frontend/components/movie/FeaturedBanner.tsx (찜/상세보기/트레일러 핸들러)
-- frontend/lib/eventTracker.ts (trackEvent 함수)
-- frontend/app/movies/[id]/page.tsx (상세 페이지 이벤트 — 참고 패턴)
-- frontend/components/movie/MovieCard.tsx (클릭 이벤트 — 참고 패턴)
-- frontend/components/search/SearchResults.tsx (검색 클릭 — 참고 패턴)
+다음 파일들을 읽을 것:
+- backend/app/api/v1/events.py (ab-report 전체 로직)
+- backend/app/schemas/user_event.py (ABReport, ABGroupStats 스키마)
+- backend/app/api/v1/recommendation_constants.py (가중치 설정)
+- backend/app/models/user.py (experiment_group)
+- backend/app/core/config.py (설정)
 
-=== 1단계: MovieModal 이벤트 추가 ===
-MovieModal.tsx에서 누락된 이벤트 추가:
+=== 1단계: 통계적 유의성 추가 ===
 
-1-1. 찜 토글 (handleFavoriteClick 또는 유사 함수):
-  trackEvent('favorite_add' 또는 'favorite_remove', {
-    movie_id: movie.id,
-    source: 'movie_modal'
-  })
+ab-report API 응답에 각 메트릭별 통계 검증 추가:
 
-1-2. 평점 등록 (handleRatingClick 또는 유사 함수):
-  trackEvent('rating', {
-    movie_id: movie.id,
-    rating: selectedRating,
-    source: 'movie_modal'
-  })
+1-1. Z-test for proportions (CTR 비교):
+  - 두 그룹 간 CTR 차이가 유의한지
+  - z = (p1 - p2) / sqrt(p_pool * (1-p_pool) * (1/n1 + 1/n2))
+  - p-value 계산 (scipy.stats.norm 또는 직접 구현)
+  - confidence_level: 0.95 기본
 
-1-3. 유사 영화 클릭: MovieModal 내에서 렌더링하는 유사 영화 카드에
-  section='similar_in_modal' prop 전달 → MovieCard에서 movie_click 이벤트 발생
+1-2. 각 그룹 쌍에 대해 비교:
+  - control vs test_a
+  - control vs test_b
+  - test_a vs test_b
 
-=== 2단계: FeaturedBanner 이벤트 추가 ===
-FeaturedBanner.tsx에서 누락된 이벤트 추가:
+1-3. ABGroupStats에 추가 필드:
+  - ctr_ci_lower, ctr_ci_upper (95% 신뢰구간)
+  - ABReport에 추가:
+    - comparisons: [{ group_a, group_b, metric, difference, p_value, significant }]
+    - minimum_sample_size: 각 그룹 최소 표본 수 안내
 
-2-1. 찜 추가 (handleAddToList 또는 유사 함수):
-  trackEvent('favorite_add', {
-    movie_id: movie.id,
-    source: 'featured_banner'
-  })
+⚠️ scipy 의존성 추가하지 말 것 — math 모듈로 직접 구현 (정규분포 근사)
+⚠️ 표본 수 부족 시 'insufficient_data' 표시
 
-2-2. 상세보기 클릭:
-  trackEvent('movie_click', {
-    movie_id: movie.id,
-    source: 'featured_banner',
-    section: 'featured'
-  })
+=== 2단계: 추가 메트릭 ===
 
-2-3. 트레일러 클릭:
-  trackEvent('movie_click', {
-    movie_id: movie.id,
-    source: 'featured_banner',
-    section: 'featured',
-    action: 'trailer'
-  })
+ab-report에 새 메트릭 추가:
 
-=== 3단계: 추천 컨텍스트 전파 ===
-
-3-1. movie_detail_view에 source_section 추가:
-  현재: trackEvent('movie_detail_view', { referrer })
-  방법: URL에 query param 추가 (?from=hybrid_for_you&pos=3)
+2-1. 추천 수용률:
+  - 추천 섹션에서 클릭한 영화에 대한 평균 평점
+  - source_section이 추천 섹션인 rating 이벤트 집계
   
-  MovieCard/HybridMovieCard에서 영화 링크에 from/pos 전달:
-  href={`/movies/${movie.id}?from=${section}&pos=${index}`}
-  
-  상세 페이지에서 searchParams로 읽어서 이벤트에 포함:
-  trackEvent('movie_detail_view', {
-    referrer,
-    source_section: searchParams.get('from') || 'direct',
-    source_position: searchParams.get('pos') || null
-  })
+2-2. 섹션별 전환 퍼널:
+  impression → click → detail_view → rating/favorite
+  각 단계별 전환율
 
-3-2. rating/favorite 이벤트에도 source_section 전파:
-  상세 페이지 진입 시 source_section을 state로 저장
-  찜/평점 이벤트에 포함:
-  trackEvent('rating', {
-    movie_id, rating, source: 'detail_page',
-    source_section: sourceSection
-  })
+2-3. 일별 활성 사용자 추이:
+  - 그룹별 일별 고유 사용자 수
+  - 재방문율 (2일 이상 이벤트가 있는 사용자 비율)
 
-⚠️ 기존 이벤트 구조 깨뜨리지 않기 (새 필드는 optional 추가)
-⚠️ 검색에서 온 경우: from=search, 직접 접근: from=direct
+2-4. 평균 세션 이벤트 수:
+  - session_id별 이벤트 수 → 그룹별 평균
 
-=== 4단계: preferred_genres 가중치 강화 ===
+=== 3단계: 실험 그룹 비율 조절 ===
 
-backend/app/api/v1/recommendation_engine.py:
-  현재: preferred_genres에서 각 장르 += 1
-  변경: preferred_genres에서 각 장르 += 3
-  근거: 찜=1, 고평점=2인데 온보딩 장르가 1이면 영향력 부족
-  3으로 올리면 고평점과 동등 이상 → 콜드스타트 초기에 의미있는 차이
+3-1. backend/app/core/config.py에 추가:
+  EXPERIMENT_WEIGHTS: str = "control:34,test_a:33,test_b:33"
+  파싱하여 가중치 기반 random.choices() 배정
+
+3-2. backend/app/api/v1/auth.py 수정:
+  기존: random.choice(EXPERIMENT_GROUPS)
+  변경: weighted_random_group() 함수 사용
+  환경변수로 비율 조절 가능 (예: control:80,test_a:10,test_b:10)
 
 === 규칙 ===
-- 기존 이벤트 스키마 변경 금지 (metadata에 필드 추가만)
-- trackEvent 호출 패턴은 기존 코드와 동일하게
-- URL param은 사용자에게 보이지만 UX에 영향 없음
-- any 타입 금지
+- scipy 추가 금지 (math 모듈로 구현)
+- 기존 ab-report 응답 구조 하위 호환 (새 필드는 추가만)
+- SQL 쿼리 성능: 인덱스 활용, 불필요한 전체 스캔 방지
 
 === 검증 ===
-1. cd frontend && npx tsc --noEmit → 0 errors
-2. cd frontend && npm run build → 성공
-3. cd frontend && npm run lint → 0 errors
-4. cd backend && ruff check app/ → 0 issues
-5. grep -rn 'trackEvent' frontend/components/movie/MovieModal.tsx → 2건 이상
-6. grep -rn 'trackEvent' frontend/components/movie/FeaturedBanner.tsx → 2건 이상
-7. git add -A && git commit -m 'feat: Phase 52A 이벤트 사각지대 해소 + 추천 컨텍스트 전파' && git push origin HEAD:main
+1. cd backend && ruff check app/ → 0 issues
+2. cd backend && python -c 'from app.main import app; print(app.title)'
+3. cd backend && pytest -v --tb=short
+4. Z-test 계산 검증: 알려진 값으로 수동 확인
+5. git add -A && git commit -m 'feat: Phase 52B A/B 리포트 통계 유의성 + 추가 메트릭' && git push origin HEAD:main
 
 결과를 claude_results.md에 덮어쓰기:
-- 추가된 이벤트 목록 (파일 + 이벤트 타입 + 메타데이터)
-- 추천 컨텍스트 전파 흐름
-- preferred_genres 가중치 변경"
+- 통계 검증 구현 방식 (Z-test 공식)
+- 추가된 메트릭 목록
+- 그룹 비율 조절 방식
+- ABReport 스키마 변경 전/후"

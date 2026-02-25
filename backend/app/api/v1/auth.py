@@ -39,6 +39,25 @@ logger = logging.getLogger(__name__)
 EXPERIMENT_GROUPS = ["control", "test_a", "test_b"]
 _OAUTH_STATE_TTL = 600  # 10 minutes
 
+
+def _weighted_random_group() -> str:
+    """Select experiment group based on EXPERIMENT_WEIGHTS config.
+
+    Format: "control:34,test_a:33,test_b:33" (weights, not percentages).
+    Falls back to uniform random.choice if parsing fails.
+    """
+    weights_str = settings.EXPERIMENT_WEIGHTS
+    if not weights_str:
+        return random.choice(EXPERIMENT_GROUPS)
+    try:
+        parts = [p.strip().split(":") for p in weights_str.split(",")]
+        groups = [p[0] for p in parts]
+        weights = [int(p[1]) for p in parts]
+        return random.choices(groups, weights=weights, k=1)[0]
+    except (IndexError, ValueError):
+        logger.warning("Invalid EXPERIMENT_WEIGHTS: %s, falling back to uniform", weights_str)
+        return random.choice(EXPERIMENT_GROUPS)
+
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
@@ -99,7 +118,7 @@ async def signup(request: Request, user_data: UserCreate, db: Session = Depends(
         mbti=user_data.mbti,
         birth_date=user_data.birth_date,
         location_consent=user_data.location_consent,
-        experiment_group=random.choice(EXPERIMENT_GROUPS),
+        experiment_group=_weighted_random_group(),
     )
     db.add(user)
     db.commit()
@@ -328,7 +347,7 @@ async def kakao_login(
         kakao_id=kakao_id,
         profile_image=profile.get("profile_image_url"),
         auth_provider="kakao",
-        experiment_group=random.choice(EXPERIMENT_GROUPS),
+        experiment_group=_weighted_random_group(),
     )
     db.add(user)
     db.commit()
@@ -412,7 +431,7 @@ async def google_login(
         google_id=google_id,
         profile_image=picture,
         auth_provider="google",
-        experiment_group=random.choice(EXPERIMENT_GROUPS),
+        experiment_group=_weighted_random_group(),
     )
     db.add(user)
     db.commit()

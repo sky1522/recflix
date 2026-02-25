@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     # Rate Limiting
     TRUSTED_PROXIES: list[str] = []
 
+    # Experiment
+    EXPERIMENT_WEIGHTS: str = "control:34,test_a:33,test_b:33"
+
     # Server
     PORT: int = 8000
 
