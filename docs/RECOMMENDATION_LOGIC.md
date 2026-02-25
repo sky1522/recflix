@@ -1,6 +1,6 @@
 # RecFlix 추천 시스템 로직
 
-> 마지막 업데이트: 2026-02-24
+> 마지막 업데이트: 2026-02-25
 
 ---
 
@@ -697,6 +697,68 @@ RUN git lfs pull --include="data/embeddings/*,data/svd_model.pkl"
 
 ---
 
+## 16. 이벤트 트래킹 & A/B 테스트 메트릭
+
+### 16.1 이벤트 트래킹 개요
+
+사용자 행동 이벤트에 `experiment_group`과 추천 컨텍스트가 메타데이터로 포함됩니다.
+
+```
+이벤트 수집 흐름:
+1. 추천 섹션 렌더링 → recommendation_impression (section 정보 포함)
+2. 영화 카드 클릭 → movie_click (section + ?from=section&pos=index URL 파라미터)
+3. 상세 페이지 진입 → movie_detail_view (source_section, source_position)
+4. 상세 페이지 이탈 → movie_detail_leave (duration_ms)
+5. 평점/찜 액션 → rating, favorite_add/remove (source_section 포함)
+```
+
+### 16.2 추천 컨텍스트 전파 (Phase 52A)
+
+```typescript
+// MovieCard / HybridMovieCard
+<Link href={`/movies/${movie.id}?from=${section}&pos=${index}`}>
+
+// movies/[id]/page.tsx
+const sourceSection = searchParams.get("from") || "direct";
+const sourcePosition = searchParams.get("pos");
+// → movie_detail_view 이벤트의 metadata에 source_section, source_position 포함
+```
+
+### 16.3 A/B 리포트 메트릭 (Phase 52B)
+
+| 메트릭 | 설명 |
+|--------|------|
+| CTR | 클릭 / 노출 |
+| CTR CI (Wilson) | CTR 95% 신뢰구간 |
+| rating_conversion | 평점 이벤트 / 상세 조회 |
+| favorite_conversion | 찜 이벤트 / 상세 조회 |
+| avg_rating_from_recs | 추천 섹션 경유 평점 평균 |
+| return_rate | 2일+ 활성 사용자 비율 |
+| avg_session_events | 세션당 이벤트 수 평균 |
+| funnel | impression → click → detail → rating/favorite 전환율 |
+| daily_active_users | 그룹별 일별 고유 사용자 수 |
+| comparisons (Z-test) | 그룹 쌍별 CTR/전환율 Z-test (p_value, significant) |
+
+### 16.4 통계 검증
+
+```
+Z-test for Proportions (two-tailed):
+z = (p₁ - p₂) / √(p_pool × (1 - p_pool) × (1/n₁ + 1/n₂))
+p_value = 2 × (1 - Φ(|z|))
+유의 수준: α = 0.05, 최소 표본: 그룹당 30건
+```
+
+### 16.5 실험 그룹 가중치 배정
+
+```
+EXPERIMENT_WEIGHTS=control:34,test_a:33,test_b:33  # 기본값
+EXPERIMENT_WEIGHTS=control:80,test_a:10,test_b:10  # 보수적 실험
+```
+
+관련 파일: `backend/app/api/v1/ab_stats.py`, `backend/app/api/v1/events.py`, `backend/app/config.py`
+
+---
+
 ## 변경 이력
 
 | 날짜 | 변경 내용 |
@@ -705,6 +767,8 @@ RUN git lfs pull --include="data/embeddings/*,data/svd_model.pkl"
 | 2026-02-20 | 다양성 후처리: 장르 다양성, 신선도, serendipity, 중복 제거 (diversity.py 신규) |
 | 2026-02-20 | SVD 모델 프로덕션 배포: Dockerfile LFS 다운로드, numpy 2.x 호환 |
 | 2026-02-20 | 시맨틱 검색: Voyage AI 임베딩 42,917편, NumPy 인메모리 코사인 유사도 (semantic_search.py 신규) |
+| 2026-02-25 | Phase 52: 이벤트 사각지대 해소 + 추천 컨텍스트 전파 + Z-test 통계 유의성 + A/B 메트릭 7종 + 그룹 가중치 배정 |
+| 2026-02-25 | preferred_genres 콜드스타트 가중치: 1 → 3 (온보딩 장르 기반 추천 강화) |
 | 2026-02-24 | 시맨틱 재랭킹 v2: semantic 60% + popularity 15% (log1p) + quality 25% (기존 70/15/15) |
 | 2026-02-23 | 피드백 루프: interaction_version 캐시 무효화 (평점/찜 변경 시 추천 즉시 갱신) |
 | 2026-02-23 | 콜드스타트 보완: 상호작용 <5건 시 온보딩 preferred_genres → genre_counts fallback |

@@ -1,75 +1,182 @@
-# Phase 52A: 이벤트 사각지대 해소 + 추천 컨텍스트 전파
+# Phase 52B: A/B 리포트 통계 유의성 + 추가 메트릭
 
 **날짜**: 2026-02-25
-**커밋**: `8c990af`
+**커밋**: `4831cd5`
 
 ---
 
-## 변경 파일 목록
+## 1. 통계 검증 구현 방식
 
-| 파일 | 변경 내용 |
-|------|----------|
-| `frontend/components/movie/MovieModal.tsx` | 찜/평점 trackEvent 추가, similar 카드에 section prop 전달 |
-| `frontend/components/movie/FeaturedBanner.tsx` | 찜/상세보기/트레일러 trackEvent 추가 |
-| `frontend/components/movie/MovieCard.tsx` | Link href에 `?from=&pos=` 쿼리 파라미터 추가 |
-| `frontend/components/movie/HybridMovieCard.tsx` | Link href에 `?from=&pos=` 쿼리 파라미터 추가 |
-| `frontend/app/movies/[id]/page.tsx` | useSearchParams로 source_section/source_position 읽어 이벤트에 포함 |
-| `backend/app/api/v1/recommendation_engine.py` | preferred_genres 가중치 1→3 강화 |
-
----
-
-## 추가된 이벤트 목록
-
-| 파일 | 이벤트 타입 | 메타데이터 |
-|------|-----------|-----------|
-| `MovieModal.tsx` | `favorite_add` / `favorite_remove` | `{source: "movie_modal"}` |
-| `MovieModal.tsx` | `rating` | `{rating, source: "movie_modal"}` |
-| `FeaturedBanner.tsx` | `favorite_add` / `favorite_remove` | `{source: "featured_banner"}` |
-| `FeaturedBanner.tsx` | `movie_click` | `{source: "featured_banner", section: "featured"}` |
-| `FeaturedBanner.tsx` | `movie_click` (trailer) | `{source: "featured_banner", section: "featured", action: "trailer"}` |
-| `MovieModal.tsx` | `movie_click` (similar) | section="similar_in_modal" prop → MovieCard 내부 이벤트 |
-
----
-
-## 추천 컨텍스트 전파 흐름
+### Z-test for Proportions (두 비율 비교)
 
 ```
-1. 사용자가 추천 카드 클릭
-   MovieCard/HybridMovieCard → href="/movies/123?from=hybrid_for_you&pos=3"
+z = (p₁ - p₂) / √(p_pool × (1 - p_pool) × (1/n₁ + 1/n₂))
+p_pool = (x₁ + x₂) / (n₁ + n₂)
+p_value = 2 × (1 - Φ(|z|))    [two-tailed]
+```
 
-2. 상세 페이지 진입
-   useSearchParams → sourceSection="hybrid_for_you", sourcePosition="3"
-   trackEvent("movie_detail_view", {
-     referrer, source_section: "hybrid_for_you", source_position: 3
-   })
+- **Φ(x)**: `math.erf` 기반 표준 정규 CDF (scipy 불필요)
+- **최소 표본**: 그룹당 30건 미만 시 `(None, None)` 반환 → `note: "insufficient_data"`
+- **유의 수준**: α = 0.05
 
-3. 상세 페이지에서 찜/평점
-   trackEvent("favorite_add", {source: "detail_page", source_section: "hybrid_for_you"})
-   trackEvent("rating", {rating: 4, source: "detail_page", source_section: "hybrid_for_you"})
+### Wilson Score 95% 신뢰구간
 
-4. 직접 접근 시
-   source_section="direct", source_position 없음
+```
+center = (p̂ + z²/2n) / (1 + z²/n)
+margin = z × √((p̂(1-p̂) + z²/4n) / n) / (1 + z²/n)
+CI = [center - margin, center + margin]
+```
+
+- Wald interval보다 소표본에서 안정적
+- z = 1.96 (95%)
+
+### 검증 결과 (알려진 값)
+
+| 테스트 | 기대값 | 실제값 |
+|--------|--------|--------|
+| normal_cdf(0) | 0.5 | 0.5 |
+| normal_cdf(1.96) | ~0.975 | 0.975002 |
+| Z-test(50/1000 vs 70/1000) | z≈-1.88, p≈0.06 (비유의) | z=-1.8831, p=0.059686 |
+| n<30 → None | (None, None) | (None, None) |
+
+---
+
+## 2. 추가된 메트릭 목록
+
+| 메트릭 | 필드 | SQL/계산 방식 |
+|--------|------|--------------|
+| **CTR 신뢰구간** | `ctr_ci_lower`, `ctr_ci_upper` | Wilson score CI |
+| **추천 수용률** | `avg_rating_from_recs` | source_section ≠ 'direct'인 rating 이벤트의 평균 평점 |
+| **재방문율** | `return_rate` | 2일+ 활성인 사용자 비율 |
+| **세션 이벤트** | `avg_session_events` | session_id별 이벤트 수 평균 |
+| **전환 퍼널** | `funnel` | impression→click→detail→rating/favorite 단계별 전환율 |
+| **통계 비교** | `comparisons[]` | CTR/rating_conv/favorite_conv 그룹 쌍별 Z-test |
+| **일별 활성** | `daily_active_users` | 그룹별 일별 고유 사용자 수 |
+
+---
+
+## 3. 그룹 비율 조절 방식
+
+### 환경변수
+
+```
+EXPERIMENT_WEIGHTS=control:34,test_a:33,test_b:33   # 기본값
+EXPERIMENT_WEIGHTS=control:80,test_a:10,test_b:10   # 보수적 실험
+```
+
+### 구현
+
+- `config.py`: `EXPERIMENT_WEIGHTS: str` 설정 추가
+- `auth.py`: `_weighted_random_group()` — `random.choices(groups, weights)` 사용
+- 파싱 실패 시 `random.choice(EXPERIMENT_GROUPS)` 폴백
+- 3곳 적용: 이메일 가입, 카카오 가입, 구글 가입
+
+### 검증
+
+10,000회 샘플링 (34:33:33 가중치):
+- control: 34.0%, test_a: 33.6%, test_b: 32.3% — 설정대로 분배
+
+---
+
+## 4. ABReport 스키마 변경
+
+### 전 (Phase 52A 이전)
+
+```json
+{
+  "period": "7d",
+  "groups": {
+    "control": {
+      "users": 10,
+      "total_clicks": 50,
+      "total_impressions": 200,
+      "ctr": 0.25,
+      "avg_detail_duration_ms": 15000,
+      "rating_conversion": 0.1,
+      "favorite_conversion": 0.05,
+      "by_section": {}
+    }
+  },
+  "winner": "control",
+  "confidence_note": "..."
+}
+```
+
+### 후 (Phase 52B)
+
+```json
+{
+  "period": "7d",
+  "groups": {
+    "control": {
+      "users": 10,
+      "total_clicks": 50,
+      "total_impressions": 200,
+      "ctr": 0.25,
+      "ctr_ci_lower": 0.1978,
+      "ctr_ci_upper": 0.3098,
+      "avg_detail_duration_ms": 15000,
+      "rating_conversion": 0.1,
+      "favorite_conversion": 0.05,
+      "by_section": {},
+      "avg_rating_from_recs": 3.8,
+      "return_rate": 0.45,
+      "avg_session_events": 12.3,
+      "funnel": {
+        "impressions": 200,
+        "clicks": 50,
+        "click_rate": 0.25,
+        "detail_views": 40,
+        "detail_rate": 0.8,
+        "ratings": 4,
+        "rating_rate": 0.1,
+        "favorites": 2,
+        "favorite_rate": 0.05
+      }
+    }
+  },
+  "winner": "control",
+  "confidence_note": "통계적 유의성은 comparisons 필드의 p_value/significant 참조",
+  "comparisons": [
+    {
+      "group_a": "control",
+      "group_b": "test_a",
+      "metric": "ctr",
+      "value_a": 0.25,
+      "value_b": 0.20,
+      "difference": 0.05,
+      "z_statistic": 1.23,
+      "p_value": 0.218,
+      "significant": false,
+      "note": null
+    }
+  ],
+  "minimum_sample_note": "각 그룹 최소 노출 수: 200. CTR Z-test는 그룹당 최소 30건 필요...",
+  "daily_active_users": {
+    "control": {"2026-02-20": 5, "2026-02-21": 3}
+  }
+}
 ```
 
 ---
 
-## preferred_genres 가중치 변경
+## 5. 변경 파일 목록
 
-- **이전**: `genre_counts[eng_name] += 1` (찜=1, 고평점=2와 동등 이하)
-- **변경**: `genre_counts[eng_name] += 3` (고평점보다 높음)
-- **근거**: 콜드스타트 시 온보딩 장르가 추천에 유의미한 영향을 미치도록
-- **영향 범위**: `total_interactions < 5`인 사용자만 (기존 사용자 무영향)
-
----
+| 파일 | 변경 |
+|------|------|
+| `backend/app/api/v1/ab_stats.py` | **NEW** — Z-test, Wilson CI, 추가 메트릭 SQL 쿼리 |
+| `backend/app/schemas/user_event.py` | ABComparison 추가, ABGroupStats/ABReport 필드 확장 |
+| `backend/app/api/v1/events.py` | ab-report 리팩토링 + 헬퍼 함수 분리 + 신규 메트릭 |
+| `backend/app/config.py` | EXPERIMENT_WEIGHTS 설정 추가 |
+| `backend/app/api/v1/auth.py` | _weighted_random_group() + 3곳 적용 |
 
 ## 검증 결과
 
-| 검증 항목 | 결과 |
-|----------|------|
-| `npx tsc --noEmit` | 0 errors |
-| `npm run build` | 성공 |
-| `npm run lint` | 0 warnings, 0 errors |
+| 항목 | 결과 |
+|------|------|
 | `ruff check app/` | All checks passed |
-| `grep trackEvent MovieModal.tsx` | 3건 (import + favorite + rating) |
-| `grep trackEvent FeaturedBanner.tsx` | 4건 (import + favorite + 상세보기 + 트레일러) |
-| `git push` | 성공 |
+| `python -c 'from app.main import app'` | RecFlix (import 성공) |
+| `pytest -v --tb=short` | 10 passed, 4 skipped |
+| Z-test 수동 검증 | 기대값 일치 |
+| 가중치 그룹 배정 | 10000회 샘플링 — 34/34/32% |
+| git push | 성공 |

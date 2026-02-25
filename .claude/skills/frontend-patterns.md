@@ -74,6 +74,33 @@
 - 모바일: `bg-black/60` (더 진하게, 야외 가독성)
 - 데스크톱: `sm:bg-black/40`
 
+## 이벤트 트래킹 패턴 (Phase 52)
+
+### 추천 컨텍스트 전파
+- MovieCard/HybridMovieCard: `href={/movies/${id}?from=${section}&pos=${index}}`
+- 영화 상세 페이지: `useSearchParams()`로 `from`, `pos` 추출
+- 이벤트 메타데이터에 `source_section`, `source_position` 포함
+
+### 이벤트 삽입 포인트
+| 컴포넌트 | 이벤트 | 메타데이터 |
+|----------|--------|-----------|
+| MovieCard | movie_click | section, source |
+| HybridMovieCard | movie_click | section, source, from/pos params |
+| MovieModal | favorite_add/remove, rating | source_section |
+| FeaturedBanner | movie_click (상세보기/트레일러) | source: featured_banner, section: featured |
+| movies/[id]/page | movie_detail_view, movie_detail_leave | source_section, source_position, duration_ms |
+
+### trackEvent 패턴
+```typescript
+import { trackEvent } from "@/lib/eventTracker";
+
+trackEvent({
+  event_type: "movie_click",
+  movie_id: movie.id,
+  metadata: { source: "component_name", section: sectionKey },
+});
+```
+
 ## 새 페이지 추가 시 체크리스트
 1. `app/경로/page.tsx` 생성
 2. 필요 시 `layout.tsx` (OG 메타태그)

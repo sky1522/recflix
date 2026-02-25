@@ -2,6 +2,42 @@
 
 All notable changes to RecFlix will be documented in this file.
 
+## [v1.1.0] — 2026-02-25
+
+### A/B 테스트 고도화 (Phase 52)
+
+---
+
+## [2026-02-25]
+
+### Added
+- **이벤트 사각지대 해소 (Phase 52A)**
+  - FeaturedBanner: 상세보기 click + 트레일러 click 이벤트 추가
+  - MovieModal: favorite_add/remove + rating 이벤트 추가 (기존 누락)
+  - 추천 컨텍스트 전파: MovieCard/HybridMovieCard → `?from=section&pos=index` URL 파라미터
+  - 영화 상세 페이지: `source_section`/`source_position` 이벤트 메타데이터에 포함
+- **A/B 리포트 통계 유의성 (Phase 52B)**
+  - `ab_stats.py` 신규: Z-test for proportions (math.erf 기반, scipy 불필요)
+  - Wilson score 95% 신뢰구간 (CTR CI)
+  - 그룹 쌍별 Z-test 비교: CTR, rating_conversion, favorite_conversion
+  - 추가 메트릭: avg_rating_from_recs, return_rate, avg_session_events, funnel, daily_active_users
+- **실험 그룹 가중치 배정 (Phase 52B)**
+  - `EXPERIMENT_WEIGHTS` 환경변수: `control:34,test_a:33,test_b:33` 형식
+  - `_weighted_random_group()`: `random.choices()` 가중치 배정 (이메일/카카오/구글 가입 3곳)
+  - 파싱 실패 시 `random.choice` 폴백
+
+### Changed
+- **preferred_genres 가중치 3배 (Phase 52A)**: 콜드스타트 온보딩 장르 가중치 1 → 3
+- **events.py 리팩토링 (Phase 52B)**: ab-report 로직을 7개 헬퍼 함수로 분리
+
+### Technical Details
+- 신규 파일: `backend/app/api/v1/ab_stats.py`
+- 변경 파일 (Backend): events.py, auth.py, config.py, schemas/user_event.py, recommendation_engine.py
+- 변경 파일 (Frontend): MovieModal.tsx, FeaturedBanner.tsx, MovieCard.tsx, HybridMovieCard.tsx, movies/[id]/page.tsx
+- ABReport 스키마 확장: ABComparison, ctr_ci_lower/upper, funnel, daily_active_users, comparisons
+
+---
+
 ## [v1.0.0] — 2026-02-24
 
 ### 프로덕션 릴리스

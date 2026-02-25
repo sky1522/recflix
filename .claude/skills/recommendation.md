@@ -90,6 +90,24 @@
 → interaction_version 캐시 무효화 키 도입
 → 평점/찜 변경 시 홈 추천이 즉시 갱신됨
 
+## A/B 테스트 & 이벤트 트래킹 (Phase 52)
+→ `backend/app/api/v1/ab_stats.py` (Z-test, Wilson CI, 추가 메트릭 SQL)
+→ `backend/app/api/v1/events.py` (AB Report + 7개 헬퍼 함수)
+
+### 실험 그룹 가중치
+- 설정: `EXPERIMENT_WEIGHTS=control:34,test_a:33,test_b:33` (config.py)
+- 배정: `_weighted_random_group()` in auth.py (회원가입 3곳 적용)
+- 폴백: 파싱 실패 시 `random.choice(EXPERIMENT_GROUPS)`
+
+### 이벤트 컨텍스트 전파
+- MovieCard/HybridMovieCard → `?from=section&pos=index` URL 파라미터
+- 상세 페이지: `source_section`, `source_position` 이벤트 메타데이터에 포함
+- FeaturedBanner: 상세보기 click + 트레일러 click 이벤트
+
+### preferred_genres 가중치
+- 콜드스타트: preferred_genres 장르당 가중치 **3** (기존 1)
+- 상호작용 5건 이상이면 preferred_genres 무시
+
 ## 알고리즘 변경 시 체크리스트
 1. recommendation_engine.py 가중치/로직 수정
 2. recommendation_constants.py 상수 수정

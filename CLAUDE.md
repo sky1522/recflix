@@ -31,6 +31,7 @@ backend/
       collections.py             # 찜 컬렉션 관리
       interactions.py            # 통합 상호작용 (찜/평점 상태)
       events.py                  # 사용자 행동 이벤트 (10종)
+      ab_stats.py                # A/B 통계 유틸리티 (Z-test, Wilson CI)
       health.py                  # 헬스체크 (DB/Redis/SVD/임베딩)
       llm.py                     # Claude API 캐치프레이즈
       router.py                  # API 라우터 통합
@@ -54,7 +55,7 @@ backend/
     services/
       weather.py            # OpenWeatherMap + 역지오코딩 + 70개 한글 도시명
       llm.py                # Claude API + Redis 캐싱
-    config.py               # pydantic-settings (env 기반)
+    config.py               # pydantic-settings (env 기반, EXPERIMENT_WEIGHTS 포함)
     database.py             # SQLAlchemy engine + session
   scripts/
     compute_similar_movies.py    # 유사 영화 자체 계산 (코사인+Jaccard)

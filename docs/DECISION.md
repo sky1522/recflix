@@ -4,6 +4,33 @@
 
 ---
 
+## 2026-02-25: Z-test 통계 유의성 구현 방식 (Phase 52B)
+
+- **문제**: A/B 테스트 그룹 간 CTR/전환율 차이의 통계적 유의성 검증 필요
+- **대안**:
+  - A) scipy.stats 사용 (scipy 의존성 추가)
+  - B) math.erf 기반 자체 구현 (scipy 불필요)
+  - C) 통계 검증 생략, 단순 비교만
+- **결정**: B) `math.erf` 기반 normal_cdf + Z-test + Wilson CI 자체 구현
+- **근거**: scipy는 300MB+ 대형 의존성. math.erf로 표준 정규 CDF 구현 가능 (오차 < 0.001%). 그룹당 최소 30건 미만 시 `(None, None)` 반환으로 소표본 보호.
+- **검증**: `normal_cdf(1.96)` = 0.975002, `z_test(50/1000 vs 70/1000)` = z=-1.8831, p=0.059686 (기대값 일치)
+- **파일**: `backend/app/api/v1/ab_stats.py`
+
+---
+
+## 2026-02-25: 실험 그룹 가중치 배정 (Phase 52B)
+
+- **문제**: 실험 그룹 비율 조절이 필요 (예: 보수적 실험 시 control 80%)
+- **대안**:
+  - A) 코드 내 비율 하드코딩
+  - B) 환경변수로 가중치 설정 (`EXPERIMENT_WEIGHTS`)
+  - C) DB 기반 동적 설정
+- **결정**: B) `EXPERIMENT_WEIGHTS` 환경변수 (`control:34,test_a:33,test_b:33` 형식)
+- **근거**: 배포 없이 환경변수만으로 비율 조절 가능. 파싱 실패 시 uniform random fallback. DB 설정은 현재 규모에서 과잉.
+- **파일**: `backend/app/config.py`, `backend/app/api/v1/auth.py`
+
+---
+
 ## 2026-02-24: sync → async 블로킹 해소 전략 (Phase 48)
 
 - **문제**: async 라우트에서 bcrypt 해싱, httpx 동기 호출이 이벤트 루프를 블로킹

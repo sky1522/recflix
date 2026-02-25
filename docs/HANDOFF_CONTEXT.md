@@ -1,6 +1,6 @@
 # RecFlix 프로젝트 컨텍스트 핸드오프
 
-> 클로드 웹 새 채팅에 붙여넣기용. 2026-02-24 기준. (Phase 50 완료, v1.0.0)
+> 클로드 웹 새 채팅에 붙여넣기용. 2026-02-25 기준. (Phase 52 완료, v1.1.0)
 
 ---
 
@@ -18,7 +18,7 @@
 | Backend 배포 | Railway — https://backend-production-cff2.up.railway.app |
 | API 문서 | https://backend-production-cff2.up.railway.app/docs |
 | GitHub | https://github.com/sky1522/recflix |
-| 총 커밋 | 250개+, Phase 50 완료 (v1.0.0) |
+| 총 커밋 | 260개+, Phase 52 완료 (v1.1.0) |
 | 소스 파일 | Backend 60개+ (.py) / Frontend 50개+ (.ts/.tsx) |
 
 ---
@@ -39,6 +39,7 @@ backend/app/
     users.py                  # 프로필, MBTI 설정, GDPR 삭제
     ratings.py / collections.py / interactions.py
     events.py                 # 사용자 행동 이벤트 (10종)
+    ab_stats.py               # A/B 통계 유틸리티 (Z-test, Wilson CI)
     health.py                 # 헬스체크 (DB/Redis/SVD/임베딩)
     llm.py                    # Claude API 캐치프레이즈
   core/
@@ -160,6 +161,7 @@ genres(19), persons(97,206), keywords, countries: M:M 연결
 | 49 | 02/24 | 시맨틱 재랭킹 v2 + pytest 14건 + structlog 구조화 로깅 |
 | 50 | 02/24 | 문서 최종화 + v1.0.0 릴리스 |
 | 51 | 02/24 | 모바일 UI/UX 개선 (터치 영역 44px + thumb zone + hover-only 대응) |
+| 52 | 02/25 | A/B 테스트 강화 (이벤트 사각지대 해소 + Z-test 통계 유의성 + 추가 메트릭 + 그룹 가중치) |
 
 ---
 
@@ -170,7 +172,15 @@ genres(19), persons(97,206), keywords, countries: M:M 연결
 - Phase 47: trailer_key 컬럼 추가 (28,486편 커버)
 - Phase 48: Alembic 마이그레이션 체계 전환 (Base.metadata.create_all 제거)
 
-### 6.2 남은 수동 작업
+### 6.2 A/B 테스트 현황
+- Phase 52: Z-test for proportions 통계 유의성 검증 (math.erf, scipy 불필요)
+- Wilson score 95% 신뢰구간 (CTR CI)
+- 추가 메트릭: 추천 수용률, 재방문율, 세션 이벤트, 전환 퍼널, 일별 활성
+- 그룹 가중치 배정: `EXPERIMENT_WEIGHTS` 환경변수 (control:34,test_a:33,test_b:33)
+- 이벤트 트래킹: 모든 사용자 상호작용 이벤트에 experiment_group 포함
+- 컨텍스트 전파: 추천 섹션 → 상세 페이지 (source_section/source_position)
+
+### 6.3 남은 수동 작업
 - **OAuth 환경변수**: Railway/Vercel에 Kakao/Google OAuth 프로덕션 값 설정 필요
 - **Kakao Developer Console**: 앱 도메인에 `jnsquery-reflix.vercel.app` 등록 + Redirect URI
 - **Google Cloud Console**: 승인된 리디렉션 URI 추가

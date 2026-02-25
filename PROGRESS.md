@@ -1,6 +1,6 @@
 # RecFlix 개발 진행 상황
 
-**최종 업데이트**: 2026-02-24 (v1.0.0)
+**최종 업데이트**: 2026-02-25 (v1.1.0)
 
 ---
 
@@ -590,6 +590,30 @@
 | .claude/skills/ 동기화 | ✅ | Phase 46~50 변경사항 반영 |
 | git tag v1.0.0 | ✅ | 프로덕션 릴리스 태그 |
 
+### Phase 51: 모바일 UI/UX 개선 (2026-02-24)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 터치 영역 44px 점검 | ✅ | Apple HIG 기준, 15개 파일 수정 |
+| 유도섹션 thumb zone | ✅ | 모바일 하단 고정, 데스크톱 기존 위치 |
+| hover-only 대응 | ✅ | opacity-100 sm:opacity-0 sm:group-hover:opacity-100 |
+| 배너 버튼 flex-wrap | ✅ | 360px overflow 방지 |
+
+### Phase 52: A/B 테스트 강화 (2026-02-25)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| FeaturedBanner 이벤트 추가 | ✅ | 상세보기 click + 트레일러 click |
+| MovieModal 이벤트 보완 | ✅ | favorite_add/remove + rating (누락 해소) |
+| 추천 컨텍스트 전파 | ✅ | from/pos URL 파라미터 → source_section/source_position |
+| preferred_genres 가중치 3배 | ✅ | 콜드스타트 온보딩 장르 1 → 3 |
+| Z-test 통계 유의성 | ✅ | ab_stats.py 신규 (math.erf 기반, scipy 불필요) |
+| Wilson score 95% CI | ✅ | CTR 신뢰구간 |
+| 추가 메트릭 7종 | ✅ | avg_rating_from_recs, return_rate, avg_session_events, funnel, daily_active_users, comparisons, ctr_ci |
+| 실험 그룹 가중치 배정 | ✅ | EXPERIMENT_WEIGHTS 환경변수, _weighted_random_group() |
+| events.py 리팩토링 | ✅ | ab-report 7개 헬퍼 함수 분리 |
+| ABReport 스키마 확장 | ✅ | ABComparison, funnel, daily_active_users 등 |
+
 ---
 
 ## 프로젝트 구조
@@ -820,6 +844,7 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 - [x] **pytest 14건 + structlog 구조화 로깅 + 시맨틱 재랭킹 v2** (Phase 49) (2026-02-24)
 - [x] **문서 최종화 + v1.0.0 릴리스** (Phase 50) (2026-02-24)
 - [x] **모바일 UI/UX 개선** (터치 영역 44px + 유도섹션 thumb zone + hover-only 대응) (2026-02-24)
+- [x] **A/B 테스트 강화** (이벤트 사각지대 해소 + 통계 유의성 Z-test + 추가 메트릭 + 그룹 가중치) (2026-02-25)
 
 ### 향후 개선사항
 - [ ] PWA 지원
