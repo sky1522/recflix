@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Star, Users } from "lucide-react";
@@ -19,7 +19,10 @@ import MovieDetailSkeleton from "./components/MovieDetailSkeleton";
 export default function MovieDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const movieId = Number(params.id);
+  const sourceSection = searchParams.get("from") || "direct";
+  const sourcePosition = searchParams.get("pos");
 
   const [movie, setMovie] = useState<MovieDetail | null>(null);
   const [similar, setSimilar] = useState<Movie[]>([]);
@@ -42,7 +45,11 @@ export default function MovieDetailPage() {
     trackEvent({
       event_type: "movie_detail_view",
       movie_id: movieId,
-      metadata: { referrer: document.referrer },
+      metadata: {
+        referrer: document.referrer,
+        source_section: sourceSection,
+        ...(sourcePosition ? { source_position: Number(sourcePosition) } : {}),
+      },
     });
 
     return () => {
@@ -52,7 +59,7 @@ export default function MovieDetailPage() {
         metadata: { duration_ms: Date.now() - enterTime },
       });
     };
-  }, [movieId]);
+  }, [movieId, sourceSection, sourcePosition]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -102,7 +109,7 @@ export default function MovieDetailPage() {
     trackEvent({
       event_type: isAdding ? "favorite_add" : "favorite_remove",
       movie_id: movieId,
-      metadata: { source: "detail_page" },
+      metadata: { source: "detail_page", source_section: sourceSection },
     });
     try {
       await toggleFavorite(movieId);
@@ -119,7 +126,7 @@ export default function MovieDetailPage() {
     trackEvent({
       event_type: "rating",
       movie_id: movieId,
-      metadata: { rating: score, source: "detail_page" },
+      metadata: { rating: score, source: "detail_page", source_section: sourceSection },
     });
     try {
       await setRating(movieId, score);

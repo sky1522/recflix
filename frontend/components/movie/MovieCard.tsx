@@ -51,7 +51,7 @@ export default function MovieCard({ movie, index = 0, showQuickView = true, high
         className="flex-shrink-0 w-[160px] md:w-[200px] group"
       >
         <Link
-          href={`/movies/${movie.id}`}
+          href={section ? `/movies/${movie.id}?from=${section}&pos=${index}` : `/movies/${movie.id}`}
           onClick={() => {
             if (section) {
               trackEvent({

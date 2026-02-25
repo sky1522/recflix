@@ -258,7 +258,7 @@ def get_user_preferences(
             ).all()
             for eng_name, _ko_name in genre_rows:
                 genre_counts.setdefault(eng_name, 0)
-                genre_counts[eng_name] += 1
+                genre_counts[eng_name] += 3  # Strong weight for onboarding preferred genres
 
     return favorited_ids, genre_counts, highly_rated_ids
 

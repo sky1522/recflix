@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Cloud, Plus, Check, Sun, CloudRain, CloudSnow, RotateCcw } from "lucide-react";
 import { getImageUrl, formatRuntime, getGenreName } from "@/lib/utils";
 import { getCatchphrase } from "@/lib/api";
+import { trackEvent } from "@/lib/eventTracker";
 import { useAuthStore } from "@/stores/authStore";
 import { useInteractionStore } from "@/stores/interactionStore";
 import type { Movie, Weather, WeatherType, MoodType } from "@/types";
@@ -123,9 +124,15 @@ export default function FeaturedBanner({
       return;
     }
 
+    const isAdding = !isFavorited;
     setIsAddingToList(true);
     try {
       await toggleFavorite(movie.id);
+      trackEvent({
+        event_type: isAdding ? "favorite_add" : "favorite_remove",
+        movie_id: movie.id,
+        metadata: { source: "featured_banner" },
+      });
     } catch (error) {
       console.error("Failed to toggle favorite:", error);
     } finally {
@@ -235,6 +242,13 @@ export default function FeaturedBanner({
             <div className="flex flex-wrap gap-2 sm:gap-3 mt-1">
               <Link
                 href={`/movies/${movie.id}`}
+                onClick={() => {
+                  trackEvent({
+                    event_type: "movie_click",
+                    movie_id: movie.id,
+                    metadata: { source: "featured_banner", section: "featured" },
+                  });
+                }}
                 className="flex items-center space-x-2 bg-white text-black px-4 md:px-6 py-2.5 md:py-3 rounded-md font-medium hover:bg-white/90 transition text-sm md:text-base"
               >
                 <svg className="w-4 h-4 md:w-5 md:h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -254,7 +268,14 @@ export default function FeaturedBanner({
               </button>
               {movie.trailer_key && (
                 <button
-                  onClick={() => setIsTrailerOpen(true)}
+                  onClick={() => {
+                    trackEvent({
+                      event_type: "movie_click",
+                      movie_id: movie.id,
+                      metadata: { source: "featured_banner", section: "featured", action: "trailer" },
+                    });
+                    setIsTrailerOpen(true);
+                  }}
                   className="flex items-center space-x-2 bg-white/20 text-white px-4 md:px-6 py-2.5 md:py-3 rounded-md font-medium hover:bg-white/30 backdrop-blur-sm transition text-sm md:text-base"
                 >
                   <svg className="w-4 h-4 md:w-5 md:h-5" fill="currentColor" viewBox="0 0 20 20">

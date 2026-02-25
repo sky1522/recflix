@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Heart, Star, X } from "lucide-react";
 import { getImageUrl, formatRuntime, formatDate, getGenreName } from "@/lib/utils";
 import { getMovie, getSimilarMovies } from "@/lib/api";
+import { trackEvent } from "@/lib/eventTracker";
 import { useInteractionStore } from "@/stores/interactionStore";
 import { useAuthStore } from "@/stores/authStore";
 import type { Movie, MovieDetail } from "@/types";
@@ -105,8 +106,14 @@ export default function MovieModal({ movie, onClose }: MovieModalProps) {
       alert("로그인이 필요합니다.");
       return;
     }
+    const isAdding = !isFavorited;
     try {
       await toggleFavorite(movie.id);
+      trackEvent({
+        event_type: isAdding ? "favorite_add" : "favorite_remove",
+        movie_id: movie.id,
+        metadata: { source: "movie_modal" },
+      });
     } catch (error) {
       console.error("Failed to toggle favorite:", error);
       alert("찜하기에 실패했습니다.");
@@ -120,6 +127,11 @@ export default function MovieModal({ movie, onClose }: MovieModalProps) {
     }
     try {
       await setRating(movie.id, score);
+      trackEvent({
+        event_type: "rating",
+        movie_id: movie.id,
+        metadata: { rating: score, source: "movie_modal" },
+      });
     } catch (error) {
       console.error("Failed to set rating:", error);
       alert("평점 등록에 실패했습니다.");
@@ -305,7 +317,7 @@ export default function MovieModal({ movie, onClose }: MovieModalProps) {
                 <h3 className="text-lg font-semibold text-white mb-4">비슷한 영화</h3>
                 <div className="flex space-x-3 overflow-x-auto hide-scrollbar pb-4">
                   {similar.map((m, i) => (
-                    <MovieCard key={m.id} movie={m} index={i} />
+                    <MovieCard key={m.id} movie={m} index={i} section="similar_in_modal" />
                   ))}
                 </div>
               </div>
