@@ -76,56 +76,77 @@ def create_events_batch(
     db: Session = Depends(get_db),
 ) -> EventResponse:
     """배치 이벤트 기록 (최대 50개). 실패해도 200 반환."""
+    user_id = current_user.id if current_user else None
+    exp_group = current_user.experiment_group if current_user else None
+
+    db_events: list[UserEvent] = []
+    reco_interactions: list[dict] = []
+    reco_judgments: list[dict] = []
+
+    for ev in batch.events:
+        metadata = ev.metadata or {}
+        if exp_group:
+            metadata["experiment_group"] = exp_group
+
+        # 기존 user_events INSERT (하위 호환)
+        db_events.append(UserEvent(
+            user_id=user_id,
+            session_id=ev.session_id,
+            event_type=ev.event_type,
+            movie_id=ev.movie_id,
+            metadata_=metadata,
+        ))
+
+        # reco_interactions 수집
+        if ev.event_type in _INTERACTION_TYPES and ev.movie_id:
+            reco_interactions.append({
+                "request_id": metadata.get("request_id") or None,
+                "user_id": user_id,
+                "session_id": ev.session_id,
+                "movie_id": ev.movie_id,
+                "event_type": ev.event_type,
+                "dwell_ms": metadata.get("duration_ms"),
+                "position": metadata.get("position") or metadata.get("source_position"),
+                "metadata": metadata,
+            })
+
+        # reco_judgments 수집
+        if ev.event_type == "judgment" and ev.movie_id and user_id:
+            reco_judgments.append({
+                "request_id": metadata.get("request_id") or None,
+                "user_id": user_id,
+                "movie_id": ev.movie_id,
+                "label_type": metadata.get("label_type", "rating"),
+                "label_value": float(metadata.get("label_value", 0)),
+            })
+
+    # 1단계: user_events 저장 (기존 로직, 최우선)
     try:
-        user_id = current_user.id if current_user else None
-        exp_group = current_user.experiment_group if current_user else None
-        db_events = []
-        reco_records: list[RecoInteraction | RecoJudgment] = []
-
-        for ev in batch.events:
-            metadata = ev.metadata or {}
-            if exp_group:
-                metadata["experiment_group"] = exp_group
-
-            # 기존 user_events INSERT (하위 호환)
-            db_events.append(UserEvent(
-                user_id=user_id,
-                session_id=ev.session_id,
-                event_type=ev.event_type,
-                movie_id=ev.movie_id,
-                metadata_=metadata,
-            ))
-
-            # reco_interactions 라우팅
-            if ev.event_type in _INTERACTION_TYPES and ev.movie_id:
-                reco_records.append(RecoInteraction(
-                    request_id=metadata.get("request_id") or None,
-                    user_id=user_id,
-                    session_id=ev.session_id,
-                    movie_id=ev.movie_id,
-                    event_type=ev.event_type,
-                    dwell_ms=metadata.get("duration_ms"),
-                    position=metadata.get("position") or metadata.get("source_position"),
-                    metadata_=metadata,
-                ))
-
-            # reco_judgments 라우팅
-            if ev.event_type == "judgment" and ev.movie_id and user_id:
-                reco_records.append(RecoJudgment(
-                    request_id=metadata.get("request_id") or None,
-                    user_id=user_id,
-                    movie_id=ev.movie_id,
-                    label_type=metadata.get("label_type", "rating"),
-                    label_value=float(metadata.get("label_value", 0)),
-                ))
-
         db.add_all(db_events)
-        if reco_records:
-            db.add_all(reco_records)
         db.commit()
     except SQLAlchemyError as e:
         logger.warning("Batch event logging failed: %s", e)
         db.rollback()
+        return EventResponse(status="ok")
+
+    # 2단계: reco_* 저장 (실패해도 user_events에 영향 없음)
+    if reco_interactions or reco_judgments:
+        try:
+            if reco_interactions:
+                db.execute(
+                    RecoInteraction.__table__.insert(),
+                    reco_interactions,
+                )
+            if reco_judgments:
+                db.execute(
+                    RecoJudgment.__table__.insert(),
+                    reco_judgments,
+                )
+            db.commit()
+        except SQLAlchemyError as e:
+            db.rollback()
+            logger.error("reco_log_failed: %s", e, exc_info=True)
+
     return EventResponse(status="ok")
 
 
