@@ -68,6 +68,8 @@ class HybridRecommendationRow(BaseModel):
 
 class HomeRecommendations(BaseModel):
     """Schema for home page recommendations"""
+    request_id: str = ""
+    algorithm_version: str = ""
     featured: MovieListItem | None = None
     rows: list[RecommendationRow]
     hybrid_row: HybridRecommendationRow | None = None  # Main personalized recommendation

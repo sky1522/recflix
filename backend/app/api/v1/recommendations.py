@@ -3,8 +3,9 @@ Recommendation API endpoints.
 Scoring logic lives in recommendation_engine.py, constants in recommendation_constants.py.
 """
 import random
+import uuid
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request
 from sqlalchemy import desc
 from sqlalchemy.orm import Session, selectinload
 
@@ -30,6 +31,7 @@ from app.core.rate_limit import limiter
 from app.models import Collection, Genre, Movie, User
 from app.schemas import HomeRecommendations, MovieListItem, RecommendationRow
 from app.schemas.recommendation import HybridMovieItem, HybridRecommendationRow
+from app.services.reco_logger import log_impressions
 
 router = APIRouter(prefix="/recommendations", tags=["Recommendations"])
 
@@ -38,6 +40,7 @@ router = APIRouter(prefix="/recommendations", tags=["Recommendations"])
 @limiter.limit("15/minute")
 def get_home_recommendations(
     request: Request,
+    background_tasks: BackgroundTasks,
     weather: str | None = Query(None, regex="^(sunny|rainy|cloudy|snowy)$"),
     mood: str | None = Query(None, regex="^(relaxed|tense|excited|emotional|imaginative|light|gloomy|stifled)$"),
     age_rating: str | None = Query(None, regex="^(all|family|teen|adult)$"),
@@ -45,9 +48,15 @@ def get_home_recommendations(
     db: Session = Depends(get_db)
 ):
     """Get home page recommendations with hybrid scoring"""
+    request_id = str(uuid.uuid4())
+    experiment_group = getattr(current_user, "experiment_group", "control") or "control"
+    algorithm_version = f"hybrid_v1_{experiment_group}"
+    session_id = request.headers.get("X-Session-ID")
+
     rows = []
     mbti = current_user.mbti if current_user else None
     hybrid_row = None
+    impression_sections: dict[str, list[tuple[int, int, float | None]]] = {}
 
     # Get user preferences if logged in
     favorited_ids: set = set()
@@ -114,6 +123,10 @@ def get_home_recommendations(
                 description=hybrid_desc,
                 movies=hybrid_movies
             )
+            impression_sections["hybrid_row"] = [
+                (m.id, rank, score)
+                for rank, (m, score, _) in enumerate(top_recommendations)
+            ]
 
     # === SECTION DEDUP: track seen movie IDs ===
     seen_ids: set[int] = set()
@@ -138,6 +151,9 @@ def get_home_recommendations(
                 description=f"{mbti} 유형에게 어울리는 영화",
                 movies=[MovieListItem.from_orm_with_genres(m) for m in mbti_movies]
             )
+            impression_sections["mbti_picks"] = [
+                (m.id, rank, None) for rank, m in enumerate(mbti_movies)
+            ]
 
     # Weather-based recommendations
     weather_row = None
@@ -153,6 +169,9 @@ def get_home_recommendations(
                 description=f"{weather} 날씨에 어울리는 영화",
                 movies=[MovieListItem.from_orm_with_genres(m) for m in weather_movies]
             )
+            impression_sections["weather_picks"] = [
+                (m.id, rank, None) for rank, m in enumerate(weather_movies)
+            ]
 
     # 기분별 추천 (동적) - 미선택 시 기본값 relaxed
     current_mood = mood if mood else "relaxed"
@@ -171,6 +190,9 @@ def get_home_recommendations(
             description=mood_config["desc"],
             movies=[MovieListItem.from_orm_with_genres(m) for m in mood_movies]
         )
+        impression_sections["mood_picks"] = [
+            (m.id, rank, None) for rank, m in enumerate(mood_movies)
+        ]
 
     # Popular movies (shuffle from top 100)
     popular_q = db.query(Movie).options(selectinload(Movie.genres)).filter(Movie.weighted_score >= 6.0)
@@ -187,6 +209,9 @@ def get_home_recommendations(
         description="지금 가장 핫한 영화들",
         movies=[MovieListItem.from_orm_with_genres(m) for m in popular]
     )
+    impression_sections["popular"] = [
+        (m.id, rank, None) for rank, m in enumerate(popular)
+    ]
 
     # Top rated (shuffle from top 100)
     top_rated_q = db.query(Movie).options(selectinload(Movie.genres)).filter(Movie.weighted_score >= 6.0, Movie.vote_count >= 100)
@@ -201,6 +226,9 @@ def get_home_recommendations(
         description="평점이 높은 명작들",
         movies=[MovieListItem.from_orm_with_genres(m) for m in top_rated]
     )
+    impression_sections["top_rated"] = [
+        (m.id, rank, None) for rank, m in enumerate(top_rated)
+    ]
 
     # --- 섹션 순서 결정 ---
     if current_user:
@@ -222,7 +250,24 @@ def get_home_recommendations(
 
     featured = popular[0] if popular else None
 
+    if featured:
+        impression_sections["featured"] = [(featured.id, 0, None)]
+
+    # Background task: impression 로깅 (응답 지연 방지)
+    background_tasks.add_task(
+        log_impressions,
+        request_id=request_id,
+        user_id=current_user.id if current_user else None,
+        session_id=session_id,
+        experiment_group=experiment_group,
+        algorithm_version=algorithm_version,
+        context={"weather": weather, "mood": mood, "mbti": mbti},
+        sections=impression_sections,
+    )
+
     return HomeRecommendations(
+        request_id=request_id,
+        algorithm_version=algorithm_version,
         featured=MovieListItem.from_orm_with_genres(featured) if featured else None,
         rows=rows,
         hybrid_row=hybrid_row

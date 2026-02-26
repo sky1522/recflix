@@ -1,57 +1,68 @@
-# Step 01A: 로그 정규화 스키마 + Alembic 마이그레이션
+# Step 01B: 추천 API 응답에 request_id 발급 + impression 자동 기록
 
 > 작업일: 2026-02-26
-> 목적: 오프라인 평가용 노출→반응→판단 로그 스키마 도입
+> 목적: 추천 API가 응답 시 request_id(UUID)를 발급하고, 노출된 영화를 reco_impressions에 자동 기록
 
 ## 생성된 파일
 
 | 파일 | 설명 |
 |------|------|
-| `backend/app/models/reco_impression.py` | RecoImpression 모델 (추천 노출 기록) |
-| `backend/app/models/reco_interaction.py` | RecoInteraction 모델 (사용자 반응 기록) |
-| `backend/app/models/reco_judgment.py` | RecoJudgment 모델 (명시적 판단 기록) |
-| `backend/alembic/versions/3a2d04b4c24c_add_reco_log_tables.py` | Alembic 마이그레이션 |
+| `backend/app/services/reco_logger.py` | impression 벌크 INSERT 서비스 (별도 DB 세션, structlog 에러 로깅) |
 
 ## 변경된 기존 파일
 
 | 파일 | 변경 내용 |
 |------|-----------|
-| `backend/app/models/__init__.py` | 3개 모델 import + `__all__` 추가 |
+| `backend/app/schemas/recommendation.py` | HomeRecommendations에 `request_id`, `algorithm_version` 필드 추가 |
+| `backend/app/api/v1/recommendations.py` | request_id 생성, impression 수집, BackgroundTasks 로깅, 응답 필드 추가 |
 
-## Alembic Migration ID
+## 응답 스키마 변경사항
 
-`3a2d04b4c24c` (down_revision: `e2b032d303d8`)
+HomeRecommendations에 2개 필드 추가:
+```json
+{
+  "request_id": "eb9a9f45-c7e9-4797-b72e-cdad73573ca2",
+  "algorithm_version": "hybrid_v1_control",
+  "featured": {...},
+  "rows": [...],
+  "hybrid_row": {...}
+}
+```
 
-## 테이블 스키마 요약
+## impression 수집 섹션 (7개)
 
-### reco_impressions (추천 노출)
-- `id` BIGSERIAL PK, `request_id` UUID NOT NULL, `user_id` FK→users(SET NULL)
-- `session_id`, `experiment_group`, `algorithm_version`, `section`, `movie_id`, `rank`, `score`, `context` JSONB, `served_at`
-- 인덱스: idx_imp_request, idx_imp_user_time, idx_imp_algo
-
-### reco_interactions (사용자 반응)
-- `id` BIGSERIAL PK, `request_id` UUID, `user_id` FK→users(SET NULL)
-- `session_id`, `movie_id`, `event_type`, `dwell_ms`, `position`, `metadata` JSONB, `interacted_at`
-- 인덱스: idx_int_request, idx_int_user_time, idx_int_movie
-
-### reco_judgments (명시적 판단)
-- `id` BIGSERIAL PK, `request_id` UUID, `user_id` FK→users(CASCADE) NOT NULL
-- `movie_id`, `label_type`, `label_value`, `judged_at`
-- 인덱스: idx_jdg_user, idx_jdg_request
+| 섹션명 | 설명 | score |
+|--------|------|-------|
+| `hybrid_row` | 맞춤 추천 (로그인 시) | hybrid_score |
+| `mbti_picks` | MBTI 성향 추천 | null |
+| `weather_picks` | 날씨 기반 추천 | null |
+| `mood_picks` | 기분별 추천 | null |
+| `popular` | 인기 영화 | null |
+| `top_rated` | 높은 평점 영화 | null |
+| `featured` | 대표 배너 영화 | null |
 
 ## 검증 결과
 
 | 항목 | 결과 |
 |------|------|
-| `alembic upgrade head` | OK |
-| `alembic downgrade -1` | OK |
-| 재 `alembic upgrade head` | OK |
-| 테이블 3개 생성 확인 | OK (reco_impressions, reco_interactions, reco_judgments) |
-| 인덱스 8개 + PK 3개 = 11개 | OK |
-| Python 모델 import | OK |
+| reco_logger 단독 테스트 (벌크 INSERT + DB 확인) | OK |
+| 빈 sections 처리 (조용히 반환) | OK |
+| Python import 확인 | OK |
+| Ruff 린트 | OK |
+| pytest (10 passed, 4 skipped) | OK |
+| 로컬 API 테스트 | SKIP (로컬 DB에 trailer_key 컬럼 부재 - 기존 이슈) |
 
-## 준수 사항
-- 기존 테이블(users, movies, user_events 등) 수정 없음
-- main.py의 create_all 사용 안 함
-- movie_id에 Foreign Key 없음 (삭제된 영화 로그 보존)
-- 테스트 데이터 삽입 없음
+## impression 기록 예시
+
+```
+request_id=eb9a9f45-..., section=featured, movie_id=278, rank=0, algo=hybrid_v1_control, group=control
+request_id=eb9a9f45-..., section=popular,  movie_id=278, rank=0, algo=hybrid_v1_control, group=control
+request_id=eb9a9f45-..., section=popular,  movie_id=13,  rank=1, algo=hybrid_v1_control, group=control
+```
+
+## 설계 결정
+
+- **BackgroundTasks 사용**: 응답 지연 방지 (impression 로깅이 실패해도 추천 응답에 영향 없음)
+- **별도 DB 세션**: SessionLocal()로 독립 세션 생성 (메인 세션 공유 금지)
+- **structlog 로깅**: 성공 시 info, 실패 시 error + exc_info
+- **벌크 INSERT**: `db.execute(insert(RecoImpression), rows)` 패턴으로 효율적 삽입
