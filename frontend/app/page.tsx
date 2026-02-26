@@ -282,6 +282,7 @@ export default function HomePage() {
             subtitle={getHybridSubtitle()}
             movies={recommendations.hybrid_row.movies}
             section="personal"
+            requestId={recommendations.request_id}
           />
         )}
 
@@ -302,6 +303,7 @@ export default function HomePage() {
             subtitle={getRowSubtitle(row.title)}
             movies={row.movies}
             section={getSectionFromTitle(row.title)}
+            requestId={recommendations.request_id}
           />
         ))}
       </div>

@@ -13,6 +13,7 @@ interface MovieRowProps {
   movies: Movie[];
   displayCount?: number;
   section?: string;
+  requestId?: string;
 }
 
 // Fisher-Yates shuffle
@@ -25,12 +26,13 @@ function shuffleArray<T>(array: T[]): T[] {
   return shuffled;
 }
 
-export default function MovieRow({ title, description, subtitle, movies, displayCount = 20, section }: MovieRowProps) {
+export default function MovieRow({ title, description, subtitle, movies, displayCount = 20, section, requestId }: MovieRowProps) {
   const rowRef = useRef<HTMLDivElement>(null);
   const impressionRef = useImpressionTracker(
     section || "",
     movies.map((m) => m.id),
     !!section,
+    requestId,
   );
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
@@ -141,7 +143,7 @@ export default function MovieRow({ title, description, subtitle, movies, display
           className="flex space-x-3 overflow-x-auto hide-scrollbar pb-4"
         >
           {displayedMovies.map((movie, index) => (
-            <MovieCard key={movie.id} movie={movie} index={index} section={section} />
+            <MovieCard key={movie.id} movie={movie} index={index} section={section} requestId={requestId} />
           ))}
         </div>
       </div>

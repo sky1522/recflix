@@ -12,6 +12,8 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user, get_current_user_optional, get_db
 from app.core.rate_limit import limiter
 from app.models import User
+from app.models.reco_interaction import RecoInteraction
+from app.models.reco_judgment import RecoJudgment
 from app.models.user_event import UserEvent
 from app.schemas.user_event import (
     ABComparison,
@@ -78,10 +80,14 @@ def create_events_batch(
         user_id = current_user.id if current_user else None
         exp_group = current_user.experiment_group if current_user else None
         db_events = []
+        reco_records: list[RecoInteraction | RecoJudgment] = []
+
         for ev in batch.events:
             metadata = ev.metadata or {}
             if exp_group:
                 metadata["experiment_group"] = exp_group
+
+            # 기존 user_events INSERT (하위 호환)
             db_events.append(UserEvent(
                 user_id=user_id,
                 session_id=ev.session_id,
@@ -89,12 +95,48 @@ def create_events_batch(
                 movie_id=ev.movie_id,
                 metadata_=metadata,
             ))
+
+            # reco_interactions 라우팅
+            if ev.event_type in _INTERACTION_TYPES and ev.movie_id:
+                reco_records.append(RecoInteraction(
+                    request_id=metadata.get("request_id") or None,
+                    user_id=user_id,
+                    session_id=ev.session_id,
+                    movie_id=ev.movie_id,
+                    event_type=ev.event_type,
+                    dwell_ms=metadata.get("duration_ms"),
+                    position=metadata.get("position") or metadata.get("source_position"),
+                    metadata_=metadata,
+                ))
+
+            # reco_judgments 라우팅
+            if ev.event_type == "judgment" and ev.movie_id and user_id:
+                reco_records.append(RecoJudgment(
+                    request_id=metadata.get("request_id") or None,
+                    user_id=user_id,
+                    movie_id=ev.movie_id,
+                    label_type=metadata.get("label_type", "rating"),
+                    label_value=float(metadata.get("label_value", 0)),
+                ))
+
         db.add_all(db_events)
+        if reco_records:
+            db.add_all(reco_records)
         db.commit()
     except SQLAlchemyError as e:
         logger.warning("Batch event logging failed: %s", e)
         db.rollback()
     return EventResponse(status="ok")
+
+
+# Event types that route to reco_interactions
+_INTERACTION_TYPES = {
+    "movie_click",
+    "movie_detail_view",
+    "movie_detail_leave",
+    "favorite_add",
+    "favorite_remove",
+}
 
 
 @router.get("/stats", response_model=EventStats)

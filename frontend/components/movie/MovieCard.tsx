@@ -30,9 +30,10 @@ interface MovieCardProps {
   showQuickView?: boolean;
   highlightQuery?: string;
   section?: string;
+  requestId?: string;
 }
 
-export default function MovieCard({ movie, index = 0, showQuickView = true, highlightQuery = "", section }: MovieCardProps) {
+export default function MovieCard({ movie, index = 0, showQuickView = true, highlightQuery = "", section, requestId }: MovieCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [imageError, setImageError] = useState(false);
 
@@ -51,13 +52,20 @@ export default function MovieCard({ movie, index = 0, showQuickView = true, high
         className="flex-shrink-0 w-[160px] md:w-[200px] group"
       >
         <Link
-          href={section ? `/movies/${movie.id}?from=${section}&pos=${index}` : `/movies/${movie.id}`}
+          href={section
+            ? `/movies/${movie.id}?from=${section}&pos=${index}${requestId ? `&rid=${requestId}` : ""}`
+            : `/movies/${movie.id}`}
           onClick={() => {
             if (section) {
               trackEvent({
                 event_type: "movie_click",
                 movie_id: movie.id,
-                metadata: { source: "recommendation", section, position: index },
+                metadata: {
+                  source: "recommendation",
+                  section,
+                  position: index,
+                  ...(requestId ? { request_id: requestId } : {}),
+                },
               });
             }
           }}
@@ -144,7 +152,7 @@ export default function MovieCard({ movie, index = 0, showQuickView = true, high
 
       {/* Modal */}
       {isModalOpen && (
-        <MovieModal movie={movie} onClose={() => setIsModalOpen(false)} />
+        <MovieModal movie={movie} onClose={() => setIsModalOpen(false)} requestId={requestId} />
       )}
     </>
   );

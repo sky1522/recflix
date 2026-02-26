@@ -14,6 +14,7 @@ ALLOWED_EVENT_TYPES = {
     "favorite_add",
     "favorite_remove",
     "not_interested",
+    "judgment",
 }
 
 

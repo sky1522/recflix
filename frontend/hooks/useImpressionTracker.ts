@@ -11,6 +11,7 @@ export function useImpressionTracker(
   section: string,
   movieIds: number[],
   enabled: boolean = true,
+  requestId?: string,
 ) {
   const ref = useRef<HTMLElement>(null);
   const tracked = useRef(false);
@@ -29,8 +30,9 @@ export function useImpressionTracker(
             event_type: "recommendation_impression",
             metadata: {
               section,
-              movie_ids: movieIds.slice(0, 10),
+              movie_ids: movieIds.slice(0, 20),
               count: movieIds.length,
+              ...(requestId ? { request_id: requestId } : {}),
             },
           });
           observer.disconnect();
@@ -41,7 +43,7 @@ export function useImpressionTracker(
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [section, movieIds, enabled]);
+  }, [section, movieIds, enabled, requestId]);
 
   return ref;
 }

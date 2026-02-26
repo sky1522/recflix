@@ -15,6 +15,7 @@ interface HybridMovieCardProps {
   index?: number;
   showQuickView?: boolean;
   section?: string;
+  requestId?: string;
 }
 
 // Tag color mapping
@@ -38,7 +39,7 @@ function RecommendationTagBadge({ tag }: { tag: RecommendationTag }) {
   );
 }
 
-export default function HybridMovieCard({ movie, index = 0, showQuickView = true, section }: HybridMovieCardProps) {
+export default function HybridMovieCard({ movie, index = 0, showQuickView = true, section, requestId }: HybridMovieCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [imageError, setImageError] = useState(false);
 
@@ -63,13 +64,20 @@ export default function HybridMovieCard({ movie, index = 0, showQuickView = true
         className="flex-shrink-0 w-[160px] sm:w-[180px] group"
       >
         <Link
-          href={section ? `/movies/${movie.id}?from=${section}&pos=${index}` : `/movies/${movie.id}`}
+          href={section
+            ? `/movies/${movie.id}?from=${section}&pos=${index}${requestId ? `&rid=${requestId}` : ""}`
+            : `/movies/${movie.id}`}
           onClick={() => {
             if (section) {
               trackEvent({
                 event_type: "movie_click",
                 movie_id: movie.id,
-                metadata: { source: "recommendation", section, position: index },
+                metadata: {
+                  source: "recommendation",
+                  section,
+                  position: index,
+                  ...(requestId ? { request_id: requestId } : {}),
+                },
               });
             }
           }}
@@ -173,7 +181,7 @@ export default function HybridMovieCard({ movie, index = 0, showQuickView = true
 
       {/* Movie Modal */}
       {isModalOpen && (
-        <MovieModal movie={movie} onClose={() => setIsModalOpen(false)} />
+        <MovieModal movie={movie} onClose={() => setIsModalOpen(false)} requestId={requestId} />
       )}
     </>
   );

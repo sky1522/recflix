@@ -65,6 +65,8 @@ export interface HybridRecommendationRow {
 }
 
 export interface HomeRecommendations {
+  request_id?: string;
+  algorithm_version?: string;
   featured: Movie | null;
   rows: RecommendationRow[];
   hybrid_row?: HybridRecommendationRow | null;

@@ -23,6 +23,7 @@ export default function MovieDetailPage() {
   const movieId = Number(params.id);
   const sourceSection = searchParams.get("from") || "direct";
   const sourcePosition = searchParams.get("pos");
+  const requestId = searchParams.get("rid") || undefined;
 
   const [movie, setMovie] = useState<MovieDetail | null>(null);
   const [similar, setSimilar] = useState<Movie[]>([]);
@@ -49,6 +50,7 @@ export default function MovieDetailPage() {
         referrer: document.referrer,
         source_section: sourceSection,
         ...(sourcePosition ? { source_position: Number(sourcePosition) } : {}),
+        ...(requestId ? { request_id: requestId } : {}),
       },
     });
 
@@ -56,10 +58,13 @@ export default function MovieDetailPage() {
       trackEvent({
         event_type: "movie_detail_leave",
         movie_id: movieId,
-        metadata: { duration_ms: Date.now() - enterTime },
+        metadata: {
+          duration_ms: Date.now() - enterTime,
+          ...(requestId ? { request_id: requestId } : {}),
+        },
       });
     };
-  }, [movieId, sourceSection, sourcePosition]);
+  }, [movieId, sourceSection, sourcePosition, requestId]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -109,7 +114,11 @@ export default function MovieDetailPage() {
     trackEvent({
       event_type: isAdding ? "favorite_add" : "favorite_remove",
       movie_id: movieId,
-      metadata: { source: "detail_page", source_section: sourceSection },
+      metadata: {
+        source: "detail_page",
+        source_section: sourceSection,
+        ...(requestId ? { request_id: requestId } : {}),
+      },
     });
     try {
       await toggleFavorite(movieId);
@@ -126,7 +135,21 @@ export default function MovieDetailPage() {
     trackEvent({
       event_type: "rating",
       movie_id: movieId,
-      metadata: { rating: score, source: "detail_page", source_section: sourceSection },
+      metadata: {
+        rating: score,
+        source: "detail_page",
+        source_section: sourceSection,
+        ...(requestId ? { request_id: requestId } : {}),
+      },
+    });
+    trackEvent({
+      event_type: "judgment",
+      movie_id: movieId,
+      metadata: {
+        label_type: "rating",
+        label_value: score,
+        ...(requestId ? { request_id: requestId } : {}),
+      },
     });
     try {
       await setRating(movieId, score);

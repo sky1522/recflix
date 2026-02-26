@@ -14,6 +14,7 @@ interface HybridMovieRowProps {
   movies: HybridMovie[];
   displayCount?: number;
   section?: string;
+  requestId?: string;
 }
 
 // Fisher-Yates shuffle
@@ -33,12 +34,14 @@ export default function HybridMovieRow({
   movies,
   displayCount = 20,
   section,
+  requestId,
 }: HybridMovieRowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const impressionRef = useImpressionTracker(
     section || "",
     movies.map((m) => m.id),
     !!section,
+    requestId,
   );
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
@@ -149,7 +152,7 @@ export default function HybridMovieRow({
           className="flex space-x-3 overflow-x-auto hide-scrollbar pb-4"
         >
           {displayedMovies.map((movie, index) => (
-            <HybridMovieCard key={movie.id} movie={movie} index={index} section={section} />
+            <HybridMovieCard key={movie.id} movie={movie} index={index} section={section} requestId={requestId} />
           ))}
         </div>
       </div>

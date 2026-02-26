@@ -16,9 +16,10 @@ import TrailerModal from "./TrailerModal";
 interface MovieModalProps {
   movie: Movie;
   onClose: () => void;
+  requestId?: string;
 }
 
-export default function MovieModal({ movie, onClose }: MovieModalProps) {
+export default function MovieModal({ movie, onClose, requestId }: MovieModalProps) {
   const [detail, setDetail] = useState<MovieDetail | null>(null);
   const [similar, setSimilar] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
@@ -112,7 +113,10 @@ export default function MovieModal({ movie, onClose }: MovieModalProps) {
       trackEvent({
         event_type: isAdding ? "favorite_add" : "favorite_remove",
         movie_id: movie.id,
-        metadata: { source: "movie_modal" },
+        metadata: {
+          source: "movie_modal",
+          ...(requestId ? { request_id: requestId } : {}),
+        },
       });
     } catch (error) {
       console.error("Failed to toggle favorite:", error);
@@ -130,7 +134,20 @@ export default function MovieModal({ movie, onClose }: MovieModalProps) {
       trackEvent({
         event_type: "rating",
         movie_id: movie.id,
-        metadata: { rating: score, source: "movie_modal" },
+        metadata: {
+          rating: score,
+          source: "movie_modal",
+          ...(requestId ? { request_id: requestId } : {}),
+        },
+      });
+      trackEvent({
+        event_type: "judgment",
+        movie_id: movie.id,
+        metadata: {
+          label_type: "rating",
+          label_value: score,
+          ...(requestId ? { request_id: requestId } : {}),
+        },
       });
     } catch (error) {
       console.error("Failed to set rating:", error);

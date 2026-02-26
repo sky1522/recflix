@@ -20,7 +20,8 @@ type EventType =
   | "search_click"
   | "rating"
   | "favorite_add"
-  | "favorite_remove";
+  | "favorite_remove"
+  | "judgment";
 
 export interface TrackEvent {
   event_type: EventType;
