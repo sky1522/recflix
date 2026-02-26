@@ -1,130 +1,54 @@
-## 작업: 실험 그룹 결정론적 배정 + algorithm_version 레지스트리
+## 긴급 수정: Step 01D CRITICAL — experiment_group 일관성 확보
 
-### 배경
-현재 experiment_group은 _weighted_random_group()으로 매 요청마다 랜덤 배정됩니다.
-A/B 비교를 위해서는 같은 사용자/세션이 항상 같은 그룹에 배정되어야 합니다.
-또한 algorithm_version을 체계적으로 관리하여, 향후 Two-Tower 등 새 알고리즘 추가 시
-GROUP_ALGORITHM_MAP 한 줄만 바꾸면 실험이 가능한 구조를 만듭니다.
-
-### 요구사항
-
-#### 1. 결정론적 그룹 배정 함수
-
-backend/app/api/v1/recommendations.py (또는 적절한 위치)에 추가:
-```python
-import hashlib
-
-def get_deterministic_group(
-    user_id: Optional[int],
-    session_id: Optional[str],
-    weights: dict[str, int]  # {"control": 34, "test_a": 33, "test_b": 33}
-) -> str:
-    """
-    동일 사용자/세션은 항상 같은 그룹을 반환.
-    
-    로직:
-    1. seed = str(user_id) if user_id else (session_id or "anonymous")
-    2. bucket = md5(seed) % 100
-    3. weights 순서대로 누적하여 bucket이 속하는 그룹 반환
-    """
-    seed = str(user_id) if user_id else (session_id or "anonymous")
-    hash_val = int(hashlib.md5(seed.encode()).hexdigest(), 16)
-    bucket = hash_val % 100
-    
-    cumulative = 0
-    for group, weight in weights.items():
-        cumulative += weight
-        if bucket < cumulative:
-            return group
-    return list(weights.keys())[-1]  # fallback
-```
-
-기존 _weighted_random_group() 호출부를 이 함수로 교체합니다.
-단, 기존 함수는 삭제하지 않고 주석 처리 또는 유지 (rollback 가능하도록).
-
-#### 2. algorithm_version 레지스트리
-
-backend/app/api/v1/recommendation_constants.py에 추가:
-```python
-# 실험 그룹별 알고리즘 버전 매핑
-# 새 알고리즘 도입 시 이 딕셔너리만 수정하면 됨
-GROUP_ALGORITHM_MAP: dict[str, str] = {
-    "control": "hybrid_v1",
-    "test_a": "hybrid_v1_test_a",
-    "test_b": "hybrid_v1_test_b",
-}
-
-def get_algorithm_version(experiment_group: str) -> str:
-    """실험 그룹에 해당하는 알고리즘 버전을 반환"""
-    return GROUP_ALGORITHM_MAP.get(experiment_group, "hybrid_v1")
-```
-
-#### 3. recommendations.py에서 활용
+### 문제
+Codex 리뷰에서 발견된 핵심 불일치:
 
 get_home_recommendations()에서:
-- 기존 랜덤 배정을 결정론적 배정으로 교체
-- algorithm_version을 레지스트리에서 가져오기
-```python
-# 변경 전
-experiment_group = _weighted_random_group()
-algorithm_version = f"hybrid_v1_{experiment_group}"
+1. experiment_group = get_deterministic_group(...)  ← 결정론적 그룹 (로깅용)
+2. calculate_hybrid_scores(experiment_group=current_user.experiment_group)  ← DB에 저장된 그룹 (스코어링용)
+3. log_impressions(experiment_group=experiment_group)  ← 결정론적 그룹 (로깅용)
 
-# 변경 후
-from backend.app.api.v1.recommendation_constants import get_algorithm_version
+→ 2번과 1,3번이 서로 다른 그룹을 사용할 수 있음
+→ "로그에는 test_a인데 실제로는 control 가중치로 추천"이 발생 가능
+→ 오프라인 평가 시 실험 해석이 완전히 깨짐
 
-session_id = request.headers.get("X-Session-ID")
-experiment_group = get_deterministic_group(
-    user_id=current_user.id if current_user else None,
-    session_id=session_id,
-    weights=get_experiment_weights()  # 기존 환경변수 체계 재사용
-)
-algorithm_version = get_algorithm_version(experiment_group)
-```
+### 수정 방법
 
-#### 4. 프론트엔드 session_id 생성 + 전송
+get_home_recommendations()에서 결정론적으로 배정한 experiment_group을
+추천 스코어링에도 동일하게 사용하도록 통일합니다.
 
-frontend/lib/api.ts 또는 적절한 위치:
-- 앱 최초 로드 시 localStorage에 session_id가 없으면 생성 (crypto.randomUUID() 또는 uuid)
-- 모든 API 호출의 헤더에 X-Session-ID 포함
-```typescript
-function getSessionId(): string {
-    const KEY = 'recflix_session_id';
-    let sid = localStorage.getItem(KEY);
-    if (!sid) {
-        sid = crypto.randomUUID();
-        localStorage.setItem(KEY, sid);
-    }
-    return sid;
-}
+구체적으로:
+- calculate_hybrid_scores() 호출 시 experiment_group 인자를
+  current_user.experiment_group 대신 get_deterministic_group()의 결과를 사용
+- 보조 섹션(mbti_picks, weather_picks 등) 생성 시에도 동일한 experiment_group 사용
+- 즉, 하나의 요청 내에서 experiment_group은 단 하나의 값만 존재
 
-// fetchAPI 또는 axios 인터셉터에서:
-headers['X-Session-ID'] = getSessionId();
-```
+변경 범위:
+- backend/app/api/v1/recommendations.py 내에서
+  calculate_hybrid_scores(..., experiment_group=...) 호출부
+  및 기타 experiment_group을 참조하는 모든 지점을
+  함수 상단에서 결정한 experiment_group 변수로 통일
 
-주의: localStorage가 비어있는 경우(첫 방문) 자동 생성되므로 에러 없음.
-
-#### 5. 기존 환경변수 체계 유지
-
-EXPERIMENT_WEIGHTS 환경변수는 그대로 유지합니다.
-get_experiment_weights()가 반환하는 딕셔너리를 get_deterministic_group의 weights 인자로 사용합니다.
+주의:
+- current_user.experiment_group (DB 저장값)은 건드리지 않음
+- DB의 experiment_group은 회원가입 시 초기 배정값으로, 참고용으로만 남김
+- 실제 추천/로깅에 사용하는 그룹은 항상 get_deterministic_group() 결과
 
 ### 검증
-1. 같은 user_id로 추천 API 5회 호출 → 항상 같은 experiment_group 반환
-2. 다른 user_id 10개로 호출 → weights 비율에 근사하게 분배
-3. 비로그인 + 같은 session_id → 항상 같은 그룹
-4. reco_impressions에 algorithm_version이 GROUP_ALGORITHM_MAP 값과 일치
-5. 프론트엔드에서 X-Session-ID 헤더가 전송되는지 확인
-6. 기존 pytest 통과
-7. 프론트엔드 빌드 성공
+1. 로그인 사용자: reco_impressions의 experiment_group과
+   실제 적용된 가중치(get_weights_for_group의 인자)가 동일한 그룹인지 확인
+2. 비로그인 사용자: session_id 기반 그룹이 스코어링과 로깅 모두에 일관 적용
+3. Ruff 린트 통과
+4. pytest 통과
+5. 프론트엔드 빌드 영향 없음
 
 ### 금지사항
-- 기존 EXPERIMENT_WEIGHTS 환경변수 삭제 금지
-- 기존 가중치 계산 로직(get_weights_for_group 등) 삭제 금지
-- GROUP_ALGORITHM_MAP을 환경변수가 아닌 코드 상수로 유지 (빈번한 변경 불필요, 배포 단위로 관리)
+- current_user.experiment_group DB 컬럼 수정 금지
+- calculate_hybrid_scores 함수 시그니처 변경 금지 (호출 인자만 변경)
+- auth.py의 회원가입 시 그룹 배정 로직 변경 금지
 
 ### 완료 후
-작업 결과를 claude_results.md에 저장하세요. 포함 내용:
-- 생성/수정 파일 목록
-- 결정론적 배정 로직 설명
-- 검증 결과 (그룹 일관성 테스트)
-- GROUP_ALGORITHM_MAP 현재 값
+작업 결과를 claude_results.md에 저장하세요. 포함:
+- 변경된 코드 위치 (라인 단위)
+- 변경 전/후 experiment_group 흐름 비교
+- 검증 결과

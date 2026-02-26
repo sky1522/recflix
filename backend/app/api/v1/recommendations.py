@@ -111,7 +111,7 @@ def get_home_recommendations(
         scored = calculate_hybrid_scores(
             db, candidate_movies, mbti, weather,
             genre_counts, favorited_ids, similar_ids, mood,
-            experiment_group=current_user.experiment_group,
+            experiment_group=experiment_group,
         )
 
         top_pool = scored[:60]
@@ -317,6 +317,12 @@ def get_hybrid_recommendations(
 ):
     """Get hybrid recommendations with full scoring"""
     mbti = current_user.mbti
+    session_id = request.headers.get("X-Session-ID")
+    experiment_group = get_deterministic_group(
+        user_id=current_user.id,
+        session_id=session_id,
+        weights=get_experiment_weights(),
+    )
 
     favorited_ids, genre_counts, highly_rated_ids = get_user_preferences(db, current_user)
     user_movie_ids = favorited_ids | highly_rated_ids
@@ -332,7 +338,7 @@ def get_hybrid_recommendations(
     scored = calculate_hybrid_scores(
         db, candidate_movies, mbti, weather,
         genre_counts, favorited_ids, similar_ids,
-        experiment_group=current_user.experiment_group,
+        experiment_group=experiment_group,
     )
 
     top_movies = scored[:limit]
