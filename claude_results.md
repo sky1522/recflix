@@ -1,92 +1,72 @@
-# Step 02: 오프라인 학습/평가용 데이터셋 자동 생성 스크립트
+# Step 02B: 오프라인 평가 지표 자동 산출 + 비교 리포트
 
 > 작업일: 2026-02-26
-> 목적: reco_* 테이블의 로그를 ML 학습/평가용 JSONL 데이터셋으로 변환
+> 목적: test.jsonl로 Popularity/MBTI-only/Current Hybrid 3종 오프라인 성능 비교
 
 ## 생성 파일
 
 | 파일 | 설명 |
 |------|------|
-| `backend/scripts/build_offline_dataset.py` | 오프라인 데이터셋 빌더 CLI 스크립트 (약 530줄) |
+| `backend/scripts/offline_eval.py` | 오프라인 평가 CLI 스크립트 (약 320줄) |
 
 ## CLI 사용 예시
 
 ```bash
-# 기본 사용 (temporal split)
-python backend/scripts/build_offline_dataset.py \
-  --db-url "$DATABASE_URL" \
-  --output-dir data/offline/ \
+python backend/scripts/offline_eval.py \
+  --test-file data/offline/test.jsonl \
+  --output-dir data/offline/reports/ \
+  --k-values 5 10 20 \
+  --n-bootstrap 1000 \
   --verbose
-
-# 비율 기반 분리 (디버깅용)
-python backend/scripts/build_offline_dataset.py \
-  --db-url "$DATABASE_URL" \
-  --split ratio \
-  --min-impressions 10
 ```
 
-## 데이터 흐름
+## 평가 지표 (6종 × K=5,10,20)
+
+| 지표 | 설명 | 범위 |
+|------|------|------|
+| NDCG@K | 높은 관련성을 상위에 올릴수록 높은 점수 | 0~1 |
+| Recall@K | Top-K에 positive 영화가 들어온 비율 | 0~1 |
+| MRR@K | 첫 positive의 역순위 | 0~1 |
+| HitRate@K | Top-K에 positive 1개라도 있으면 1 | 0/1 |
+| Coverage@K | 추천 장르 커버리지 (19종 대비) | 0~1 |
+| Novelty@K | 비인기 영화 추천 정도 (-log2 popularity) | 0~∞ |
+
+## 3종 베이스라인
+
+| 모델 | 랭킹 기준 | 역할 |
+|------|-----------|------|
+| Popularity | features.weighted_score 내림차순 | 최소 기준선 |
+| MBTI-only | features.mbti_score 내림차순 | 중간 기준선 |
+| Current (hybrid) | score 내림차순 (현재 모델 예측) | 현재 성능 |
+
+## 리포트 출력 예시 (합성 데이터 50건)
 
 ```
-reco_impressions
-+ LEFT JOIN reco_interactions ON (request_id, movie_id)
-+ LEFT JOIN reco_judgments ON (request_id, movie_id)
-+ LEFT JOIN movies ON (movie_id)
-↓
-라벨 부여 (judgment > favorite > dwell > click > none)
-↓
-피처 추출 (genres, weighted_score, emotion_tags, mbti_score, weather_score)
-↓
-Temporal Split (14일/7일 경계 또는 70/15/15 fallback)
-↓
-train.jsonl / valid.jsonl / test.jsonl + stats.json
-```
-
-## 라벨 정의
-
-| Label | 조건 | 의미 |
-|-------|------|------|
-| 3 | rating >= 4.0 또는 favorite_add | strong positive |
-| 2 | rating 3.0~3.9 또는 dwell >= 30초 | positive |
-| 1 | rating < 3.0 또는 click/detail_view | weak positive |
-| 0 | 반응 없음 | negative |
-
-## 출력 포맷 예시
-
-```json
-{
-  "request_id": "eb9a9f45-c7e9-4797-b72e-cdad73573ca2",
-  "user_id": 123,
-  "session_id": "a1b2c3d4",
-  "movie_id": 27205,
-  "rank": 3,
-  "score": 0.847,
-  "section": "hybrid_row",
-  "label": 1,
-  "algorithm_version": "hybrid_v1",
-  "experiment_group": "control",
-  "context": {"weather": "rainy", "mood": "emotional", "mbti": "INTJ"},
-  "features": {
-    "genres": ["SF", "Action"],
-    "weighted_score": 8.2,
-    "emotion_tags": {"tension": 0.8, "deep": 0.7},
-    "mbti_score": 0.48,
-    "weather_score": 0.35
-  },
-  "served_at": "2026-02-20T12:00:00+00:00",
-  "interacted_at": "2026-02-20T12:01:30+00:00"
-}
+Comparison vs Current Model (NDCG@10)
+┌──────────────────────────────────────────────────┐
+│ Model            NDCG@10         Δ        Δ%     │
+├──────────────────────────────────────────────────┤
+│ Popularity         0.582    -0.114    -16.4%     │
+│ MBTI-only          0.579    -0.117    -16.8%     │
+│ Current (hybrid)   0.696         -         -     │
+└──────────────────────────────────────────────────┘
 ```
 
 ## 검증 결과
 
 | 항목 | 결과 |
 |------|------|
-| compute_label 단위 테스트 (8케이스) | OK |
-| extract_features 단위 테스트 | OK |
-| temporal_split ratio/temporal 테스트 | OK |
-| validate_split 테스트 (정상/역전) | OK |
-| 빈 데이터 → 깨끗한 종료 (exit 0) | OK |
-| 빈 데이터 → 파일 미생성 | OK |
+| ndcg_at_k (perfect=1.0, reversed<1.0) | OK |
+| recall_at_k (hits/min(relevant, k)) | OK |
+| mrr_at_k (first hit rank) | OK |
+| hit_rate_at_k (binary) | OK |
+| genre_coverage (unique genres / 19) | OK |
+| novelty (less popular = higher) | OK |
+| bootstrap_ci (single/multi value) | OK |
+| rank_by_score/popularity/mbti 정렬 | OK |
+| MBTI fallback to popularity (no context) | OK |
+| Current > Popularity, Current > MBTI-only (NDCG@10) | OK |
+| 빈 데이터 → 깨끗한 종료 | OK |
+| JSON 리포트 3개 생성 | OK |
 | Ruff 린트 | OK |
 | pytest (10 passed, 4 skipped) | OK |
