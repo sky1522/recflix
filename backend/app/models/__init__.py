@@ -9,6 +9,11 @@ from app.models.rating import Rating
 from app.models.user import User
 from app.models.user_event import UserEvent
 
+# reco log tables (Phase 53: 오프라인 평가용)
+from app.models.reco_impression import RecoImpression
+from app.models.reco_interaction import RecoInteraction
+from app.models.reco_judgment import RecoJudgment
+
 __all__ = [
     'Movie',
     'Genre',
@@ -19,6 +24,9 @@ __all__ = [
     'Collection',
     'Rating',
     'UserEvent',
+    'RecoImpression',
+    'RecoInteraction',
+    'RecoJudgment',
     'GENRE_MAPPING',
     'movie_genres',
     'movie_cast',
