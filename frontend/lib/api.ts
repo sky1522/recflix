@@ -19,6 +19,17 @@ const DEFAULT_TIMEOUT_MS = 10_000;
 const RETRY_DELAY_MS = 1_000;
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 
+function getSessionId(): string {
+  const KEY = "recflix_session_id";
+  if (typeof window === "undefined") return "";
+  let sid = localStorage.getItem(KEY);
+  if (!sid) {
+    sid = crypto.randomUUID();
+    localStorage.setItem(KEY, sid);
+  }
+  return sid;
+}
+
 /** Structured API error with status and retryable flag. */
 export class ApiError extends Error {
   status: number;
@@ -51,6 +62,7 @@ async function fetchAPI<T>(
   const canRetry = retry && method === "GET";
 
   const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+  const sessionId = getSessionId();
 
   const headers: HeadersInit = {
     "Content-Type": "application/json",
@@ -59,6 +71,9 @@ async function fetchAPI<T>(
 
   if (token) {
     (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
+  }
+  if (sessionId) {
+    (headers as Record<string, string>)["X-Session-ID"] = sessionId;
   }
 
   const doFetch = async (signal: AbortSignal): Promise<T> => {

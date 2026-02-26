@@ -1,76 +1,55 @@
-codex --reasoning high "RecFlix 추천 알고리즘 + 웹서비스 프로덕션 수준 점검.
+## 리뷰 대상: Step 01C — 프론트엔드 이벤트 request_id + rank 전파
 
-현재 Phase 45까지 완료된 상태. 실제 서비스 런칭 관점에서 부족한 점을 빠짐없이 분석.
+### 리뷰 범위
+- frontend/types/index.ts (수정)
+- frontend/lib/eventTracker.ts (수정)
+- frontend/app/page.tsx (수정)
+- frontend/components/movie/MovieRow.tsx (수정)
+- frontend/components/movie/HybridMovieRow.tsx (수정)
+- frontend/components/movie/MovieCard.tsx (수정)
+- frontend/components/movie/HybridMovieCard.tsx (수정)
+- frontend/components/movie/MovieModal.tsx (수정)
+- frontend/app/movies/[id]/page.tsx (수정)
+- frontend/hooks/useImpressionTracker.ts (수정)
+- backend/app/schemas/user_event.py (수정)
+- backend/app/api/v1/events.py (수정)
 
-=== A. 추천 알고리즘 점검 ===
+### 체크리스트
 
-1. 추천 품질 분석:
-   - backend/app/api/v1/recommendation_engine.py 읽고 하이브리드 스코어링 흐름 분석
-   - backend/app/api/v1/recommendation_constants.py 가중치 체계 적절성
-   - backend/app/api/v1/recommendation_cf.py SVD 활용 방식 분석
-   - backend/app/api/v1/diversity.py 다양성 정책의 실효성
-   - backend/app/api/v1/recommendation_reason.py 추천 이유 자연스러움
-   - 콜드스타트 문제: 신규 사용자(평점 0, MBTI만)에게 추천 품질은?
-   - 인기 편향: weighted_score >= 6.0 필터가 롱테일 영화를 얼마나 차단하는지
-   - 시간 경과 효과: 사용자 취향 변화를 반영하는 메커니즘이 있는지
-   - 피드백 루프: 평점/찜이 실시간으로 추천에 반영되는지, 아니면 다음 세션?
+#### 프론트엔드 — request_id 전파 체인
+- [ ] page.tsx에서 추천 응답의 request_id를 상태로 보관하고 MovieRow/HybridMovieRow에 전달
+- [ ] MovieRow → MovieCard로 requestId + rank(index) 전달
+- [ ] HybridMovieRow → HybridMovieCard로 requestId + rank 전달
+- [ ] requestId가 모든 경로에서 optional (undefined 시 에러 없음)
 
-2. 시맨틱 검색 품질:
-   - backend/app/api/v1/semantic_search.py 재랭킹 공식 적절성
-   - 한국어 쿼리 처리 품질 (Voyage AI multilingual 한계)
-   - 검색 결과 다양성 vs 정확도 밸런스
+#### 프론트엔드 — 이벤트 payload
+- [ ] MovieCard 클릭 시 metadata에 request_id, rank/position, section 포함
+- [ ] 찜 토글 시 metadata에 request_id 포함
+- [ ] 평점 입력 시 기존 rating 이벤트 유지 + 별도 judgment 이벤트 전송
+- [ ] judgment 이벤트에 label_type, label_value, request_id 포함
+- [ ] 검색 결과 등 추천 외 컨텍스트에서 requestId=undefined → 정상 동작
 
-3. 추천 데이터 파이프라인:
-   - emotion_tags 2-Tier (LLM 1,711 vs 키워드 41,206)의 품질 격차 영향
-   - mbti_scores/weather_scores 생성 로직이 어디에 있는지, 갱신 주기
-   - similar_movies 429,170 관계의 신선도 (새 영화 추가 시 갱신 방법)
+#### 프론트엔드 — 영화 상세 페이지
+- [ ] URL 파라미터(rid)에서 request_id 추출
+- [ ] detail_view, detail_leave 이벤트에 request_id 포함
+- [ ] 직접 URL 접근 시 (rid 없음) 에러 없이 동작
 
-=== B. 웹서비스 프로덕션 수준 점검 ===
+#### 백엔드 — 이벤트 라우팅
+- [ ] events.py에서 event_type별 분기: click/detail_view/detail_leave/favorite_add/favorite_remove → reco_interactions INSERT
+- [ ] judgment → reco_judgments INSERT (label_type, label_value 추출)
+- [ ] 기존 user_events INSERT가 모든 이벤트에 대해 유지 (하위 호환)
+- [ ] request_id가 NULL인 이벤트도 정상 INSERT (검색 클릭 등)
+- [ ] reco_interactions/judgments INSERT 실패가 전체 배치를 중단하지 않는지
 
-4. 성능/스케일링:
-   - 현재 동시 접속 처리 능력 추정 (Railway 스펙 기준)
-   - 임베딩 42,917 x 1024 인메모리 로드의 메모리 사용량
-   - Redis 캐시 전략 종합 점검 (TTL, 키 설계, 히트율 추정)
-   - DB 커넥션 풀 설정 확인 (backend/app/database.py)
+#### 타입 안전성
+- [ ] EventType에 "judgment" 추가
+- [ ] HomeRecommendations 타입에 request_id, algorithm_version 필드 추가
+- [ ] requestId prop이 string | undefined 타입으로 선언
 
-5. 에러 핸들링/모니터링:
-   - Sentry 설정 상태 확인 (backend/app/main.py)
-   - 에러 발생 시 사용자 경험 (프론트엔드 에러 바운더리)
-   - 헬스체크 커버리지 (backend/app/api/v1/health.py)
-   - 로깅 구조화 수준 (structured logging? JSON?)
+### 발견사항 분류
+- CRITICAL: request_id 전파 누락, 이벤트 데이터 손실, 빌드 실패
+- WARNING: 특정 경로에서 request_id 누락, 라우팅 누락, 타입 불일치
+- INFO: 네이밍 일관성, 코멘트
 
-6. 사용자 경험:
-   - 첫 방문 → 추천까지의 UX 흐름 점검
-   - 로그인/비로그인 추천 차이
-   - 모바일 UX 완성도
-   - 페이지 전환 속도 체감
-   - 에러 상태 UI 커버리지
-
-7. 데이터 관리:
-   - 영화 데이터 갱신 파이프라인 (TMDB 신작 반영 방법)
-   - 사용자 데이터 백업/복구 전략
-   - GDPR/개인정보 처리 (회원 탈퇴, 데이터 삭제)
-
-8. 인프라/배포:
-   - Railway 단일 인스턴스 장애 시 복구 전략
-   - 환경별 분리 (staging/production)
-   - DB 마이그레이션 자동화 (현재 수동 SQL)
-   - 시크릿 관리 현황
-
-=== 출력 형식 ===
-
-카테고리별로:
-- 🔴 Must-have (서비스 런칭 전 필수)
-- 🟡 Should-have (런칭 후 빠르게)
-- 🟢 Nice-to-have (점진적 개선)
-
-각 항목마다:
-- 현재 상태
-- 문제/리스크
-- 개선 방안
-- 예상 난이도 (Low/Medium/High)
-- 예상 소요 (Phase 단위)
-
-마지막에 추천 로드맵 (Phase 순서) 제안.
-
-결과를 codex_results.md에 덮어쓰기."
+### 출력
+결과를 codex_results.md에 저장하세요.

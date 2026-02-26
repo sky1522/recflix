@@ -1,54 +1,58 @@
-# Step 01C CRITICAL: reco_* INSERT를 user_events와 트랜잭션 분리
+# Step 01D: 실험 그룹 결정론적 배정 + algorithm_version 레지스트리
 
 > 작업일: 2026-02-26
-> 목적: reco_* 삽입 실패 시 user_events까지 롤백되는 문제 해결
+> 목적: A/B 테스트를 위해 동일 사용자/세션이 항상 같은 그룹에 배정되도록 변경
 
 ## 변경 파일
 
 | 파일 | 변경 내용 |
 |------|-----------|
-| `backend/app/api/v1/events.py` | 배치 핸들러의 트랜잭션을 2단계로 분리 |
+| `backend/app/api/v1/recommendation_constants.py` | GROUP_ALGORITHM_MAP, get_algorithm_version(), get_experiment_weights() 추가 |
+| `backend/app/api/v1/recommendations.py` | get_deterministic_group() 추가, get_home_recommendations()에서 결정론적 배정 사용 |
+| `frontend/lib/api.ts` | getSessionId() 추가, fetchAPI에 X-Session-ID 헤더 포함 |
 
-## 트랜잭션 분리 구조
+## 결정론적 배정 로직
 
 ```
-기존 (문제):
-  try:
-    db.add_all(user_events + reco_records)  ← 동일 트랜잭션
-    db.commit()
-  except:
-    db.rollback()  ← reco_* 실패 시 user_events도 롤백!
+1. seed = str(user_id) if user_id else (session_id or "anonymous")
+2. bucket = md5(seed) % 100
+3. weights 순서대로 누적하여 bucket이 속하는 그룹 반환
 
-수정 후:
-  # 1단계: user_events 저장 (최우선, 기존 로직)
-  try:
-    db.add_all(user_events)
-    db.commit()  ← user_events 먼저 확정
-  except:
-    db.rollback()
-    return  ← user_events 실패 시 여기서 종료
-
-  # 2단계: reco_* 저장 (실패해도 user_events에 영향 없음)
-  try:
-    reco_interactions 벌크 INSERT
-    reco_judgments 벌크 INSERT
-    db.commit()
-  except:
-    db.rollback()
-    logger.error(...)  ← 에러 로그만 남기고 조용히 통과
+예: weights = {control: 34, test_a: 33, test_b: 33}
+   → bucket 0~33 → control
+   → bucket 34~66 → test_a
+   → bucket 67~99 → test_b
 ```
 
-## 추가 개선: ORM → Core 벌크 INSERT
+## GROUP_ALGORITHM_MAP 현재 값
 
-reco_* 저장을 ORM `db.add_all()` 대신 SQLAlchemy Core `__table__.insert()`로 변경:
-- dict 리스트를 이벤트 순회 시 수집
-- user_events commit 이후 한번에 벌크 INSERT
-- 더 효율적이고, ORM 객체 생성 오버헤드 없음
+```python
+GROUP_ALGORITHM_MAP = {
+    "control": "hybrid_v1",
+    "test_a": "hybrid_v1_test_a",
+    "test_b": "hybrid_v1_test_b",
+}
+```
+
+## 프론트엔드 session_id 전송
+
+- `getSessionId()`: localStorage에 `recflix_session_id` 키로 UUID 저장/재사용
+- `fetchAPI()`: 모든 API 호출에 `X-Session-ID` 헤더 자동 포함
+- SSR 환경(typeof window === "undefined")에서는 빈 문자열 → 헤더 미포함
+
+## 기존 시스템과의 관계
+
+- `_weighted_random_group()` (auth.py): 회원가입/OAuth 신규 유저 등록 시 사용 → **유지**
+- `EXPERIMENT_WEIGHTS` 환경변수: get_experiment_weights()가 동일 포맷 파싱 → **재사용**
+- 기존 get_weights_for_group 등 가중치 계산 로직: **미변경**
 
 ## 검증 결과
 
 | 항목 | 결과 |
 |------|------|
-| 정상 케이스 (user_events + reco_* 모두 저장) | OK |
+| 같은 user_id 5회 호출 → 같은 그룹 | OK (user_id=42 → 5회 test_b) |
+| 비로그인 + 같은 session_id 5회 → 같은 그룹 | OK (session=abc123 → 5회 test_a) |
+| 1000명 분포 (34:33:33 기대) | OK (35.0:31.0:34.0 근사) |
 | Ruff 린트 | OK |
 | pytest (10 passed, 4 skipped) | OK |
+| 프론트엔드 빌드 | OK |

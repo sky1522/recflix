@@ -1,6 +1,11 @@
 """
 Recommendation system constants and mapping data
 """
+import logging
+
+from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 # Age rating group mapping
 AGE_RATING_MAP = {
@@ -113,3 +118,33 @@ FRESHNESS_CLASSIC_RATIO = 0.10   # 클래식(10년+) 최소 비율
 SERENDIPITY_RATIO = 0.10         # 의외의 발견 비율
 SERENDIPITY_MIN_QUALITY = 7.0    # 의외의 발견 최소 weighted_score
 SEMANTIC_GENRE_MAX = 5           # 시맨틱 검색 같은 장르 최대 편수
+
+# === Experiment Group → Algorithm Version Registry ===
+# 새 알고리즘 도입 시 이 딕셔너리만 수정하면 됨
+GROUP_ALGORITHM_MAP: dict[str, str] = {
+    "control": "hybrid_v1",
+    "test_a": "hybrid_v1_test_a",
+    "test_b": "hybrid_v1_test_b",
+}
+
+
+def get_algorithm_version(experiment_group: str) -> str:
+    """실험 그룹에 해당하는 알고리즘 버전을 반환"""
+    return GROUP_ALGORITHM_MAP.get(experiment_group, "hybrid_v1")
+
+
+def get_experiment_weights() -> dict[str, int]:
+    """EXPERIMENT_WEIGHTS 환경변수를 파싱하여 {group: weight} 딕셔너리 반환.
+
+    Format: "control:34,test_a:33,test_b:33"
+    파싱 실패 시 균등 배분 폴백.
+    """
+    weights_str = settings.EXPERIMENT_WEIGHTS
+    if not weights_str:
+        return {"control": 34, "test_a": 33, "test_b": 33}
+    try:
+        parts = [p.strip().split(":") for p in weights_str.split(",")]
+        return {p[0]: int(p[1]) for p in parts}
+    except (IndexError, ValueError):
+        logger.warning("Invalid EXPERIMENT_WEIGHTS: %s, falling back to default", weights_str)
+        return {"control": 34, "test_a": 33, "test_b": 33}

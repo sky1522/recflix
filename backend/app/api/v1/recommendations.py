@@ -2,6 +2,7 @@
 Recommendation API endpoints.
 Scoring logic lives in recommendation_engine.py, constants in recommendation_constants.py.
 """
+import hashlib
 import random
 import uuid
 
@@ -17,6 +18,8 @@ from app.api.v1.recommendation_constants import (
     SERENDIPITY_MIN_QUALITY,
     SERENDIPITY_RATIO,
     WEATHER_TITLES,
+    get_algorithm_version,
+    get_experiment_weights,
 )
 from app.api.v1.recommendation_engine import (
     apply_age_rating_filter,
@@ -36,6 +39,30 @@ from app.services.reco_logger import log_impressions
 router = APIRouter(prefix="/recommendations", tags=["Recommendations"])
 
 
+def get_deterministic_group(
+    user_id: int | None,
+    session_id: str | None,
+    weights: dict[str, int],
+) -> str:
+    """동일 사용자/세션은 항상 같은 그룹을 반환.
+
+    로직:
+    1. seed = str(user_id) if user_id else (session_id or "anonymous")
+    2. bucket = md5(seed) % 100
+    3. weights 순서대로 누적하여 bucket이 속하는 그룹 반환
+    """
+    seed = str(user_id) if user_id else (session_id or "anonymous")
+    hash_val = int(hashlib.md5(seed.encode()).hexdigest(), 16)  # noqa: S324
+    bucket = hash_val % 100
+
+    cumulative = 0
+    for group, weight in weights.items():
+        cumulative += weight
+        if bucket < cumulative:
+            return group
+    return list(weights.keys())[-1]  # fallback
+
+
 @router.get("", response_model=HomeRecommendations)
 @limiter.limit("15/minute")
 def get_home_recommendations(
@@ -49,9 +76,13 @@ def get_home_recommendations(
 ):
     """Get home page recommendations with hybrid scoring"""
     request_id = str(uuid.uuid4())
-    experiment_group = getattr(current_user, "experiment_group", "control") or "control"
-    algorithm_version = f"hybrid_v1_{experiment_group}"
     session_id = request.headers.get("X-Session-ID")
+    experiment_group = get_deterministic_group(
+        user_id=current_user.id if current_user else None,
+        session_id=session_id,
+        weights=get_experiment_weights(),
+    )
+    algorithm_version = get_algorithm_version(experiment_group)
 
     rows = []
     mbti = current_user.mbti if current_user else None
