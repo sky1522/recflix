@@ -38,7 +38,7 @@ def _load_model() -> dict | None:
             _cf_data["global_mean"],
         )
         return _cf_data
-    except (FileNotFoundError, OSError, ValueError):
+    except Exception:
         logger.exception("CF 모델 로드 실패")
         return None
 
