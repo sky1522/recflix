@@ -41,6 +41,24 @@ RUN mkdir -p backend/data/movielens backend/data/embeddings && \
     "https://raw.githubusercontent.com/sky1522/recflix/main/backend/data/embeddings/movie_id_index.json" && \
     echo "6c248d08dcc1ed14b0fd9c7eb3a35bc415da538c383926501b7af59e692658ee  backend/data/embeddings/movie_id_index.json" | sha256sum -c -
 
+# Download v2.0 ML model files (Two-Tower + LightGBM)
+RUN mkdir -p backend/data/models/two_tower backend/data/models/reranker && \
+    curl -fSL -o backend/data/models/two_tower/model_v1.pt \
+    "https://media.githubusercontent.com/media/sky1522/recflix/main/backend/data/models/two_tower/model_v1.pt" && \
+    echo "55b024c2aaf8a24e326a8e4c2e2dd25e461de5269221dc02b56ab7de6d17e539  backend/data/models/two_tower/model_v1.pt" | sha256sum -c - && \
+    curl -fSL -o backend/data/models/two_tower/faiss_index.bin \
+    "https://media.githubusercontent.com/media/sky1522/recflix/main/backend/data/models/two_tower/faiss_index.bin" && \
+    echo "d09001c3b779ef8123c889bc7120b9b22e69dadc15b922c5063621a593d7f09e  backend/data/models/two_tower/faiss_index.bin" | sha256sum -c - && \
+    curl -fSL -o backend/data/models/two_tower/item_embeddings_tt.npy \
+    "https://media.githubusercontent.com/media/sky1522/recflix/main/backend/data/models/two_tower/item_embeddings_tt.npy" && \
+    echo "861274d2c8d74809886f86d1f4bf89ff4a91ff1ab125a1cd78143049d1df654d  backend/data/models/two_tower/item_embeddings_tt.npy" | sha256sum -c - && \
+    curl -fSL -o backend/data/models/two_tower/movie_id_map.json \
+    "https://raw.githubusercontent.com/sky1522/recflix/main/backend/data/models/two_tower/movie_id_map.json" && \
+    echo "261c66e073e63688657c76c350402a47754085631442e8d1be088c58242c204e  backend/data/models/two_tower/movie_id_map.json" | sha256sum -c - && \
+    curl -fSL -o backend/data/models/reranker/lgbm_v1.txt \
+    "https://media.githubusercontent.com/media/sky1522/recflix/main/backend/data/models/reranker/lgbm_v1.txt" && \
+    echo "37e896e3b2083ffee17877e2aa796831c6ef7424952bdc71da722303f0438ed7  backend/data/models/reranker/lgbm_v1.txt" | sha256sum -c -
+
 # Create non-root user for security
 RUN adduser --disabled-password --gecos '' appuser && \
     chown -R appuser:appuser /app

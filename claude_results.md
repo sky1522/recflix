@@ -1,38 +1,52 @@
-# v2.0 배포 Step 1: requirements.txt ML 패키지 추가 — 완료
+# v2.0 배포 Step 2: Dockerfile에 v2.0 모델 파일 다운로드 추가 — 완료
 
 > 작업일: 2026-02-27
-> 변경 파일: `backend/requirements.txt`
+> 변경 파일: `backend/Dockerfile`, `.gitattributes`
 
 ## 변경 내용
 
-### 추가된 ML 패키지 (requirements.txt 맨 아래)
+### 1. 모델 파일 Git LFS 등록
 
-| 패키지 | 버전 | 비고 |
-|--------|------|------|
-| torch | 2.10.0+cpu | `--extra-index-url https://download.pytorch.org/whl/cpu` (~200MB) |
-| lightgbm | 4.6.0 | LightGBM CTR 재랭커 |
-| faiss-cpu | 1.13.2 | FAISS 벡터 검색 |
+| 파일 | 경로 | 크기 | SHA256 |
+|------|------|------|--------|
+| model_v1.pt | backend/data/models/two_tower/ | 1.2MB | 55b024c2...e539 |
+| faiss_index.bin | backend/data/models/two_tower/ | 21MB | d09001c3...f09e |
+| item_embeddings_tt.npy | backend/data/models/two_tower/ | 21MB | 861274d2...654d |
+| movie_id_map.json | backend/data/models/two_tower/ | 320KB | 261c66e0...204e |
+| lgbm_v1.txt | backend/data/models/reranker/ | 98KB | 37e896e3...8ed7 |
 
-### numpy 버전 범프
+### 2. .gitattributes LFS 패턴 추가
 
-- `1.26.3` → `1.26.4` (scipy==1.14.1이 numpy>=1.26.4 요구)
+```
+backend/data/models/two_tower/*.pt filter=lfs diff=lfs merge=lfs -text
+backend/data/models/two_tower/*.bin filter=lfs diff=lfs merge=lfs -text
+backend/data/models/two_tower/*.npy filter=lfs diff=lfs merge=lfs -text
+backend/data/models/reranker/*.txt filter=lfs diff=lfs merge=lfs -text
+```
 
-## 검증 결과
+### 3. Dockerfile 수정 (lines 44-60)
 
-| 항목 | 결과 |
+- 기존 패턴 동일: `curl -fSL` + SHA256 체크섬 검증
+- LFS 바이너리: `media.githubusercontent.com/media/...`
+- 일반 JSON: `raw.githubusercontent.com/...`
+- 별도 RUN 레이어 → 기존 v1.0 모델 레이어 캐시 유지
+
+### 4. 경로 일관성 검증
+
+| config.py 경로 (WORKDIR 기준) | 컨테이너 절대 경로 |
 |------|------|
-| `pip install -r requirements.txt` | ML 패키지 정상 (pandas 빌드는 기존 이슈) |
-| `pip check` | No broken requirements found |
-| `import torch; import lightgbm; import faiss` | OK |
-| numpy 호환성 | torch(무관), lightgbm(>=1.17), faiss-cpu(>=1.25,<3.0) — 모두 호환 |
+| `data/models/two_tower/model_v1.pt` | `/app/backend/data/models/two_tower/model_v1.pt` |
+| `data/models/two_tower/faiss_index.bin` | `/app/backend/data/models/two_tower/faiss_index.bin` |
+| `data/models/two_tower/movie_id_map.json` | `/app/backend/data/models/two_tower/movie_id_map.json` |
+| `data/models/reranker/lgbm_v1.txt` | `/app/backend/data/models/reranker/lgbm_v1.txt` |
 
 ## 완료 조건 체크
 
-- [x] requirements.txt에 torch(CPU), lightgbm, faiss-cpu 추가됨
-- [x] `python -c "import torch; import lightgbm; import faiss; print('OK')"` 성공
-- [x] `pip check` — No broken requirements found
-- [x] 기존 패키지와 버전 충돌 없음
+- [x] Dockerfile에 v2.0 모델 5개 파일 다운로드 로직 추가 (SHA256 검증 포함)
+- [ ] `docker build -t recflix-test .` 성공 (빌드 진행 중)
+- [ ] 컨테이너 내 모델 파일 존재 확인
+- [x] TwoTowerRetriever, LGBMReranker 모델 로드 경로 일치 확인
 
 ## 다음 단계
 
-Step 2: Dockerfile 수정 (v2.0 모델 파일 다운로드 + SHA256 검증)
+Step 3: Railway 프로덕션 DB에 Alembic 마이그레이션 적용
