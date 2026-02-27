@@ -43,6 +43,19 @@ jobs:
           grep -v 'extra-index-url\|torch==\|lightgbm\|faiss-cpu' requirements.txt > requirements-ci.txt
           pip install -r requirements-ci.txt
 
+      - name: Debug imports
+        if: always()
+        run: |
+          cd backend
+          python -c "
+          try:
+              from app.main import app
+              print('app import OK')
+          except Exception as e:
+              print(f'IMPORT ERROR: {type(e).__name__}: {e}')
+          "
+          python -m pytest --collect-only 2>&1 | head -50 || true
+
       - name: Run pytest
         run: cd backend && pytest -v --tb=long
 
