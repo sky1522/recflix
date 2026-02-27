@@ -8,7 +8,6 @@ import logging
 import time
 from pathlib import Path
 
-import lightgbm as lgb
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -44,6 +43,8 @@ class LGBMReranker:
     """LightGBM CTR 예측 재랭커."""
 
     def __init__(self, model_path: str) -> None:
+        import lightgbm as lgb
+
         self.model = lgb.Booster(model_file=str(model_path))
         self.ready = True
         logger.info("LGBMReranker loaded: %s", model_path)

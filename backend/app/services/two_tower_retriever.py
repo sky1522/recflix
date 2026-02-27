@@ -10,18 +10,18 @@ import json
 import logging
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import faiss
 import numpy as np
-import torch
+
+if TYPE_CHECKING:
+    import faiss as _faiss
+    import torch as _torch
 
 # backend/ 를 sys.path에 추가 (ml 모듈 접근)
 _backend_dir = str(Path(__file__).resolve().parent.parent.parent)
 if _backend_dir not in sys.path:
     sys.path.insert(0, _backend_dir)
-
-from ml.dataset import GENRE_TO_IDX, MBTI_TO_IDX  # noqa: E402
-from ml.two_tower import TwoTowerModel  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,22 @@ class TwoTowerRetriever:
         index_path: str,
         movie_id_map_path: str,
     ) -> None:
-        self.model = self._load_model(model_path)
+        import faiss
+        import torch  # noqa: F811
+
+        from ml.dataset import GENRE_TO_IDX, MBTI_TO_IDX  # noqa: F811
+        from ml.two_tower import TwoTowerModel
+
+        self._torch = torch
+        self._GENRE_TO_IDX = GENRE_TO_IDX
+        self._MBTI_TO_IDX = MBTI_TO_IDX
+
+        model = TwoTowerModel()
+        state = torch.load(model_path, map_location="cpu", weights_only=True)
+        model.load_state_dict(state)
+        model.eval()
+        self.model = model
+
         self.index = faiss.read_index(str(index_path))
         with open(movie_id_map_path, encoding="utf-8") as f:
             self.movie_id_map: list[int] = json.load(f)
@@ -44,15 +59,6 @@ class TwoTowerRetriever:
             "TwoTowerRetriever loaded: %d items in index",
             self.index.ntotal,
         )
-
-    @staticmethod
-    def _load_model(model_path: str) -> TwoTowerModel:
-        """모델 state_dict 로드."""
-        model = TwoTowerModel()
-        state = torch.load(model_path, map_location="cpu", weights_only=True)
-        model.load_state_dict(state)
-        model.eval()
-        return model
 
     def retrieve(
         self,
@@ -68,9 +74,10 @@ class TwoTowerRetriever:
         """
         try:
             exclude_ids = exclude_ids or set()
+            torch = self._torch
 
             with torch.no_grad():
-                mbti_idx = torch.tensor([MBTI_TO_IDX.get(mbti or "INTJ", 0)], dtype=torch.long)
+                mbti_idx = torch.tensor([self._MBTI_TO_IDX.get(mbti or "INTJ", 0)], dtype=torch.long)
                 genre_vec = self._genre_multihot(preferred_genres or []).unsqueeze(0)
                 history_emb = torch.zeros(1, 128, dtype=torch.float32)
 
@@ -97,12 +104,12 @@ class TwoTowerRetriever:
             logger.exception("two_tower_retrieve_failed")
             return []
 
-    @staticmethod
-    def _genre_multihot(genres: list[str]) -> torch.Tensor:
+    def _genre_multihot(self, genres: list[str]) -> _torch.Tensor:
         """장르 리스트 → 19차원 멀티핫."""
-        vec = torch.zeros(len(GENRE_TO_IDX), dtype=torch.float32)
+        torch = self._torch
+        vec = torch.zeros(len(self._GENRE_TO_IDX), dtype=torch.float32)
         for g in genres:
-            idx = GENRE_TO_IDX.get(g)
+            idx = self._GENRE_TO_IDX.get(g)
             if idx is not None:
                 vec[idx] = 1.0
         return vec

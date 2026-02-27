@@ -1,85 +1,94 @@
-# v2.0 배포 Step 3+4: Alembic 마이그레이션 + Railway 환경변수
+# v2.0 배포 Step 5: git push → CI → Railway 배포 → 검증
 
-## Step 3: Railway 프로덕션 DB에 Alembic 마이그레이션 적용
+## 배경
+Step 1~4 완료:
+- ✅ requirements.txt에 torch/lightgbm/faiss-cpu 추가
+- ✅ Dockerfile에 v2.0 모델 다운로드 추가
+- ✅ Alembic 마이그레이션 적용 (reco_* 3테이블)
+- ✅ Railway 환경변수 설정 (TWO_TOWER_ENABLED 등)
 
-### 배경
-`backend/alembic/versions/3a2d04b4c24c_add_reco_log_tables.py` 마이그레이션이 생성되어 있지만 프로덕션 DB에는 아직 적용되지 않음. reco_impressions, reco_interactions, reco_judgments 3테이블이 필요.
+## 작업
 
-### 작업
-
-1. **현재 마이그레이션 상태 확인**
-```bash
-cd backend
-alembic current
-alembic history
-```
-
-2. **프로덕션 DB에 마이그레이션 적용**
-- Railway PostgreSQL 접속 정보 확인 (DATABASE_URL 환경변수)
-- 로컬에서 프로덕션 DB를 대상으로 실행하거나, Railway CLI로 실행
+### 1. 변경사항 커밋 + 푸시
 
 ```bash
-# 방법 A: 로컬에서 프로덕션 DB 대상 실행
-DATABASE_URL="postgresql://..." alembic upgrade head
+cd /path/to/recflix
+git add -A
+git status  # 변경 파일 확인
 
-# 방법 B: Railway CLI
-railway run alembic upgrade head
+# 커밋 메시지
+git commit -m "v2.0: ML 파이프라인 프로덕션 배포 준비
+
+- requirements.txt: torch(CPU), lightgbm, faiss-cpu 추가
+- Dockerfile: Two-Tower/LGBM 모델 다운로드 + SHA256 검증
+- .gitattributes: v2.0 모델 파일 LFS 등록
+- numpy 1.26.3 → 1.26.4 (scipy 호환)"
+
+git push origin main
 ```
 
-3. **적용 확인**
+### 2. CI 모니터링
+
+GitHub Actions 확인:
+- [ ] backend-lint (ruff check) 통과
+- [ ] backend-test (pytest) 통과
+- [ ] frontend-build (next build) 통과
+- [ ] deploy-backend (railway up) 성공
+
+CI 실패 시:
+- torch CPU 인덱스 URL 문제 → pip install 로그 확인
+- LFS 파일 다운로드 실패 → GitHub LFS quota 확인
+- Dockerfile SHA256 불일치 → 해시값 재확인
+
+### 3. 배포 후 검증
+
+**3-1. 헬스체크**
+```bash
+curl https://backend-production-cff2.up.railway.app/api/v1/health
+```
+→ DB, Redis, SVD, 임베딩 + Two-Tower, LGBM 상태 확인
+
+**3-2. 추천 API 호출 (비로그인)**
+```bash
+curl "https://backend-production-cff2.up.railway.app/api/v1/recommendations?weather=sunny&mood=relaxed"
+```
+→ 응답 정상 + 각 섹션에 영화 목록 반환 확인
+
+**3-3. 추천 API 호출 (로그인 사용자)**
+```bash
+# 로그인하여 JWT 토큰 획득 후
+curl -H "Authorization: Bearer {token}" \
+  "https://backend-production-cff2.up.railway.app/api/v1/recommendations?weather=sunny&mood=relaxed&mbti=INFP"
+```
+→ algorithm_version 필드 확인 (hybrid_v1 / twotower_lgbm_v1 / twotower_v1 중 하나)
+
+**3-4. Impression 로그 적재 확인**
 ```sql
-SELECT table_name FROM information_schema.tables 
-WHERE table_schema = 'public' 
-AND table_name LIKE 'reco_%';
+-- Railway DB 접속 후
+SELECT COUNT(*) FROM reco_impressions;
+SELECT algorithm_version, COUNT(*) FROM reco_impressions GROUP BY algorithm_version;
 ```
-→ reco_impressions, reco_interactions, reco_judgments 3개 나와야 함
+→ 추천 호출 후 impression 레코드가 쌓이는지 확인
 
-### 주의사항
-- 기존 테이블(movies, users, ratings, collections, user_events, similar_movies)에 영향 없는지 확인
-- 마이그레이션 파일이 CASCADE 관계를 포함하는지 확인 (user 삭제 시 reco 로그도 삭제?)
-- 로컬 DB에 먼저 테스트 후 프로덕션 적용 권장
+**3-5. 프론트엔드 동작 확인**
+- https://jnsquery-reflix.vercel.app 접속
+- 홈 추천 로딩 정상 확인
+- 영화 클릭 → 상세 페이지 → request_id가 URL ?rid= 파라미터로 전달되는지 확인
 
----
+### 4. Fallback 테스트 (선택)
 
-## Step 4: Railway 환경변수 확인/추가
-
-### 확인할 환경변수
-
-| 변수명 | 값 | 비고 |
-|--------|---|------|
-| TWO_TOWER_ENABLED | true | Two-Tower 후보 생성 활성화 |
-| RERANKER_ENABLED | true | LightGBM 재랭킹 활성화 |
-| EXPERIMENT_WEIGHTS | control:34,test_a:33,test_b:33 | A/B 그룹 비율 (이미 기본값일 수 있음) |
-
-### 작업
-
-1. **config.py에서 기본값 확인**
-```bash
-grep -n "TWO_TOWER_ENABLED\|RERANKER_ENABLED\|EXPERIMENT_WEIGHTS" backend/app/core/config.py
-```
-→ 기본값이 True면 환경변수 안 넣어도 되지만, 명시적으로 넣는 것을 권장
-
-2. **Railway 환경변수 설정**
-```bash
-# Railway CLI
-railway variables set TWO_TOWER_ENABLED=true
-railway variables set RERANKER_ENABLED=true
-```
-또는 Railway 대시보드 → Variables 탭에서 수동 추가
-
-3. **기존 환경변수 충돌 확인** — 이미 설정된 변수 목록 확인
-```bash
-railway variables list
-```
-
----
+TWO_TOWER_ENABLED=false로 잠시 변경 → 추천 호출 → algorithm_version이 hybrid_v1_fallback인지 확인 → 다시 true로 복원
 
 ## 완료 조건
-- [ ] `alembic current`로 마이그레이션 상태 확인
-- [ ] 로컬 DB에서 `alembic upgrade head` 테스트 성공
-- [ ] 프로덕션 DB에 reco_impressions/interactions/judgments 3테이블 생성됨
-- [ ] TWO_TOWER_ENABLED=true, RERANKER_ENABLED=true 환경변수 설정됨
-- [ ] 기존 테이블·환경변수와 충돌 없음
+- [ ] git push 성공
+- [ ] GitHub Actions CI 전체 통과
+- [ ] Railway 배포 완료 (빌드 로그에 모델 다운로드 성공 확인)
+- [ ] /health 엔드포인트 정상
+- [ ] 추천 API 응답 정상 + algorithm_version 확인
+- [ ] reco_impressions에 로그 적재 확인
+- [ ] 프론트엔드에서 추천 정상 로딩
 
-## 다음 단계
-Step 5: git push → CI 통과 → Railway 배포 → 배포 후 검증
+## 문제 발생 시
+- Railway 빌드 실패 → 빌드 로그에서 에러 위치 확인 (torch 설치, 모델 다운로드, SHA256 등)
+- 추천 500 에러 → Railway 런타임 로그 확인 (모델 로드 실패, DB 연결 등)
+- Fallback만 동작 → TWO_TOWER_ENABLED 환경변수 확인 + 모델 파일 존재 여부
