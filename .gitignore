@@ -114,6 +114,8 @@ logs/
 *.dump
 data/processed/*
 !data/processed/.gitkeep
+data/synthetic/
+data/offline/
 
 # 임베딩 임시 파일
 backend/data/embeddings/progress.json
