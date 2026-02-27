@@ -1,52 +1,55 @@
-# v2.0 배포 Step 2: Dockerfile에 v2.0 모델 파일 다운로드 추가 — 완료
+# v2.0 배포 Step 3+4: Alembic 마이그레이션 + Railway 환경변수 — 완료
 
 > 작업일: 2026-02-27
-> 변경 파일: `backend/Dockerfile`, `.gitattributes`
 
-## 변경 내용
+## Step 3: Alembic 마이그레이션 적용
 
-### 1. 모델 파일 Git LFS 등록
+### 마이그레이션 내역
 
-| 파일 | 경로 | 크기 | SHA256 |
-|------|------|------|--------|
-| model_v1.pt | backend/data/models/two_tower/ | 1.2MB | 55b024c2...e539 |
-| faiss_index.bin | backend/data/models/two_tower/ | 21MB | d09001c3...f09e |
-| item_embeddings_tt.npy | backend/data/models/two_tower/ | 21MB | 861274d2...654d |
-| movie_id_map.json | backend/data/models/two_tower/ | 320KB | 261c66e0...204e |
-| lgbm_v1.txt | backend/data/models/reranker/ | 98KB | 37e896e3...8ed7 |
+| 리비전 | 설명 | 상태 |
+|--------|------|------|
+| `e2b032d303d8` | initial schema snapshot (빈 베이스라인) | 적용 완료 |
+| `3a2d04b4c24c` | add_reco_log_tables (3테이블) | 적용 완료 |
 
-### 2. .gitattributes LFS 패턴 추가
+### 생성된 테이블
+
+| 테이블 | 컬럼 수 | FK | 인덱스 |
+|--------|---------|-----|--------|
+| `reco_impressions` | 12 | user_id → users (SET NULL) | 3개 |
+| `reco_interactions` | 10 | user_id → users (SET NULL) | 3개 |
+| `reco_judgments` | 7 | user_id → users (CASCADE) | 2개 |
+
+### 검증
 
 ```
-backend/data/models/two_tower/*.pt filter=lfs diff=lfs merge=lfs -text
-backend/data/models/two_tower/*.bin filter=lfs diff=lfs merge=lfs -text
-backend/data/models/two_tower/*.npy filter=lfs diff=lfs merge=lfs -text
-backend/data/models/reranker/*.txt filter=lfs diff=lfs merge=lfs -text
+alembic_version: 3a2d04b4c24c (head)
+reco_* tables: ['reco_impressions', 'reco_interactions', 'reco_judgments']
 ```
 
-### 3. Dockerfile 수정 (lines 44-60)
+- 기존 테이블(movies, users, ratings 등) 영향 없음 확인
+- 초기 마이그레이션이 빈 베이스라인이므로 기존 스키마 충돌 없음
 
-- 기존 패턴 동일: `curl -fSL` + SHA256 체크섬 검증
-- LFS 바이너리: `media.githubusercontent.com/media/...`
-- 일반 JSON: `raw.githubusercontent.com/...`
-- 별도 RUN 레이어 → 기존 v1.0 모델 레이어 캐시 유지
+---
 
-### 4. 경로 일관성 검증
+## Step 4: Railway 환경변수 설정
 
-| config.py 경로 (WORKDIR 기준) | 컨테이너 절대 경로 |
-|------|------|
-| `data/models/two_tower/model_v1.pt` | `/app/backend/data/models/two_tower/model_v1.pt` |
-| `data/models/two_tower/faiss_index.bin` | `/app/backend/data/models/two_tower/faiss_index.bin` |
-| `data/models/two_tower/movie_id_map.json` | `/app/backend/data/models/two_tower/movie_id_map.json` |
-| `data/models/reranker/lgbm_v1.txt` | `/app/backend/data/models/reranker/lgbm_v1.txt` |
+| 변수명 | 값 | 상태 |
+|--------|-----|------|
+| TWO_TOWER_ENABLED | true | 신규 추가 |
+| RERANKER_ENABLED | true | 신규 추가 |
+| EXPERIMENT_WEIGHTS | control:34,test_a:33,test_b:33 | 신규 추가 |
+
+---
 
 ## 완료 조건 체크
 
-- [x] Dockerfile에 v2.0 모델 5개 파일 다운로드 로직 추가 (SHA256 검증 포함)
-- [ ] `docker build -t recflix-test .` 성공 (빌드 진행 중)
-- [ ] 컨테이너 내 모델 파일 존재 확인
-- [x] TwoTowerRetriever, LGBMReranker 모델 로드 경로 일치 확인
+- [x] `alembic current` → `3a2d04b4c24c (head)` 확인
+- [x] 로컬 DB에서 이미 적용됨 확인
+- [x] 프로덕션 DB에 reco_impressions/interactions/judgments 3테이블 생성 확인
+- [x] TWO_TOWER_ENABLED=true, RERANKER_ENABLED=true 환경변수 설정 완료
+- [x] EXPERIMENT_WEIGHTS=control:34,test_a:33,test_b:33 설정 완료
+- [x] 기존 테이블·환경변수와 충돌 없음
 
 ## 다음 단계
 
-Step 3: Railway 프로덕션 DB에 Alembic 마이그레이션 적용
+Step 5: git push → CI 통과 → Railway 배포 → 배포 후 검증

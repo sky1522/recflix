@@ -1,47 +1,85 @@
-# v2.0 배포 Step 2: Dockerfile에 v2.0 모델 파일 다운로드 추가
+# v2.0 배포 Step 3+4: Alembic 마이그레이션 + Railway 환경변수
 
-## 배경
-현재 Dockerfile은 SVD 모델 + Voyage AI 임베딩만 다운로드(lines 28-42)하고 있음. Two-Tower 모델, FAISS 인덱스, LightGBM 모델이 컨테이너에 포함되지 않아 런타임에 모델 로드 실패 → fallback 동작.
+## Step 3: Railway 프로덕션 DB에 Alembic 마이그레이션 적용
 
-## 작업 내용
+### 배경
+`backend/alembic/versions/3a2d04b4c24c_add_reco_log_tables.py` 마이그레이션이 생성되어 있지만 프로덕션 DB에는 아직 적용되지 않음. reco_impressions, reco_interactions, reco_judgments 3테이블이 필요.
 
-`backend/Dockerfile`을 수정하여 v2.0 모델 파일 4개를 컨테이너 빌드 시 포함시켜줘.
+### 작업
 
-### 추가해야 할 파일 (data/models/ 하위)
+1. **현재 마이그레이션 상태 확인**
+```bash
+cd backend
+alembic current
+alembic history
+```
 
-| 파일 | 경로 | 크기 | 용도 |
-|------|------|------|------|
-| model_v1.pt | data/models/two_tower/model_v1.pt | 1.2MB | Two-Tower PyTorch 모델 |
-| faiss_index.bin | data/models/two_tower/faiss_index.bin | 21MB | FAISS 인덱스 |
-| item_embeddings_tt.npy | data/models/two_tower/item_embeddings_tt.npy | 21MB | Item 임베딩 |
-| movie_id_map.json | data/models/two_tower/movie_id_map.json | 320KB | 인덱스→movie_id 매핑 |
-| lgbm_v1.txt | data/models/reranker/lgbm_v1.txt | 98KB | LightGBM 모델 |
+2. **프로덕션 DB에 마이그레이션 적용**
+- Railway PostgreSQL 접속 정보 확인 (DATABASE_URL 환경변수)
+- 로컬에서 프로덕션 DB를 대상으로 실행하거나, Railway CLI로 실행
 
-### 방법 결정 — 현재 Dockerfile 확인 후 판단
+```bash
+# 방법 A: 로컬에서 프로덕션 DB 대상 실행
+DATABASE_URL="postgresql://..." alembic upgrade head
 
-기존 SVD/Voyage 파일이 어떻게 포함되는지 확인해줘:
-1. **Git LFS + COPY** — 이미 Git LFS로 관리되어 `COPY . .`로 포함되는 경우 → data/models/two_tower/와 data/models/reranker/도 LFS에 추가하면 됨
-2. **Dockerfile 내 curl/wget 다운로드** — GitHub Release 또는 Git LFS media URL로 다운로드하는 경우 → 동일 패턴으로 v2.0 모델도 다운로드 추가
-3. **Railway Volume** — 외부 스토리지에서 마운트하는 경우 → 해당 볼륨에 모델 업로드
+# 방법 B: Railway CLI
+railway run alembic upgrade head
+```
 
-기존 패턴과 동일한 방식으로 v2.0 모델을 추가해줘.
+3. **적용 확인**
+```sql
+SELECT table_name FROM information_schema.tables 
+WHERE table_schema = 'public' 
+AND table_name LIKE 'reco_%';
+```
+→ reco_impressions, reco_interactions, reco_judgments 3개 나와야 함
 
 ### 주의사항
+- 기존 테이블(movies, users, ratings, collections, user_events, similar_movies)에 영향 없는지 확인
+- 마이그레이션 파일이 CASCADE 관계를 포함하는지 확인 (user 삭제 시 reco 로그도 삭제?)
+- 로컬 DB에 먼저 테스트 후 프로덕션 적용 권장
 
-1. **Docker 레이어 캐시** — 모델 파일은 자주 변경되지 않으므로, requirements.txt 설치 레이어 이후에 COPY하여 코드 변경 시 모델 다운로드를 재실행하지 않도록
-2. **SHA256 검증** — 기존에 체크섬 검증을 하고 있다면 v2.0 모델도 동일하게 추가. 없다면 생략 가능
-3. **총 이미지 크기** — 기존 ~220MB(SVD+Voyage) + ~44MB(v2.0) = ~264MB. Railway 무료 티어 제한 확인
-4. **torch CPU** — requirements.txt에서 이미 CPU 전용으로 설치하므로 Dockerfile에서 별도 처리 불필요
-5. **경로 일관성** — TwoTowerRetriever와 LGBMReranker가 참조하는 모델 경로와 Dockerfile 내 경로가 일치하는지 반드시 확인
-   - `backend/app/services/two_tower_retriever.py`의 모델 로드 경로
-   - `backend/app/services/reranker.py`의 모델 로드 경로
-   - config.py의 모델 경로 설정
+---
+
+## Step 4: Railway 환경변수 확인/추가
+
+### 확인할 환경변수
+
+| 변수명 | 값 | 비고 |
+|--------|---|------|
+| TWO_TOWER_ENABLED | true | Two-Tower 후보 생성 활성화 |
+| RERANKER_ENABLED | true | LightGBM 재랭킹 활성화 |
+| EXPERIMENT_WEIGHTS | control:34,test_a:33,test_b:33 | A/B 그룹 비율 (이미 기본값일 수 있음) |
+
+### 작업
+
+1. **config.py에서 기본값 확인**
+```bash
+grep -n "TWO_TOWER_ENABLED\|RERANKER_ENABLED\|EXPERIMENT_WEIGHTS" backend/app/core/config.py
+```
+→ 기본값이 True면 환경변수 안 넣어도 되지만, 명시적으로 넣는 것을 권장
+
+2. **Railway 환경변수 설정**
+```bash
+# Railway CLI
+railway variables set TWO_TOWER_ENABLED=true
+railway variables set RERANKER_ENABLED=true
+```
+또는 Railway 대시보드 → Variables 탭에서 수동 추가
+
+3. **기존 환경변수 충돌 확인** — 이미 설정된 변수 목록 확인
+```bash
+railway variables list
+```
+
+---
 
 ## 완료 조건
-- [ ] Dockerfile에 v2.0 모델 5개 파일이 컨테이너에 포함되는 로직 추가
-- [ ] `docker build -t recflix-test .` 성공 (로컬 테스트)
-- [ ] 컨테이너 내에서 모델 파일 존재 확인: `docker run recflix-test ls -la data/models/two_tower/ data/models/reranker/`
-- [ ] TwoTowerRetriever, LGBMReranker 모델 로드 경로와 일치 확인
+- [ ] `alembic current`로 마이그레이션 상태 확인
+- [ ] 로컬 DB에서 `alembic upgrade head` 테스트 성공
+- [ ] 프로덕션 DB에 reco_impressions/interactions/judgments 3테이블 생성됨
+- [ ] TWO_TOWER_ENABLED=true, RERANKER_ENABLED=true 환경변수 설정됨
+- [ ] 기존 테이블·환경변수와 충돌 없음
 
 ## 다음 단계
-Step 3: Railway 프로덕션 DB에 Alembic 마이그레이션 적용
+Step 5: git push → CI 통과 → Railway 배포 → 배포 후 검증
