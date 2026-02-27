@@ -44,14 +44,10 @@ jobs:
           pip install -r requirements-ci.txt
 
       - name: Run pytest
-        run: |
-          cd backend
-          pytest -v --tb=long 2>&1 | tee /tmp/pytest.log; EXITCODE=${PIPESTATUS[0]}
-          if [ $EXITCODE -ne 0 ]; then
-            ERRMSG=$(tail -30 /tmp/pytest.log | tr '\n' ' | ')
-            echo "::error title=pytest failed (exit $EXITCODE)::$ERRMSG"
-            exit $EXITCODE
-          fi
+        env:
+          DATABASE_URL: "sqlite://"
+          JWT_SECRET_KEY: "ci-test-secret-key-1234567890"
+        run: cd backend && pytest -v --tb=short
 
   backend-typecheck:
     name: Backend Type Check
@@ -73,6 +69,9 @@ jobs:
           pip install -r requirements-ci.txt pyright
 
       - name: Run pyright
+        env:
+          DATABASE_URL: "sqlite://"
+          JWT_SECRET_KEY: "ci-test-secret-key-1234567890"
         run: cd backend && pyright app/
 
   frontend-build:
