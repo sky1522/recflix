@@ -43,21 +43,15 @@ jobs:
           grep -v 'extra-index-url\|torch==\|lightgbm\|faiss-cpu' requirements.txt > requirements-ci.txt
           pip install -r requirements-ci.txt
 
-      - name: Debug imports
-        if: always()
+      - name: Run pytest
         run: |
           cd backend
-          python -c "
-          try:
-              from app.main import app
-              print('app import OK')
-          except Exception as e:
-              print(f'IMPORT ERROR: {type(e).__name__}: {e}')
-          "
-          python -m pytest --collect-only 2>&1 | head -50 || true
-
-      - name: Run pytest
-        run: cd backend && pytest -v --tb=long
+          pytest -v --tb=long 2>&1 | tee /tmp/pytest.log; EXITCODE=${PIPESTATUS[0]}
+          if [ $EXITCODE -ne 0 ]; then
+            ERRMSG=$(tail -30 /tmp/pytest.log | tr '\n' ' | ')
+            echo "::error title=pytest failed (exit $EXITCODE)::$ERRMSG"
+            exit $EXITCODE
+          fi
 
   backend-typecheck:
     name: Backend Type Check
