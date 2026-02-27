@@ -24,26 +24,34 @@
 - `OPENWEATHER_API_KEY`: OpenWeatherMap API
 - `ANTHROPIC_API_KEY`: Claude API (캐치프레이즈)
 - `CORS_ORIGINS`: 허용 도메인 (쉼표 구분)
+- `TWO_TOWER_ENABLED`: Two-Tower 활성화 (default: true)
+- `RERANKER_ENABLED`: LGBM 재랭커 활성화 (default: true)
+- `EXPERIMENT_WEIGHTS`: A/B 그룹 비율 (default: control:34,test_a:33,test_b:33)
 
 ### Frontend 필수 환경변수
 - `NEXT_PUBLIC_API_URL`: Backend API URL
 
 ## CI/CD 파이프라인
 → `.github/workflows/ci.yml` 참조
-- **CI**: GitHub Actions — Backend Lint (ruff) + Backend Test (pytest) + Frontend Build (next build)
-- **CD**: GitHub Actions → `railway up --service backend --environment production --detach`
+- **CI**: GitHub Actions — Backend Lint (ruff) + Backend Test (pytest, ML 패키지 제외) + Frontend Build (next build)
+- **CD**: GitHub Actions → `npx @railway/cli@4.30.5 up --service backend --environment production --detach`
 - **Vercel**: GitHub 연동 자동 배포 (push 시, Actions 불필요)
 - **Railway Token**: Project Token 사용 (Account Token 아님), GitHub Secrets `RAILWAY_TOKEN`
 - **deploy-backend needs**: backend-lint + backend-test + frontend-build (모두 통과 필수)
+- **CI ML 제외**: `grep -v 'torch==\|lightgbm\|faiss-cpu'` → requirements-ci.txt
+- **CI 환경변수**: DATABASE_URL, JWT_SECRET_KEY (Settings 검증용)
+- **Lazy imports**: torch/faiss/lightgbm는 클래스 __init__에서만 import (CI 호환)
 
 ## 구조화 로깅 (Phase 49)
 → `backend/app/core/logging_config.py` — structlog 설정
 → Production: JSON one-line, Development: colored console
 → `backend/app/middleware/request_id.py` — X-Request-ID 미들웨어
 
-## Dockerfile 체크섬 (Phase 48)
-→ 4개 다운로드 파일에 SHA256 무결성 검증 추가
-→ svd_model.pkl, movie_embeddings.npy, embedding_metadata.json, movie_id_index.json
+## Dockerfile 모델 다운로드 (Phase 48 + 53)
+→ v1.0: svd_model.pkl, movie_embeddings.npy, embedding_metadata.json, movie_id_index.json
+→ v2.0: model_v1.pt, faiss_index.bin, item_embeddings_tt.npy, movie_id_map.json, lgbm_v1.txt
+→ 모두 SHA256 무결성 검증, GitHub LFS media URL에서 다운로드
+→ `.railwayignore`로 로컬 `railway up` 시 모델 파일 업로드 제외 (413 방지)
 
 ## 배포 프로세스
 - main 브랜치 push → CI/CD → Railway/Vercel 자동 배포

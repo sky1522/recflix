@@ -63,10 +63,31 @@ PGPASSWORD=<railway_pw> pg_restore -h shinkansen.proxy.rlwy.net -p 20053 -U post
 → 28,486/42,917편 (66.4%) 커버
 → `collect_trailers.py` 스크립트로 TMDB API 수집
 
-## Alembic 마이그레이션 (Phase 48)
+## reco_* 추천 로깅 테이블 (Phase 53, v2.0)
+→ Alembic 마이그레이션: `3a2d04b4c24c_add_reco_log_tables.py`
+
+### reco_impressions (추천 노출 로그, 12컬럼)
+- id(BigInt PK), request_id(UUID), user_id(FK→users SET NULL), session_id
+- experiment_group(String16), algorithm_version(String64), section(String32)
+- movie_id(Int), rank(SmallInt), score(Float), context(JSONB), served_at(TimestampTZ)
+- 인덱스: request_id, (user_id, served_at), (algorithm_version, served_at)
+
+### reco_interactions (추천 상호작용, 10컬럼)
+- id(BigInt PK), request_id(UUID), user_id(FK→users SET NULL), session_id
+- movie_id(Int), event_type(String32), dwell_ms(Int), position(SmallInt)
+- metadata(JSONB), interacted_at(TimestampTZ)
+- 인덱스: request_id, (user_id, interacted_at), (movie_id, event_type)
+
+### reco_judgments (오프라인 평가 라벨, 7컬럼)
+- id(BigInt PK), request_id(UUID), user_id(FK→users CASCADE), movie_id(Int)
+- label_type(String16), label_value(Float), judged_at(TimestampTZ)
+- 인덱스: (user_id, judged_at), request_id
+
+## Alembic 마이그레이션 (Phase 48+53)
 → `backend/alembic/` 디렉토리
 → `Base.metadata.create_all()` 제거, Alembic 관리로 전환
 → 초기 마이그레이션은 빈 baseline (stamp head)
+→ `3a2d04b4c24c`: reco_impressions, reco_interactions, reco_judgments 추가
 → env.py: settings.DATABASE_URL 동적 설정
 
 ## 스키마 변경 시 체크리스트

@@ -1,113 +1,70 @@
-# v2.0 프로덕션 배포 완료
+# 문서 동기화 갭 분석
 
-> 작업일: 2026-02-27
+> 분석일: 2026-02-27
 
-## 배포 결과 요약
+## 갭 요약
 
-| 항목 | 상태 |
-|------|------|
-| Railway 배포 | SUCCESS (bbcd4c5a) |
-| Health 엔드포인트 | v2.0.0 |
-| Two-Tower Retriever | loaded (42917 items) |
-| LGBM Reranker | loaded |
-| SVD CF Model | loaded (17471 items) |
-| Semantic Search | enabled (42917 embeddings, 1024 dims) |
-| DB | connected |
-| Redis | connected |
-| reco_impressions 로깅 | 정상 동작 확인 |
+| 문서 | 갭 수 | 심각도 |
+|------|-------|--------|
+| CLAUDE.md | 5 | 높음 (핵심 구조 미반영) |
+| PROGRESS.md | 2 | 높음 (v2.0 Phase 누락) |
+| HANDOFF_CONTEXT.md | 6 | 높음 (v2.0 미반영) |
+| .claude/skills/recommendation.md | 3 | 높음 (Two-Tower/LGBM 누락) |
+| .claude/skills/deployment.md | 4 | 중간 (v2.0 배포 변경 미반영) |
+| .claude/skills/database.md | 1 | 중간 (reco_* 테이블 누락) |
+| docs/RECOMMENDATION_LOGIC.md | 1 | 낮음 (이미 일부 반영) |
+| docs/ARCHITECTURE.md | 0 | 없음 (이미 v2.0 반영) |
+| docs/PROJECT_INDEX.md | 2 | 낮음 |
 
----
+## 문서별 갭 상세
 
-## 수행한 작업 (Steps 1-5)
+### 1. CLAUDE.md
 
-### Step 1: requirements.txt ML 패키지 추가
-- torch==2.10.0+cpu, lightgbm==4.6.0, faiss-cpu==1.13.2
-- numpy 2.x로 업그레이드 (SVD pickle 호환성)
+| # | 갭 | 현재 | 실제 |
+|---|-----|------|------|
+| 1 | services/ 목록 불완전 | weather.py, llm.py만 | +two_tower_retriever.py, reranker.py, reco_logger.py, interleaving.py, embedding.py |
+| 2 | health.py 설명 불완전 | "DB/Redis/SVD/임베딩" | +Two-Tower, Reranker 상태 |
+| 3 | reco_* 테이블 누락 | DB 모델에 없음 | reco_impressions, reco_interactions, reco_judgments 3테이블 추가됨 |
+| 4 | config 설명 불완전 | "EXPERIMENT_WEIGHTS 포함" | +TWO_TOWER_*, RERANKER_* 설정 추가됨 |
+| 5 | 알려진 이슈 패턴 누락 | 6개 | +Railway LFS 413 (.railwayignore), numpy 2.x pickle 호환성 |
 
-### Step 2: Dockerfile v2.0 모델 다운로드
-- Two-Tower 모델 3개 + movie_id_map.json + LGBM 모델 1개
-- SHA256 체크섬 검증 포함
-- Git LFS로 대용량 파일 관리
+### 2. PROGRESS.md
 
-### Step 3: Alembic 마이그레이션
-- reco_impressions (12컬럼, 3인덱스)
-- reco_interactions (10컬럼, 3인덱스)
-- reco_judgments (7컬럼, 2인덱스)
+| # | 갭 | 현재 | 실제 |
+|---|-----|------|------|
+| 1 | v2.0 ML 파이프라인 Phase 누락 | Phase 52까지 (v1.1.0) | Phase 53: Two-Tower + LGBM 프로덕션 배포 (v2.0.0) |
+| 2 | 해결한 이슈 누락 | #23까지 | +Dockerfile SHA256, .railwayignore, Railway CLI npx, numpy 2.x |
 
-### Step 4: Railway 환경변수
-- TWO_TOWER_ENABLED=true
-- RERANKER_ENABLED=true
-- EXPERIMENT_WEIGHTS=control:34,test_a:33,test_b:33
+### 3. HANDOFF_CONTEXT.md
 
-### Step 5: CI 수정 + 배포 + 검증
+| # | 갭 | 현재 | 실제 |
+|---|-----|------|------|
+| 1 | 버전 | Phase 52, v1.1.0 | Phase 53, v2.0.0 |
+| 2 | services/ 목록 누락 | weather.py, llm.py만 | +5개 서비스 모듈 |
+| 3 | reco_* 테이블 누락 | DB 스키마에 없음 | 3테이블 추가 |
+| 4 | Phase 53 누락 | Phase 52까지 | +Two-Tower + LGBM 배포 |
+| 5 | health 엔드포인트 | DB/Redis/SVD/임베딩 | +two_tower, reranker |
+| 6 | CI/CD 변경 미반영 | railway up | npx @railway/cli, ML 패키지 제외, lazy imports |
 
-#### CI 수정 사항
-- ML 패키지 CI에서 제외 (grep -v torch|lightgbm|faiss-cpu)
-- 환경변수 추가 (DATABASE_URL, JWT_SECRET_KEY)
-- UUID→String(36) SQLite 호환성 (conftest.py)
-- SVD pickle 예외 처리 broadening
-- Railway CLI: npx @railway/cli@4.30.5 직접 실행
+### 4. .claude/skills/recommendation.md
 
-#### 배포 트러블슈팅
-| 문제 | 원인 | 해결 |
-|------|------|------|
-| Docker 빌드 실패 | embedding_metadata.json SHA256 불일치 | 체크섬 재계산 |
-| 413 Payload Too Large | LFS 모델 파일 258MB 업로드 시도 | .railwayignore 생성 |
-| Railway CLI 설치 실패 | npm install -g 불안정 | npx 직접 실행 |
-| CF 모델 로드 실패 | numpy 1.26 vs 2.x pickle 비호환 | numpy>=2.0.0 |
+| # | 갭 | 현재 | 실제 |
+|---|-----|------|------|
+| 1 | Two-Tower 섹션 없음 | — | FAISS 42917 items, 200 후보 생성 |
+| 2 | LGBM 재랭커 섹션 없음 | — | 76dim 피처, 200→50 재랭킹 |
+| 3 | A/B 알고리즘 라우팅 없음 | — | control→hybrid_v1, test_a→twotower_lgbm_v1, test_b→twotower_v1 |
 
----
+### 5. .claude/skills/deployment.md
 
-## 변경 파일 목록
+| # | 갭 | 현재 | 실제 |
+|---|-----|------|------|
+| 1 | Dockerfile v2.0 모델 미반영 | 4개 파일 SHA256 | +5개 v2.0 모델 파일 |
+| 2 | .railwayignore 누락 | — | LFS 파일 업로드 제외 |
+| 3 | Railway 환경변수 누락 | — | TWO_TOWER_ENABLED, RERANKER_ENABLED |
+| 4 | CI npx 변경 미반영 | `npm install -g @railway/cli` | `npx @railway/cli@4.30.5` |
 
-| 파일 | 변경 내용 |
-|------|-----------|
-| `requirements.txt` (root) | ML 패키지 + numpy 2.x |
-| `backend/requirements.txt` | ML 패키지 + numpy 2.x |
-| `backend/Dockerfile` | v2.0 모델 다운로드 (lines 44-60) |
-| `.gitattributes` | LFS 패턴 4개 추가 |
-| `backend/data/models/` | 5개 모델 파일 (Git LFS) |
-| `.github/workflows/ci.yml` | ML 제외, 환경변수, npx railway |
-| `backend/tests/conftest.py` | UUID→String(36) 변환 |
-| `backend/app/api/v1/recommendation_cf.py` | 예외 처리 broadening |
-| `backend/app/api/v1/health.py` | two_tower/reranker 상태 추가 |
-| `backend/app/services/two_tower_retriever.py` | lazy imports |
-| `backend/app/services/reranker.py` | lazy imports |
-| `.railwayignore` | LFS 파일 업로드 제외 |
+### 6. .claude/skills/database.md
 
----
-
-## 프로덕션 검증 결과
-
-### Health Endpoint
-```json
-{
-    "status": "ok",
-    "environment": "production",
-    "database": "connected",
-    "redis": "connected",
-    "semantic_search": "enabled",
-    "cf_model": "loaded",
-    "two_tower": "loaded",
-    "reranker": "loaded",
-    "version": "v2.0.0"
-}
-```
-
-### Startup Logs
-```
-Semantic search: enabled (42917 embeddings, 1024 dims)
-FAISS: AVX512 support
-TwoTowerRetriever loaded: 42917 items in index
-LGBMReranker loaded: data/models/reranker/lgbm_v1.txt
-CF 모델 로드: items=17471, global_mean=3.5309
-impressions_logged: 199 items
-```
-
-### Recommendation API
-```
-algorithm_version: twotower_v1
-request_id: 81085f1f-...
-rows: 4 (인기, 높은평점, 날씨추천, 기분추천)
-impressions: reco_impressions 테이블에 자동 로깅
-```
+| # | 갭 | 현재 | 실제 |
+|---|-----|------|------|
+| 1 | reco_* 테이블 3개 누락 | — | reco_impressions(12col), reco_interactions(10col), reco_judgments(7col) |

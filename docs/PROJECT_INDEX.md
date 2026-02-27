@@ -19,7 +19,7 @@ This file is a quick map for navigating the RecFlix repository.
 - `backend/app/api/v1/router.py`: API v1 route composition
 - `backend/app/models/`: SQLAlchemy models
 - `backend/app/schemas/`: Pydantic schemas
-- `backend/app/services/`: integration/business services (weather, llm)
+- `backend/app/services/`: integration/business services (weather, llm, two_tower_retriever, reranker, reco_logger, interleaving, embedding)
 - `backend/app/core/`: DI, security, rate limiting, http client, logging config
 - `backend/app/middleware/`: request ID middleware (structlog contextvars)
 - `backend/tests/`: pytest test suite (conftest, auth, health, movies, recommendations)
@@ -40,7 +40,7 @@ This file is a quick map for navigating the RecFlix repository.
 
 - `docs/ARCHITECTURE.md`: system architecture (data flow, cache, auth, CI/CD)
 - `docs/RECOMMENDATION_LOGIC.md`: recommendation scoring details
-- `docs/HANDOFF_CONTEXT.md`: project handoff context (Phase 50 기준)
+- `docs/HANDOFF_CONTEXT.md`: project handoff context (Phase 53 기준)
 - `docs/PROJECT_INDEX.md`: this file — project file index
 - `docs/DATA_PREPROCESSING.md`: data prep flow
 - `docs/PROJECT_REVIEW.md`: project review and roadmap

@@ -1,6 +1,6 @@
 # RecFlix 개발 진행 상황
 
-**최종 업데이트**: 2026-02-25 (v1.1.0)
+**최종 업데이트**: 2026-02-27 (v2.0.0)
 
 ---
 
@@ -614,6 +614,26 @@
 | events.py 리팩토링 | ✅ | ab-report 7개 헬퍼 함수 분리 |
 | ABReport 스키마 확장 | ✅ | ABComparison, funnel, daily_active_users 등 |
 
+### Phase 53: v2.0 ML 파이프라인 프로덕션 배포 (2026-02-27)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| requirements.txt ML 패키지 | ✅ | torch==2.10.0+cpu, lightgbm==4.6.0, faiss-cpu==1.13.2 |
+| Dockerfile v2.0 모델 다운로드 | ✅ | Two-Tower 4파일 + LGBM 1파일, SHA256 검증 |
+| Git LFS 모델 파일 등록 | ✅ | .gitattributes 4패턴, 5파일 (~45MB) |
+| Alembic 마이그레이션 | ✅ | reco_impressions, reco_interactions, reco_judgments 3테이블 |
+| Railway 환경변수 | ✅ | TWO_TOWER_ENABLED=true, RERANKER_ENABLED=true |
+| CI ML 패키지 제외 | ✅ | grep -v torch/lightgbm/faiss-cpu |
+| CI 환경변수 추가 | ✅ | DATABASE_URL, JWT_SECRET_KEY |
+| conftest.py UUID 호환성 | ✅ | PG_UUID → String(36) SQLite 변환 |
+| lazy imports (torch/faiss/lgb) | ✅ | two_tower_retriever.py, reranker.py |
+| Railway CLI npx 전환 | ✅ | npx @railway/cli@4.30.5 (npm install -g 불안정) |
+| .railwayignore 추가 | ✅ | LFS 모델 파일 업로드 제외 (413 방지) |
+| Dockerfile SHA256 수정 | ✅ | embedding_metadata.json 체크섬 업데이트 |
+| numpy 2.x 업그레이드 | ✅ | SVD pickle 호환성 (numpy._core.numeric) |
+| health 엔드포인트 v2.0 | ✅ | two_tower, reranker 상태 추가 |
+| Railway 배포 성공 | ✅ | 모든 모델 로드 확인 (v2.0.0) |
+
 ---
 
 ## 프로젝트 구조
@@ -648,7 +668,12 @@ C:\dev\recflix\
 │   │   ├── schemas/
 │   │   ├── services/
 │   │   │   ├── weather.py
-│   │   │   └── llm.py
+│   │   │   ├── llm.py
+│   │   │   ├── two_tower_retriever.py
+│   │   │   ├── reranker.py
+│   │   │   ├── reco_logger.py
+│   │   │   ├── interleaving.py
+│   │   │   └── embedding.py
 │   │   ├── database.py
 │   │   └── main.py
 │   ├── .env
@@ -845,6 +870,7 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 - [x] **문서 최종화 + v1.0.0 릴리스** (Phase 50) (2026-02-24)
 - [x] **모바일 UI/UX 개선** (터치 영역 44px + 유도섹션 thumb zone + hover-only 대응) (2026-02-24)
 - [x] **A/B 테스트 강화** (이벤트 사각지대 해소 + 통계 유의성 Z-test + 추가 메트릭 + 그룹 가중치) (2026-02-25)
+- [x] **v2.0 ML 파이프라인 프로덕션 배포** (Two-Tower + LGBM + FAISS + reco_* 테이블 + CI/CD 수정) (2026-02-27)
 
 ### 향후 개선사항
 - [ ] PWA 지원
@@ -879,3 +905,7 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 21. **Pydantic EmailStr `.local` 도메인 거부**: 이메일 없는 소셜 사용자 `@recflix.local` → `@noreply.example.com` 변경 (2026-02-19)
 22. **Railway CD "Invalid RAILWAY_TOKEN"**: Account Token이 아닌 **Project Token** 필요 → Railway Dashboard에서 프로젝트 설정 > Tokens에서 생성 (2026-02-20)
 23. **numpy 2.x pickle 호환성**: SVD 모델(numpy 1.x로 학습)이 numpy 2.x에서 로드 실패 → numpy/pandas/scipy 버전 업데이트로 해결 (2026-02-20)
+24. **Dockerfile SHA256 불일치**: embedding_metadata.json 파일 변경 후 체크섬 미갱신 → 체크섬 재계산 (2026-02-27)
+25. **Railway 413 Payload Too Large**: LFS 모델 파일 포함 258MB 업로드 → `.railwayignore`로 모델 파일 제외 (2026-02-27)
+26. **Railway CLI npm install 실패**: `npm install -g @railway/cli` CI 불안정 → `npx @railway/cli@4.30.5` 직접 실행 (2026-02-27)
+27. **numpy._core.numeric ModuleNotFoundError**: SVD 모델이 numpy 2.x로 피클 → 프로덕션 numpy 1.26 → 2.x 업그레이드 (2026-02-27)

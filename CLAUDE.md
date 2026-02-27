@@ -32,7 +32,7 @@ backend/
       interactions.py            # 통합 상호작용 (찜/평점 상태)
       events.py                  # 사용자 행동 이벤트 (10종)
       ab_stats.py                # A/B 통계 유틸리티 (Z-test, Wilson CI)
-      health.py                  # 헬스체크 (DB/Redis/SVD/임베딩)
+      health.py                  # 헬스체크 (DB/Redis/SVD/임베딩/Two-Tower/Reranker)
       llm.py                     # Claude API 캐치프레이즈
       router.py                  # API 라우터 통합
     core/
@@ -55,7 +55,12 @@ backend/
     services/
       weather.py            # OpenWeatherMap + 역지오코딩 + 70개 한글 도시명
       llm.py                # Claude API + Redis 캐싱
-    config.py               # pydantic-settings (env 기반, EXPERIMENT_WEIGHTS 포함)
+      two_tower_retriever.py # Two-Tower ANN 후보 생성 (PyTorch + FAISS)
+      reranker.py           # LightGBM CTR 예측 재랭커 (76dim 피처)
+      reco_logger.py        # 추천 노출 로깅 (reco_impressions INSERT)
+      interleaving.py       # Team Draft Interleaving (A/B 비교)
+      embedding.py          # Voyage AI 벡터 임베딩 (Redis 캐싱)
+    config.py               # pydantic-settings (env 기반, TWO_TOWER_*/RERANKER_*/EXPERIMENT_WEIGHTS)
     database.py             # SQLAlchemy engine + session
   scripts/
     compute_similar_movies.py    # 유사 영화 자체 계산 (코사인+Jaccard)
@@ -155,6 +160,9 @@ user_events: 10종 이벤트, JSONB metadata, 복합 인덱스 5개
 ratings: user_id+movie_id UNIQUE, score DECIMAL(2,1) 0.5~5.0
 collections + collection_movies: 찜 관리
 genres(19종), persons(97,206), keywords, countries: M:M 연결 테이블
+reco_impressions: 추천 노출 로그 (12컬럼, request_id/user_id/algorithm_version/section/movie_id/rank)
+reco_interactions: 추천 상호작용 로그 (10컬럼, event_type/dwell_ms/position)
+reco_judgments: 오프라인 평가 라벨 (7컬럼, label_type/label_value)
 ```
 
 **주의 - CSV → DB 컬럼 매핑:**
@@ -214,6 +222,8 @@ cd frontend && npm run dev
 - Railway DB proxy: `shinkansen.proxy.rlwy.net:20053`
 - Windows 대용량 JSON 쓰기: 원자적 쓰기(tmp+rename) 패턴 사용
 - 프론트엔드 CSR 페이지: WebFetch로 동적 콘텐츠 확인 불가 → API 직접 호출로 검증
+- Railway LFS 업로드 제한: `.railwayignore`로 모델 파일 제외 (Dockerfile에서 GitHub LFS로 다운로드)
+- numpy 2.x pickle 호환: SVD 모델이 numpy 2.x로 생성됨 → `numpy>=2.0.0` 필수
 
 ## 스킬
 

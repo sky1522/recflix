@@ -1,13 +1,16 @@
 # 추천 시스템
 
 ## 핵심 파일
-→ `backend/app/api/v1/recommendations.py` (API 라우터)
+→ `backend/app/api/v1/recommendations.py` (API 라우터, A/B 분기 + Two-Tower 경로)
 → `backend/app/api/v1/recommendation_engine.py` (스코어링 엔진)
-→ `backend/app/api/v1/recommendation_constants.py` (가중치/다양성 상수)
+→ `backend/app/api/v1/recommendation_constants.py` (가중치/다양성 상수 + algorithm_version 매핑)
 → `backend/app/api/v1/recommendation_cf.py` (CF 모듈)
 → `backend/app/api/v1/recommendation_reason.py` (추천 이유 43개 템플릿)
 → `backend/app/api/v1/diversity.py` (다양성 후처리 5개 함수)
 → `backend/app/api/v1/semantic_search.py` (인메모리 벡터 검색)
+→ `backend/app/services/two_tower_retriever.py` (Two-Tower ANN 후보 생성)
+→ `backend/app/services/reranker.py` (LightGBM CTR 예측 재랭커)
+→ `backend/app/services/reco_logger.py` (추천 노출 로깅)
 
 ## 하이브리드 스코어링 (v3, CF 통합)
 → recommendation_engine.py의 `calculate_hybrid_scores()` 참조
@@ -107,6 +110,37 @@
 ### preferred_genres 가중치
 - 콜드스타트: preferred_genres 장르당 가중치 **3** (기존 1)
 - 상호작용 5건 이상이면 preferred_genres 무시
+
+## Two-Tower 후보 생성 (Phase 53, v2.0)
+→ `backend/app/services/two_tower_retriever.py`
+- PyTorch Two-Tower 모델 + FAISS IndexFlatIP (42,917 items)
+- 입력: MBTI one-hot(16) + 선호 장르 multi-hot(19) = 35dim
+- 출력: 200 후보 (movie_id, cosine score)
+- 모델 파일: `data/models/two_tower/model_v1.pt` (1.2MB)
+- FAISS 인덱스: `data/models/two_tower/faiss_index.bin` (21MB)
+- Lazy import: torch/faiss는 __init__ 내부에서 import (CI 호환)
+- Lifespan: `init_retriever()` → `get_retriever()` 싱글톤
+
+## LightGBM CTR 재랭커 (Phase 53, v2.0)
+→ `backend/app/services/reranker.py`
+- 76-dim 피처: MBTI(16) + user_genres(19) + item_genres(19) + weighted_score(1) + emotion(7) + weather(4) + mood(6) + cross(2) + candidate(2)
+- Two-Tower 200개 → LGBM Top 50 → Hybrid 품질보정 20개
+- 모델: `data/models/reranker/lgbm_v1.txt` (98KB)
+- Lazy import: lightgbm은 __init__ 내부에서 import
+- Lifespan: `init_reranker()` → `get_reranker()` 싱글톤
+
+## A/B 알고리즘 라우팅 (Phase 53)
+→ `recommendation_constants.py`의 `get_algorithm_version()` 참조
+- `control` → `hybrid_v1` (기존 DB 전체 스캔)
+- `test_a` → `twotower_lgbm_v1` (Two-Tower + LGBM 재랭킹)
+- `test_b` → `twotower_v1` (Two-Tower only, LGBM 없이)
+- Fallback: retriever 미로드 시 `hybrid_v1_fallback`
+- 후보 부족(<20) 시 `twotower_v1_supplemented`
+
+## 추천 노출 로깅 (Phase 53)
+→ `backend/app/services/reco_logger.py`
+- BackgroundTasks로 비동기 INSERT (reco_impressions 테이블)
+- request_id, user_id, session_id, experiment_group, algorithm_version, section, movie_id, rank, score, context
 
 ## 알고리즘 변경 시 체크리스트
 1. recommendation_engine.py 가중치/로직 수정

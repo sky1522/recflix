@@ -1,6 +1,6 @@
 # RecFlix 프로젝트 컨텍스트 핸드오프
 
-> 클로드 웹 새 채팅에 붙여넣기용. 2026-02-25 기준. (Phase 52 완료, v1.1.0)
+> 클로드 웹 새 채팅에 붙여넣기용. 2026-02-27 기준. (Phase 53 완료, v2.0.0)
 
 ---
 
@@ -18,7 +18,7 @@
 | Backend 배포 | Railway — https://backend-production-cff2.up.railway.app |
 | API 문서 | https://backend-production-cff2.up.railway.app/docs |
 | GitHub | https://github.com/sky1522/recflix |
-| 총 커밋 | 260개+, Phase 52 완료 (v1.1.0) |
+| 총 커밋 | 280개+, Phase 53 완료 (v2.0.0) |
 | 소스 파일 | Backend 60개+ (.py) / Frontend 50개+ (.ts/.tsx) |
 
 ---
@@ -52,6 +52,10 @@ backend/app/
     movie.py / user.py / rating.py / collection.py / similar_movie.py / user_event.py
   services/
     weather.py (OpenWeatherMap + 역지오코딩) / llm.py (Claude + Redis)
+    two_tower_retriever.py    # Two-Tower ANN 후보 생성 (PyTorch + FAISS)
+    reranker.py               # LightGBM CTR 예측 재랭커 (76dim 피처)
+    reco_logger.py            # 추천 노출 로깅 (reco_impressions)
+    interleaving.py / embedding.py
 backend/tests/                # pytest 테스트 스위트 (14건)
 backend/alembic/              # DB 마이그레이션 (Alembic)
 
@@ -91,6 +95,9 @@ user_events: 10종 이벤트, JSONB metadata (프로덕션 적용 완료)
 ratings: user_id+movie_id UNIQUE, score 0.5~5.0
 collections + collection_movies: 찜 관리
 genres(19), persons(97,206), keywords, countries: M:M 연결
+reco_impressions: 추천 노출 로그 (12컬럼, request_id/user_id/algorithm_version/section/movie_id/rank)
+reco_interactions: 추천 상호작용 로그 (10컬럼, event_type/dwell_ms/position)
+reco_judgments: 오프라인 평가 라벨 (7컬럼, label_type/label_value)
 ```
 
 **주의 - CSV→DB 매핑**: CSV `title`(한국어) → DB `title_ko` / CSV `title_ko_en`(영어) → DB `title`
@@ -121,8 +128,8 @@ genres(19), persons(97,206), keywords, countries: M:M 연결
 
 ## 4. CI/CD 파이프라인
 
-- **CI**: GitHub Actions — Backend Lint (ruff) + Backend Test (pytest) + Frontend Build (next build)
-- **CD**: GitHub Actions → `railway up --service backend --environment production --detach`
+- **CI**: GitHub Actions — Backend Lint (ruff) + Backend Test (pytest, ML 패키지 제외) + Frontend Build (next build)
+- **CD**: GitHub Actions → `npx @railway/cli@4.30.5 up --service backend --environment production --detach`
 - **Vercel**: GitHub 연동 자동 배포 (push 시)
 - **Railway Token**: Project Token (Account Token 아님), GitHub Secrets `RAILWAY_TOKEN`
 - **파일**: `.github/workflows/ci.yml`
@@ -162,6 +169,7 @@ genres(19), persons(97,206), keywords, countries: M:M 연결
 | 50 | 02/24 | 문서 최종화 + v1.0.0 릴리스 |
 | 51 | 02/24 | 모바일 UI/UX 개선 (터치 영역 44px + thumb zone + hover-only 대응) |
 | 52 | 02/25 | A/B 테스트 강화 (이벤트 사각지대 해소 + Z-test 통계 유의성 + 추가 메트릭 + 그룹 가중치) |
+| 53 | 02/27 | **v2.0 ML 파이프라인 배포** (Two-Tower + LGBM + FAISS + reco_* 테이블 + CI/CD 수정 + numpy 2.x) |
 
 ---
 
@@ -171,8 +179,16 @@ genres(19), persons(97,206), keywords, countries: M:M 연결
 - Phase 38: user_events, users 7컬럼 + 타입 보정
 - Phase 47: trailer_key 컬럼 추가 (28,486편 커버)
 - Phase 48: Alembic 마이그레이션 체계 전환 (Base.metadata.create_all 제거)
+- Phase 53: reco_impressions, reco_interactions, reco_judgments 3테이블 추가
 
-### 6.2 A/B 테스트 현황
+### 6.2 v2.0 ML 파이프라인 — ✅ 배포 완료
+- **Two-Tower Retriever**: PyTorch + FAISS (42,917 items in index)
+- **LGBM Reranker**: LightGBM CTR 예측 (76dim 피처)
+- **A/B 라우팅**: control→hybrid_v1, test_a→twotower_lgbm_v1, test_b→twotower_v1
+- **Health**: `/api/v1/health` → two_tower: loaded, reranker: loaded, version: v2.0.0
+- **Impression Logging**: 추천 노출 → reco_impressions 자동 기록
+
+### 6.3 A/B 테스트 현황
 - Phase 52: Z-test for proportions 통계 유의성 검증 (math.erf, scipy 불필요)
 - Wilson score 95% 신뢰구간 (CTR CI)
 - 추가 메트릭: 추천 수용률, 재방문율, 세션 이벤트, 전환 퍼널, 일별 활성
@@ -180,7 +196,7 @@ genres(19), persons(97,206), keywords, countries: M:M 연결
 - 이벤트 트래킹: 모든 사용자 상호작용 이벤트에 experiment_group 포함
 - 컨텍스트 전파: 추천 섹션 → 상세 페이지 (source_section/source_position)
 
-### 6.3 남은 수동 작업
+### 6.4 남은 수동 작업
 - **OAuth 환경변수**: Railway/Vercel에 Kakao/Google OAuth 프로덕션 값 설정 필요
 - **Kakao Developer Console**: 앱 도메인에 `jnsquery-reflix.vercel.app` 등록 + Redirect URI
 - **Google Cloud Console**: 승인된 리디렉션 URI 추가
@@ -212,6 +228,8 @@ genres(19), persons(97,206), keywords, countries: M:M 연결
 | CORS 500 에러 | 코드-DB 불일치 → 재배포 |
 | 대용량 JSON 쓰기 (Windows) | 원자적 쓰기 (tmp+rename) |
 | CSR 페이지 검증 | WebFetch 불가 → API 직접 호출 |
+| Railway LFS 413 | `.railwayignore`로 모델 파일 제외 |
+| numpy 2.x SVD pickle | `numpy>=2.0.0` 필수 (numpy._core.numeric) |
 
 ---
 
