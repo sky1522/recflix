@@ -1,5 +1,7 @@
 # RecFlix 시스템 아키텍처
 
+> v2.0 업데이트: 2026-02-27 — ML 추천 파이프라인, A/B 실험 프레임워크, 오프라인 평가 체계 추가
+
 ## 전체 구조
 
 ```
@@ -210,3 +212,242 @@ git push origin main
 - **Development**: Colored console (human-readable)
 - **X-Request-ID**: 모든 요청에 UUID 바인딩 → 로그 추적
 - **Noisy loggers**: uvicorn.access, httpx → WARNING 레벨
+
+---
+
+## v2.0 — ML 추천 파이프라인
+
+### 추천 경로 분기 (A/B 실험)
+
+```mermaid
+flowchart LR
+    REQ[추천 요청] --> HASH{md5 hash<br/>user_id or session_id<br/>% 100}
+
+    HASH -->|0~33| CTRL["<b>control</b><br/>hybrid_v1"]
+    HASH -->|34~66| TA["<b>test_a</b><br/>twotower_lgbm_v1"]
+    HASH -->|67~99| TB["<b>test_b</b><br/>twotower_v1"]
+
+    CTRL --> DB_FULL["DB 전체 스캔<br/>42,917편"]
+    DB_FULL --> HYB_C["Hybrid 5축"]
+    HYB_C --> TOP20_C["Top 20"]
+
+    TA --> TT_A["Two-Tower<br/>User Tower → FAISS"]
+    TT_A --> TOP200_A["Top 200"]
+    TOP200_A --> LGBM_A["LightGBM CTR"]
+    LGBM_A --> TOP50_A["Top 50"]
+    TOP50_A --> HYB_A["Hybrid 5축"]
+    HYB_A --> TOP20_A["Top 20"]
+
+    TB --> TT_B["Two-Tower<br/>User Tower → FAISS"]
+    TT_B --> TOP200_B["Top 200"]
+    TOP200_B --> HYB_B["Hybrid 5축"]
+    HYB_B --> TOP20_B["Top 20"]
+
+    style CTRL fill:#4CAF50,color:#fff
+    style TA fill:#2196F3,color:#fff
+    style TB fill:#FF9800,color:#fff
+```
+
+**결정론적 그룹 배정**: `md5(str(user_id))` 또는 `md5(session_id)` 기반으로 동일 사용자는 매 요청마다 항상 같은 그룹에 배정됩니다. 프론트엔드는 `localStorage`에 `recflix_session_id`를 저장하여 비로그인 사용자도 일관된 실험 그룹을 유지합니다.
+
+### Two-Tower 모델 (296,720 파라미터)
+
+```mermaid
+graph LR
+    subgraph UserTower["User Tower"]
+        MBTI["MBTI (16)"] --> EMB_M["Embed(16,32)"]
+        GENRE_U["선호 장르 (19)"] --> LIN_GU["Linear(19,32)"]
+        HIST["히스토리 (128)"] --> PASS["Passthrough"]
+        EMB_M --> CAT_U["Concat (192)"]
+        LIN_GU --> CAT_U
+        PASS --> CAT_U
+        CAT_U --> MLP_U["Linear(192,256)<br/>ReLU + LayerNorm<br/>Linear(256,128)"]
+        MLP_U --> NORM_U["L2 Normalize"]
+    end
+
+    subgraph ItemTower["Item Tower"]
+        VOY["Voyage (1024)"] --> LIN_V["Linear(1024,128)"]
+        GENRE_I["장르 (19)"] --> LIN_GI["Linear(19,32)"]
+        EMO["감성 (7)"] --> LIN_E["Linear(7,16)"]
+        QUAL["품질 (1)"] --> LIN_Q["Linear(1,8)"]
+        LIN_V --> CAT_I["Concat (184)"]
+        LIN_GI --> CAT_I
+        LIN_E --> CAT_I
+        LIN_Q --> CAT_I
+        CAT_I --> MLP_I["Linear(184,256)<br/>ReLU + LayerNorm<br/>Linear(256,128)"]
+        MLP_I --> NORM_I["L2 Normalize"]
+    end
+
+    NORM_U --> DOT["내적 ÷ τ=0.07"]
+    NORM_I --> DOT
+    DOT --> LOSS["In-Batch Negatives<br/>+ Cross Entropy"]
+```
+
+- **Loss**: In-Batch Negatives — 배치 내 다른 아이템을 네거티브로 활용 (별도 네거티브 샘플링 불필요)
+- **학습**: Synthetic 60,400건 pretrain → Recall@200 = 0.87
+- **서빙**: Item Tower 출력 사전계산 (42,917 × 128) → FAISS IndexFlatIP → 0.13ms/query
+
+### LightGBM 재랭커 (76 피처)
+
+| 피처 그룹 | 차원 | 설명 |
+|-----------|------|------|
+| MBTI one-hot | 16 | 사용자 MBTI 유형 |
+| 사용자 장르 | 19 | 선호 장르 멀티핫 |
+| 아이템 장르 | 19 | 영화 장르 멀티핫 |
+| 아이템 품질 | 1 | weighted_score |
+| 감성 태그 | 7 | 7대 감성 클러스터 값 |
+| 날씨/기분 | 10 | 컨텍스트 one-hot (4+6) |
+| 교차 점수 | 2 | mbti_score, weather_score (사전 계산) |
+| 후보 점수 | 2 | tt_score, rank_reciprocal |
+
+피처 중요도: `tt_score` (67.4%) > `rank_reciprocal` (13.8%) > `weighted_score` (3.1%) > `mbti_score` (2.3%)
+
+### Fallback 체계
+
+모든 ML 컴포넌트는 실패 시 기존 Hybrid v1으로 자동 fallback합니다:
+
+| 상황 | algorithm_version | 동작 |
+|------|-------------------|------|
+| 정상 (control) | `hybrid_v1` | 기존 전체 스캔 |
+| 정상 (test_a) | `twotower_lgbm_v1` | TT → LGBM → Hybrid |
+| Two-Tower 모델 없음 | `hybrid_v1_fallback` | control과 동일 |
+| Two-Tower 후보 < 20 | `twotower_v1_supplemented` | 기존 방식으로 교체 |
+| LGBM 모델 없음 | `twotower_v1` | LGBM 스킵 |
+| `TWO_TOWER_ENABLED=false` | `hybrid_v1` | ML 로딩 자체 스킵 |
+
+---
+
+## v2.0 — 측정 인프라
+
+### 데이터 수집 파이프라인
+
+```mermaid
+sequenceDiagram
+    participant U as 사용자
+    participant F as Frontend
+    participant B as Backend
+    participant DB as PostgreSQL
+
+    U->>F: 홈 화면 접속
+    F->>B: GET /recommendations<br/>X-Session-ID: abc123
+    B->>B: md5("abc123") % 100 → test_a
+    B->>DB: INSERT reco_impressions<br/>(BackgroundTasks, 비동기)
+    B->>F: {request_id, algorithm_version, movies}
+
+    U->>F: 영화 클릭
+    F->>B: POST /events/batch<br/>{event_type: click, request_id, rank}
+    B->>DB: INSERT user_events (하위호환)
+    B->>DB: INSERT reco_interactions (트랜잭션 분리)
+
+    U->>F: 평점 입력 (4.5)
+    F->>B: POST /events/batch<br/>{event_type: judgment, label_value: 4.5}
+    B->>DB: INSERT reco_judgments
+```
+
+### 추가 로그 테이블 (3개)
+
+```
+┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐
+│ reco_impressions │     │ reco_interactions│     │  reco_judgments  │
+├──────────────────┤     ├──────────────────┤     ├──────────────────┤
+│ request_id (UUID)│◀───▶│ request_id (UUID)│◀───▶│ request_id (UUID)│
+│ user_id (FK)     │     │ user_id (FK)     │     │ user_id (FK, NN) │
+│ session_id       │     │ session_id       │     │ movie_id         │
+│ experiment_group │     │ movie_id         │     │ label_type       │
+│ algorithm_version│     │ event_type       │     │ label_value      │
+│ section          │     │ dwell_ms         │     │ judged_at        │
+│ movie_id         │     │ position         │     └──────────────────┘
+│ rank             │     │ metadata (JSONB) │
+│ score            │     │ interacted_at    │
+│ context (JSONB)  │     └──────────────────┘
+│ served_at        │
+└──────────────────┘
+```
+
+핵심 설계:
+- **request_id**로 impression → interaction → judgment이 연결
+- impression/interaction의 user_id FK는 `SET NULL` (탈퇴 시 로그 보존)
+- judgment의 user_id FK는 `CASCADE` (탈퇴 시 함께 삭제)
+- movie_id는 FK 없음 (삭제된 영화의 로그도 보존)
+- 기존 `user_events` 테이블은 하위호환으로 유지
+
+### 라벨 계층
+
+| Label | 조건 | 의미 |
+|-------|------|------|
+| 3 | rating ≥ 4.0 또는 favorite_add | Strong Positive |
+| 2 | rating 3.0~3.9 또는 dwell ≥ 30s | Positive |
+| 1 | rating < 3.0 또는 click/detail_view | Weak Positive |
+| 0 | 노출만, 반응 없음 | Negative |
+
+### Temporal Split
+
+시간 기반 분리로 "미래를 맞히는 문제"를 정확하게 시뮬레이션합니다:
+
+```
+|-------- Train --------|--- Valid ---|--- Test ---|
+                     T-14d         T-7d           T(now)
+```
+
+---
+
+## v2.0 — 오프라인 평가 체계
+
+### 평가 지표 (6종 × K=5,10,20)
+
+| 지표 | 설명 | 용도 |
+|------|------|------|
+| NDCG@K | 순위 품질 (높은 관련성이 상위일수록 높음) | 주요 지표 |
+| Recall@K | Top-K에 positive 비율 | 후보 커버리지 |
+| MRR@K | 첫 positive의 역순위 | 즉각적 만족도 |
+| HitRate@K | Top-K에 positive 1개라도 있으면 1 | 최소 품질 보장 |
+| Coverage@K | 추천 장르 다양성 (19종 대비) | 필터 버블 방지 |
+| Novelty@K | 비인기 영화 추천 정도 | 탐색 촉진 |
+
+모든 지표에 Bootstrap 95% CI (n=1000) 적용.
+
+### 모델 비교 결과 (Synthetic test, 9,060 samples)
+
+| Model | NDCG@10 | Recall@10 | MRR@10 | Coverage@10 | Novelty@10 |
+|-------|---------|-----------|--------|-------------|------------|
+| Popularity | 0.233 | 0.325 | 0.564 | 0.456 | 0.41 |
+| MBTI-only | 0.284 | 0.386 | 0.610 | 0.384 | 0.51 |
+| Hybrid v1 | 0.286 | 0.389 | 0.624 | 0.409 | 0.53 |
+| TwoTower+LGBM | 0.285 | 0.390 | 0.624 | 0.428 | 0.54 |
+
+### Ablation Study
+
+| Stage | NDCG@10 | Δ | 의미 |
+|-------|---------|---|------|
+| Popularity only | 0.233 | - | 개인화 없음 |
+| + MBTI | 0.284 | **+22.0%** | 성격 기반 개인화의 핵심 기여 |
+| + 5-axis Hybrid | 0.286 | +0.6% | 날씨/기분/CF 미세 개선 |
+| + Two-Tower + LGBM | 0.285 | -0.3% | NDCG 유사, Coverage/Novelty ↑ |
+
+> Synthetic 데이터에서 Hybrid와 Two-Tower가 유사한 결과를 보이는 것은 예상된 결과입니다 (click_probability가 score와 동일). 실데이터에서는 Two-Tower의 독립 임베딩 학습이 차이를 만들 것으로 예상됩니다.
+
+### Interleaving (Hybrid v1 vs TwoTower+LGBM)
+
+Team Draft Interleaving으로 두 모델을 공정 비교:
+- 114 세션, K=20
+- B(TwoTower+LGBM) 승률: 45.3% [95% CI: 35.6%–55.3%]
+- CI가 50%를 포함 → 유의미한 차이 없음 (실데이터 필요)
+
+---
+
+## v2.0 환경변수
+
+```env
+# A/B 실험 (기본값: 34:33:33)
+EXPERIMENT_WEIGHTS=34:33:33
+
+# Two-Tower (없으면 기존 방식으로 fallback)
+TWO_TOWER_ENABLED=true
+TWO_TOWER_MODEL_PATH=data/models/two_tower/model_v1.pt
+TWO_TOWER_INDEX_PATH=data/models/two_tower/faiss_index.bin
+TWO_TOWER_MOVIE_MAP_PATH=data/models/two_tower/movie_id_map.json
+
+# LightGBM 재랭커 (없으면 LGBM 스킵)
+RERANKER_ENABLED=true
+RERANKER_MODEL_PATH=data/models/reranker/lgbm_v1.txt
+```

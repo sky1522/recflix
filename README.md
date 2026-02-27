@@ -2,6 +2,8 @@
 
 **MBTI x 날씨 x 기분 기반 초개인화 영화 추천 플랫폼**
 
+> **v2.0** — Two-Tower 후보 생성 + LightGBM 재랭킹 + A/B 실험 프레임워크 + 오프라인 평가 체계
+
 42,917편 영화 데이터베이스에서 사용자의 성격(MBTI), 실시간 날씨, 현재 기분을 조합하여
 개인 맞춤 영화를 추천하는 풀스택 웹 서비스입니다.
 
@@ -18,12 +20,15 @@
 
 ### 추천 시스템
 - **하이브리드 추천 엔진** — MBTI + Weather + Mood + CF + Personal 5축 스코어링
+- **Two-Tower 후보 생성** (v2.0) — User/Item 임베딩 + FAISS ANN 검색 (0.13ms/query)
+- **LightGBM 재랭킹** (v2.0) — 76피처 CTR 예측 (AUC 0.66, 0.13ms/predict)
 - **SVD 협업 필터링** — MovieLens 25M 기반 (50K users x 17.5K items, RMSE 0.8768)
 - **시맨틱 검색** — Voyage AI 임베딩 42,917편, NumPy 코사인 유사도
 - **다양성 후처리** — 장르 캡, 신선도 보장, 세렌디피티 삽입, 섹션 간 중복 제거
 - **추천 이유 생성** — 43개 템플릿 기반 한국어 추천 이유 ($0, 0ms)
 - **자체 유사 영화** — emotion/mbti/장르 복합 유사도 (429,170개 관계)
 - **콜드스타트 대응** — 인기도 fallback + 온보딩 2단계
+- **A/B 실험** (v2.0) — 결정론적 그룹 배정 + 오프라인 평가 파이프라인
 
 ### 콘텐츠
 - **42,917편 영화 DB** — TMDB 기반, 22컬럼, 100% 한글화
@@ -55,7 +60,7 @@
 | **Frontend** | Next.js 14 (App Router), TypeScript, TailwindCSS, Framer Motion, Zustand |
 | **Backend** | FastAPI, SQLAlchemy 2.0, Pydantic v2, structlog |
 | **Database** | PostgreSQL 16, Redis (캐싱) |
-| **AI/ML** | Voyage AI (임베딩), Claude API (감정 태그/캐치프레이즈), SVD (협업 필터링) |
+| **AI/ML** | Voyage AI (임베딩), Claude API (감정 태그/캐치프레이즈), SVD (협업 필터링), PyTorch (Two-Tower), LightGBM (재랭킹), FAISS (ANN 검색) |
 | **Search** | pg_trgm GIN 인덱스, NumPy 코사인 유사도 |
 | **Infra** | Vercel, Railway, GitHub Actions, Sentry, Alembic |
 
@@ -110,6 +115,47 @@ Score = (0.25 x MBTI) + (0.20 x Weather) + (0.30 x Mood) + (0.25 x Personal)
 상세 로직: [docs/RECOMMENDATION_LOGIC.md](docs/RECOMMENDATION_LOGIC.md) |
 아키텍처: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
+### v2.0 — ML 추천 파이프라인
+
+실험 그룹별로 다른 추천 경로를 사용합니다:
+
+```
+사용자 요청 → 실험 그룹 결정 (md5 hash, 결정론적)
+├── control  → DB 전체 스캔 → Hybrid 5축 → Top 20
+├── test_a   → Two-Tower(200) → LGBM(50) → Hybrid → Top 20
+└── test_b   → Two-Tower(200) → Hybrid → Top 20
+```
+
+| 컴포넌트 | 역할 | 성능 |
+|----------|------|------|
+| **Two-Tower** | 42,917편에서 관련 후보 200편 검색 (User/Item 임베딩) | FAISS 0.13ms |
+| **LightGBM** | 76개 피처로 CTR 예측 재랭킹 | AUC 0.66 |
+| **Hybrid 5축** | MBTI×Weather×Mood×Personal×CF 최종 보정 | 기존 로직 |
+
+ML 모델 파일이 없으면 자동으로 기존 Hybrid 방식으로 fallback합니다.
+
+### 오프라인 평가
+
+```bash
+# 데이터셋 빌드 (temporal split)
+python backend/scripts/build_offline_dataset.py --db-url "$DATABASE_URL"
+
+# 오프라인 평가 (6종 지표 × K=5,10,20 + Bootstrap CI)
+python backend/scripts/offline_eval.py --test-file data/offline/test.jsonl
+
+# 5개 모델 비교 리포트 (Ablation + Interleaving)
+python backend/scripts/compare_models.py --test-file data/offline/test.jsonl
+```
+
+Ablation 결과 (Synthetic):
+
+| Stage | NDCG@10 | Δ |
+|-------|---------|---|
+| Popularity only | 0.233 | - |
+| + MBTI | 0.284 | **+22.0%** |
+| + 5-axis Hybrid | 0.286 | +0.6% |
+| + Two-Tower + LGBM | 0.285 | Coverage +4.7%, Novelty +1.9% |
+
 ---
 
 ## 프로젝트 구조
@@ -119,35 +165,42 @@ recflix/
 ├── backend/
 │   ├── app/
 │   │   ├── api/v1/                # API 라우터 (15개 모듈)
-│   │   │   ├── recommendations.py         # 홈 추천 API
+│   │   │   ├── recommendations.py         # 홈 추천 API (v2.0: 실험 분기)
 │   │   │   ├── recommendation_engine.py   # Hybrid 스코어링 엔진
+│   │   │   ├── recommendation_constants.py # v2.0: 실험 그룹/알고리즘 매핑
 │   │   │   ├── recommendation_cf.py       # SVD 협업 필터링
 │   │   │   ├── recommendation_reason.py   # 추천 이유 생성 (43개 템플릿)
 │   │   │   ├── diversity.py               # 다양성 후처리
 │   │   │   ├── semantic_search.py         # 시맨틱 검색 (인메모리 벡터)
 │   │   │   ├── movies.py                  # 검색, 상세, 자동완성, 장르
 │   │   │   ├── auth.py                    # JWT + Kakao/Google OAuth
-│   │   │   ├── events.py                  # 사용자 행동 이벤트 (10종)
+│   │   │   ├── events.py                  # 사용자 행동 이벤트 (v2.0: reco 라우팅)
 │   │   │   └── health.py                  # 헬스체크 (DB/Redis/SVD/임베딩)
 │   │   ├── core/                  # 설정, 보안, DI, Rate Limiting, 로깅
 │   │   ├── middleware/            # X-Request-ID 미들웨어
-│   │   ├── models/                # SQLAlchemy 모델 (6개 테이블)
+│   │   ├── models/                # SQLAlchemy 모델 (v2.0: +3 로그 테이블)
 │   │   ├── schemas/               # Pydantic 스키마
-│   │   └── services/              # 외부 서비스 (날씨, LLM)
-│   ├── alembic/                   # DB 마이그레이션
-│   ├── scripts/                   # 배치 스크립트 (16개)
+│   │   └── services/              # v2.0: reco_logger, retriever, reranker, interleaving
+│   ├── ml/                        # v2.0: Two-Tower 모델 + 데이터셋 클래스
+│   ├── alembic/                   # DB 마이그레이션 (v2.0: 로그 테이블)
+│   ├── scripts/                   # 배치 스크립트 (v2.0: +8 ML 스크립트)
 │   ├── tests/                     # pytest (14건)
 │   └── requirements.txt
 ├── frontend/
 │   ├── app/                       # Next.js App Router (10개 페이지)
 │   ├── components/                # React 컴포넌트
-│   ├── hooks/                     # Custom Hooks (4개)
+│   ├── hooks/                     # Custom Hooks (v2.0: useImpressionTracker)
 │   ├── stores/                    # Zustand 스토어 (2개)
-│   ├── lib/                       # API 클라이언트, 이벤트 트래커, 유틸
+│   ├── lib/                       # API 클라이언트 (v2.0: session_id), 이벤트 트래커
 │   └── types/                     # TypeScript 타입 정의
 ├── .github/workflows/ci.yml      # CI/CD (lint + test + build + Railway CD)
 ├── docs/                          # 프로젝트 문서
-└── data/                          # DB 덤프 + 복원 가이드
+├── data/
+│   ├── recflix_db.dump            # DB 덤프 (42,917편)
+│   ├── synthetic/                 # v2.0: Synthetic 학습 데이터 (60,400건)
+│   ├── offline/                   # v2.0: 오프라인 평가 데이터/리포트
+│   └── models/                    # v2.0: Two-Tower, LGBM 모델 아티팩트
+└── ...
 ```
 
 ---
@@ -196,6 +249,17 @@ REDIS_HOST=localhost
 REDIS_PORT=6379
 JWT_SECRET_KEY=<openssl rand -hex 32>
 WEATHER_API_KEY=<OpenWeatherMap API Key>
+```
+
+**v2.0 환경변수** (optional, 없으면 기존 방식으로 fallback):
+```env
+EXPERIMENT_WEIGHTS=34:33:33
+TWO_TOWER_ENABLED=true
+TWO_TOWER_MODEL_PATH=data/models/two_tower/model_v1.pt
+TWO_TOWER_INDEX_PATH=data/models/two_tower/faiss_index.bin
+TWO_TOWER_MOVIE_MAP_PATH=data/models/two_tower/movie_id_map.json
+RERANKER_ENABLED=true
+RERANKER_MODEL_PATH=data/models/reranker/lgbm_v1.txt
 ```
 
 ### 4. Frontend 실행
@@ -287,6 +351,11 @@ Swagger UI: https://backend-production-cff2.up.railway.app/docs
 | 48 | 02-24 | async 블로킹 해소 (bcrypt to_thread) + Alembic + Dockerfile 체크섬 |
 | 49 | 02-24 | 시맨틱 재랭킹 v2 + pytest (14건) + 구조화 로깅 (structlog) |
 | **50** | **02-24** | **문서 최종화 + v1.0.0 릴리스** |
+| **51** | **02-27** | **v2.0: 측정 인프라 (로그 정규화 3테이블, 결정론적 A/B, request_id 전파)** |
+| **52** | **02-27** | **v2.0: 오프라인 평가 (데이터셋 빌더, 6종 지표, Synthetic 60K건)** |
+| **53** | **02-27** | **v2.0: Two-Tower 모델 (296K params, Recall@200=0.87) + FAISS 서빙** |
+| **54** | **02-27** | **v2.0: LightGBM 재랭커 (AUC 0.66, 76 피처) + API 통합** |
+| **55** | **02-27** | **v2.0: 다중 모델 비교 리포트 + Team Draft Interleaving** |
 
 ---
 
