@@ -37,10 +37,10 @@ httpx==0.26.0
 # LLM
 anthropic==0.42.0
 
-# Data Processing
-pandas==2.1.4
-numpy==1.26.4
-scipy==1.14.1
+# Data Processing (numpy 2.x required for SVD model pickle compatibility)
+pandas>=2.1.4
+numpy>=2.0.0
+scipy>=1.14.1
 
 # Utilities
 python-dotenv==1.0.0
