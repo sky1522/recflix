@@ -48,6 +48,18 @@ async def lifespan(app: FastAPI):
     load_embeddings()
     logger.info("Semantic search: %s", "enabled" if is_semantic_search_available() else "disabled (no embeddings)")
 
+    # Load Two-Tower retriever (optional, graceful fallback)
+    if settings.TWO_TOWER_ENABLED:
+        from app.services.two_tower_retriever import init_retriever
+        retriever = init_retriever(
+            model_path=settings.TWO_TOWER_MODEL_PATH,
+            index_path=settings.TWO_TOWER_INDEX_PATH,
+            movie_id_map_path=settings.TWO_TOWER_MOVIE_MAP_PATH,
+        )
+        logger.info("Two-Tower retriever: %s", "enabled" if retriever else "disabled (files not found)")
+    else:
+        logger.info("Two-Tower retriever: disabled (TWO_TOWER_ENABLED=false)")
+
     # Initialize shared httpx.AsyncClient
     from app.core.http_client import close_http_client, init_http_client
     await init_http_client()

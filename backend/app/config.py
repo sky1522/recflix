@@ -66,6 +66,12 @@ class Settings(BaseSettings):
     DATA_RAW_PATH: str = "./data/raw"
     DATA_PROCESSED_PATH: str = "./data/processed"
 
+    # Two-Tower Model
+    TWO_TOWER_ENABLED: bool = True
+    TWO_TOWER_MODEL_PATH: str = "data/models/two_tower/model_v1.pt"
+    TWO_TOWER_INDEX_PATH: str = "data/models/two_tower/faiss_index.bin"
+    TWO_TOWER_MOVIE_MAP_PATH: str = "data/models/two_tower/movie_id_map.json"
+
     @field_validator("DATABASE_URL")
     @classmethod
     def validate_database_url(cls, v: str) -> str:

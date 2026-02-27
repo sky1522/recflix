@@ -35,6 +35,7 @@ from app.models import Collection, Genre, Movie, User
 from app.schemas import HomeRecommendations, MovieListItem, RecommendationRow
 from app.schemas.recommendation import HybridMovieItem, HybridRecommendationRow
 from app.services.reco_logger import log_impressions
+from app.services.two_tower_retriever import get_retriever
 
 router = APIRouter(prefix="/recommendations", tags=["Recommendations"])
 
@@ -101,12 +102,51 @@ def get_home_recommendations(
 
     # === HYBRID RECOMMENDATION ROW (Main personalized) ===
     if current_user and (mbti or weather or mood or genre_counts):
-        candidate_q = db.query(Movie).options(selectinload(Movie.genres)).filter(
-            Movie.weighted_score >= 6.0,
-            ~Movie.id.in_(favorited_ids)
-        )
-        candidate_q = apply_age_rating_filter(candidate_q, age_rating)
-        candidate_movies = candidate_q.order_by(desc(Movie.popularity), desc(Movie.weighted_score)).limit(200).all()
+        retriever = get_retriever()
+
+        if algorithm_version.startswith("twotower") and retriever is not None:
+            # Two-Tower 경로: 후보 200개 → 하이브리드 재랭킹
+            preferred_genres_list = sorted(genre_counts, key=genre_counts.get, reverse=True)[:5] if genre_counts else []
+            tt_candidates = retriever.retrieve(
+                mbti=mbti or "INTJ",
+                preferred_genres=preferred_genres_list,
+                top_k=200,
+                exclude_ids=favorited_ids,
+            )
+            candidate_ids = [mid for mid, _ in tt_candidates]
+
+            if len(candidate_ids) >= 20:
+                candidate_movies = (
+                    db.query(Movie).options(selectinload(Movie.genres))
+                    .filter(Movie.id.in_(candidate_ids))
+                    .all()
+                )
+            else:
+                # 후보 부족 → 기존 방식 보충
+                algorithm_version = "twotower_v1_supplemented"
+                candidate_q = db.query(Movie).options(selectinload(Movie.genres)).filter(
+                    Movie.weighted_score >= 6.0,
+                    ~Movie.id.in_(favorited_ids)
+                )
+                candidate_q = apply_age_rating_filter(candidate_q, age_rating)
+                candidate_movies = candidate_q.order_by(desc(Movie.popularity), desc(Movie.weighted_score)).limit(200).all()
+        elif algorithm_version.startswith("twotower"):
+            # retriever 미로드 → fallback
+            algorithm_version = "hybrid_v1_fallback"
+            candidate_q = db.query(Movie).options(selectinload(Movie.genres)).filter(
+                Movie.weighted_score >= 6.0,
+                ~Movie.id.in_(favorited_ids)
+            )
+            candidate_q = apply_age_rating_filter(candidate_q, age_rating)
+            candidate_movies = candidate_q.order_by(desc(Movie.popularity), desc(Movie.weighted_score)).limit(200).all()
+        else:
+            # 기존 경로: 전체 DB 스캔
+            candidate_q = db.query(Movie).options(selectinload(Movie.genres)).filter(
+                Movie.weighted_score >= 6.0,
+                ~Movie.id.in_(favorited_ids)
+            )
+            candidate_q = apply_age_rating_filter(candidate_q, age_rating)
+            candidate_movies = candidate_q.order_by(desc(Movie.popularity), desc(Movie.weighted_score)).limit(200).all()
 
         scored = calculate_hybrid_scores(
             db, candidate_movies, mbti, weather,
