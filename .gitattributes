@@ -1,2 +1,6 @@
 backend/data/embeddings/*.npy filter=lfs diff=lfs merge=lfs -text
 backend/data/movielens/*.pkl filter=lfs diff=lfs merge=lfs -text
+backend/data/models/two_tower/*.pt filter=lfs diff=lfs merge=lfs -text
+backend/data/models/two_tower/*.bin filter=lfs diff=lfs merge=lfs -text
+backend/data/models/two_tower/*.npy filter=lfs diff=lfs merge=lfs -text
+backend/data/models/reranker/*.txt filter=lfs diff=lfs merge=lfs -text
