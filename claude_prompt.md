@@ -1,232 +1,252 @@
-## 작업: LightGBM 기반 CTR 예측 재랭커
+## 작업: 다중 모델 오프라인 비교 리포트 + Interleaving 비교 도구
 
 ### 배경
-Two-Tower가 관련성 후보 200개를 뽑으면, 최종 Top-20 순서를 결정하는
-정밀 재랭킹이 필요합니다. 정형 피처가 많은 RecFlix에서는 GBDT가 효과적입니다.
-(달리셔스 CatBoost 사례, 딥러닝 실습 강의의 "피처 활용 GBDT > 단순 DL" 결론 참고)
+지금까지 4개 모델의 추천 파이프라인이 완성되었습니다:
+1. Popularity (weighted_score 순)
+2. MBTI-only (mbti_score 순)
+3. Hybrid v1 (현재 5축 하이브리드)
+4. Two-Tower + LGBM (후보 생성 + 재랭킹)
 
-현재 파이프라인:
-  Two-Tower(200) → 하이브리드 재랭킹 → 다양성 후처리 → Top-20
+이제 이 모델들을 자동으로 비교하는 리포트와,
+소수 테스터로 두 모델을 공정하게 비교하는 Interleaving 도구가 필요합니다.
 
-목표 파이프라인:
-  Two-Tower(200) → GBDT 재랭킹(50) → 하이브리드 품질보정 + 다양성(20)
+### Part A: 다중 모델 비교 리포트
 
-### 요구사항
+#### 1. 스크립트: backend/scripts/compare_models.py
 
-#### 1. 학습 스크립트: backend/scripts/train_reranker.py
-
-#### 2. 피처 설계
-
-train.jsonl/valid.jsonl의 각 행에서 추출:
-
-사용자 피처:
-- mbti_onehot: 16dim (context.mbti → one-hot)
-- user_genres: 19dim (user의 preferred_genres → 멀티핫, context에서 추출 불가 시 zeros)
-
-아이템 피처:
-- item_genres: 19dim (features.genres → 멀티핫)
-- weighted_score: 1dim (features.weighted_score)
-- emotion_tags: 7dim (features.emotion_tags의 7개 키)
-
-컨텍스트 피처:
-- weather_onehot: 4dim (context.weather → one-hot: sunny/rainy/cloudy/snowy)
-- mood_onehot: 6dim (context.mood → one-hot: happy/sad/excited/calm/tired/emotional)
-
-교차 피처 (이미 계산된 점수):
-- mbti_score: 1dim (features.mbti_score)
-- weather_score: 1dim (features.weather_score)
-
-후보 생성 피처:
-- tt_score: 1dim (score 필드 — Two-Tower 또는 하이브리드 점수)
-- rank: 1dim (rank 필드 — 후보 생성 시 순위, 1/(rank+1)로 정규화)
-
-총 피처: 16+19+19+1+7+4+6+1+1+1+1 = 76dim
-```python
-FEATURE_NAMES = [
-    # mbti one-hot (16)
-    *[f"mbti_{t}" for t in MBTI_TYPES],
-    # user genres (19)
-    *[f"user_genre_{g}" for g in GENRE_LIST],
-    # item genres (19)
-    *[f"item_genre_{g}" for g in GENRE_LIST],
-    # item features
-    "weighted_score",
-    *[f"emotion_{k}" for k in EMOTION_KEYS],  # 7
-    # context
-    *[f"weather_{w}" for w in WEATHER_TYPES],  # 4
-    *[f"mood_{m}" for m in MOOD_TYPES],        # 6
-    # cross features
-    "mbti_score", "weather_score",
-    # candidate features
-    "tt_score", "rank_reciprocal",
-]
-```
-
-#### 3. 라벨
-
-이진 분류 (CTR 예측):
-- label >= 1 → positive (1) : 클릭/체류/찜/고평점 중 하나라도 있음
-- label == 0 → negative (0) : 노출만 되고 반응 없음
-
-#### 4. LightGBM 학습
-```python
-import lightgbm as lgb
-
-params = {
-    'objective': 'binary',
-    'metric': ['auc', 'binary_logloss'],
-    'num_leaves': 31,
-    'learning_rate': 0.05,
-    'feature_fraction': 0.8,
-    'bagging_fraction': 0.8,
-    'bagging_freq': 5,
-    'verbose': -1,
-    'seed': 42,
-}
-
-train_data = lgb.Dataset(X_train, label=y_train, feature_name=FEATURE_NAMES)
-valid_data = lgb.Dataset(X_valid, label=y_valid, feature_name=FEATURE_NAMES, reference=train_data)
-
-model = lgb.train(
-    params,
-    train_data,
-    num_boost_round=500,
-    valid_sets=[train_data, valid_data],
-    valid_names=['train', 'valid'],
-    callbacks=[
-        lgb.early_stopping(stopping_rounds=30),
-        lgb.log_evaluation(period=50),
-    ],
-)
-```
-
-#### 5. 출력 아티팩트
-
-| 파일 | 설명 |
-|------|------|
-| data/models/reranker/lgbm_v1.txt | LightGBM 모델 (model.save_model) |
-| data/models/reranker/feature_importance.json | 피처 중요도 (gain + split) |
-| data/models/reranker/eval_metrics.json | AUC, logloss, 학습 곡선 |
-| data/models/reranker/config.json | 하이퍼파라미터 |
-
-#### 6. 피처 중요도 리포트 (stdout)
-Feature Importance (top 15 by gain):
-
-mbti_score         23.4%
-tt_score           18.7%
-weighted_score     12.1%
-weather_score       8.3%
-rank_reciprocal     6.2%
-...
-
-
-#### 7. CLI 인터페이스
+#### 2. 입력
 ```bash
-python backend/scripts/train_reranker.py \
-  --train-file data/synthetic/train.jsonl \
-  --valid-file data/synthetic/valid.jsonl \
-  --output-dir data/models/reranker/ \
-  --num-rounds 500 \
-  --early-stopping 30 \
+python backend/scripts/compare_models.py \
+  --test-file data/synthetic/test.jsonl \
+  --output-dir data/offline/reports/ \
+  --k-values 5 10 20 \
+  --n-bootstrap 1000 \
   --verbose
 ```
 
-#### 8. 서빙 모듈: backend/app/services/reranker.py (신규)
+test.jsonl 하나만 받고, 내부에서 4개 모델의 랭킹을 각각 생성합니다:
+- Popularity: features.weighted_score 내림차순
+- MBTI-only: features.mbti_score 내림차순 (mbti 없으면 popularity fallback)
+- Hybrid (Current): score 내림차순
+- Two-Tower+LGBM: 시뮬레이션 필요 — 아래 참조
+
+Two-Tower+LGBM 시뮬레이션:
+- test.jsonl의 각 request에서 tt_score(= score 필드)를 후보 생성 점수로 사용
+- LightGBM 모델 로드 → 피처 구성 → predict → 재랭킹
+- 모델 파일이 없으면 이 모델은 스킵하고 3개만 비교
 ```python
-class LGBMReranker:
-    def __init__(self, model_path):
-        self.model = lgb.Booster(model_file=str(model_path))
-        self.ready = True
-    
-    def rerank(self, candidates: list[dict], top_k: int = 50) -> list[dict]:
-        """
-        candidates: [{movie_id, genres, weighted_score, emotion_tags, 
-                       mbti_score, weather_score, tt_score, rank, ...}]
-        
-        1. 피처 벡터 구성 (76dim)
-        2. model.predict() → CTR 확률
-        3. 확률 내림차순 정렬
-        4. top_k 반환
-        
-        에러 시 빈 리스트 반환 + 로깅 (추천 중단 방지)
-        """
-        try:
-            features = self._prepare_features(candidates)
-            scores = self.model.predict(features)
-            
-            for cand, score in zip(candidates, scores):
-                cand['rerank_score'] = float(score)
-            
-            sorted_candidates = sorted(candidates, key=lambda x: x['rerank_score'], reverse=True)
-            return sorted_candidates[:top_k]
-        except Exception as e:
-            logger.error("reranker_failed", error=str(e), exc_info=True)
-            return candidates[:top_k]  # fallback: 원래 순서 유지
-```
-
-#### 9. 추천 API 결합
-
-recommendation_constants.py 업데이트:
-```python
-GROUP_ALGORITHM_MAP = {
-    "control": "hybrid_v1",
-    "test_a": "twotower_lgbm_v1",    # ← Two-Tower + GBDT 재랭킹
-    "test_b": "twotower_v1",          # Two-Tower only (비교용)
-}
-```
-
-recommendations.py에서 분기 추가:
-```python
-if algorithm_version.startswith("twotower"):
-    tt_candidates = retriever.retrieve(...)
-    
-    if "lgbm" in algorithm_version and reranker is not None:
-        # GBDT 재랭킹 경로
-        candidate_dicts = prepare_reranker_input(tt_candidates, movies, context)
-        reranked = reranker.rerank(candidate_dicts, top_k=50)
-        candidate_ids = [c['movie_id'] for c in reranked]
-        movies = [movie_map[mid] for mid in candidate_ids if mid in movie_map]
-    
-    # 이후 calculate_hybrid_scores()로 최종 재랭킹 (동일)
-```
-
-#### 10. main.py에 Reranker 초기화 추가
-
-TwoTowerRetriever와 동일 패턴:
-```python
+# LightGBM 로드 시도
+lgbm_model = None
 try:
-    reranker = LGBMReranker(model_path=settings.RERANKER_MODEL_PATH)
+    lgbm_model = lgb.Booster(model_file="data/models/reranker/lgbm_v1.txt")
 except:
-    reranker = None
-    logger.warning("LGBM reranker not available")
+    print("LGBM model not found, skipping Two-Tower+LGBM comparison")
 ```
 
-config.py에 추가:
-```python
-RERANKER_MODEL_PATH: str = "data/models/reranker/lgbm_v1.txt"
-RERANKER_ENABLED: bool = True
+#### 3. 출력 (Markdown + JSON)
+
+Markdown: data/offline/reports/comparison_report.md
+```markdown
+# RecFlix Model Comparison Report
+Generated: 2026-02-27T15:00:00
+Dataset: data/synthetic/test.jsonl (9,060 samples, 500 users, 755 requests)
+
+## Overall Metrics
+
+| Model              | NDCG@5 | NDCG@10 | NDCG@20 | Recall@10 | MRR@10 | HitRate@10 |
+|--------------------|--------|---------|---------|-----------|--------|------------|
+| Popularity         | 0.142  | 0.168   | 0.195   | 0.112     | 0.213  | 0.467      |
+| MBTI-only          | 0.165  | 0.189   | 0.218   | 0.134     | 0.238  | 0.533      |
+| Hybrid v1          | 0.182  | 0.213   | 0.248   | 0.156     | 0.287  | 0.583      |
+| TwoTower+LGBM      | 0.198  | 0.231   | 0.265   | 0.178     | 0.312  | 0.633      |
+
+## Improvement vs Baseline (NDCG@10)
+
+| Model              | NDCG@10 | Δ vs Popularity | Δ vs Hybrid |
+|--------------------|---------|-----------------|-------------|
+| Popularity         | 0.168   |        -        |   -21.1%    |
+| MBTI-only          | 0.189   |    +12.5%       |   -11.3%    |
+| Hybrid v1          | 0.213   |    +26.8%       |      -      |
+| TwoTower+LGBM      | 0.231   |    +37.5%       |    +8.5%    |
+
+## Ablation Study
+
+| Stage              | NDCG@10 | Δ vs Previous |
+|--------------------|---------|---------------|
+| Popularity only    | 0.168   |       -       |
+| + MBTI             | 0.189   |    +12.5%     |
+| + 5-axis Hybrid    | 0.213   |    +12.7%     |
+| + Two-Tower        | 0.225   |     +5.6%     |
+| + LGBM Reranker    | 0.231   |     +2.7%     |
+
+## Diversity Metrics
+
+| Model              | Coverage@10 | Novelty@10 |
+|--------------------|-------------|------------|
+| Popularity         | 0.316       | 7.05       |
+| MBTI-only          | 0.368       | 7.42       |
+| Hybrid v1          | 0.474       | 8.15       |
+| TwoTower+LGBM      | 0.526       | 8.38       |
+
+## Bootstrap 95% CI (NDCG@10)
+
+| Model              | Mean  | Lower | Upper |
+|--------------------|-------|-------|-------|
+| Popularity         | 0.168 | 0.142 | 0.194 |
+| Hybrid v1          | 0.213 | 0.185 | 0.241 |
+| TwoTower+LGBM      | 0.231 | 0.201 | 0.261 |
 ```
+
+JSON: data/offline/reports/comparison_full.json
+- 모든 수치를 프로그래밍적으로 접근 가능한 형태로 저장
+
+#### 4. Ablation을 위한 Two-Tower only 점수
+
+Two-Tower만 사용(LGBM 없이):
+- tt_score 내림차순으로 정렬
+- 이것이 "Two-Tower only" 베이스라인
+
+### Part B: Interleaving 비교 도구
+
+#### 5. 모듈: backend/app/services/interleaving.py (신규)
+```python
+"""Team Draft Interleaving — 두 추천 리스트를 공정하게 섞어 비교"""
+
+import random
+
+def team_draft_interleave(
+    list_a: list[int],  # 모델 A의 movie_id 리스트 (순위순)
+    list_b: list[int],  # 모델 B의 movie_id 리스트 (순위순)
+    k: int = 20
+) -> tuple[list[int], set[int], set[int]]:
+    """
+    Returns:
+    - interleaved: 섞인 리스트 (최대 k개)
+    - team_a: 모델 A 소속 movie_id set
+    - team_b: 모델 B 소속 movie_id set
+    
+    알고리즘:
+    1. 팀 크기가 작은 쪽이 먼저 자기 리스트에서 아직 선택 안 된 최상위 선택
+    2. 같으면 랜덤
+    3. k개 채울 때까지 반복
+    """
+    interleaved = []
+    team_a = set()
+    team_b = set()
+    seen = set()
+    ptr_a = 0
+    ptr_b = 0
+    
+    while len(interleaved) < k and (ptr_a < len(list_a) or ptr_b < len(list_b)):
+        # 팀 크기가 작은 쪽 우선
+        if len(team_a) <= len(team_b):
+            # A가 선택
+            while ptr_a < len(list_a) and list_a[ptr_a] in seen:
+                ptr_a += 1
+            if ptr_a < len(list_a):
+                mid = list_a[ptr_a]
+                interleaved.append(mid)
+                team_a.add(mid)
+                seen.add(mid)
+                ptr_a += 1
+        else:
+            # B가 선택
+            while ptr_b < len(list_b) and list_b[ptr_b] in seen:
+                ptr_b += 1
+            if ptr_b < len(list_b):
+                mid = list_b[ptr_b]
+                interleaved.append(mid)
+                team_b.add(mid)
+                seen.add(mid)
+                ptr_b += 1
+    
+    return interleaved, team_a, team_b
+
+
+def compute_interleaving_result(
+    interleaved: list[int],
+    team_a: set[int],
+    team_b: set[int],
+    clicked_ids: set[int]
+) -> str:
+    """
+    클릭된 영화의 팀 귀속으로 승자 결정.
+    Returns: "A", "B", or "tie"
+    """
+    score_a = len(clicked_ids & team_a)
+    score_b = len(clicked_ids & team_b)
+    if score_a > score_b:
+        return "A"
+    elif score_b > score_a:
+        return "B"
+    return "tie"
+
+
+def compute_win_rate(results: list[str]) -> dict:
+    """
+    세션별 승패 리스트 → 승률 + 95% CI (binomial)
+    
+    Returns: {
+        "a_wins": 15, "b_wins": 25, "ties": 10,
+        "total": 50,
+        "b_win_rate": 0.625,  # ties 제외
+        "ci_lower": 0.48, "ci_upper": 0.77
+    }
+    """
+```
+
+#### 6. 오프라인 Interleaving 시뮬레이션 스크립트
+
+backend/scripts/run_interleaving.py:
+```bash
+python backend/scripts/run_interleaving.py \
+  --test-file data/synthetic/test.jsonl \
+  --model-a-name "Hybrid v1" \
+  --model-b-name "TwoTower+LGBM" \
+  --lgbm-model data/models/reranker/lgbm_v1.txt \
+  --k 20 \
+  --output-dir data/offline/reports/
+```
+
+시뮬레이션 방식:
+1. test.jsonl의 각 request_id에 대해:
+   - Model A 랭킹 = score 내림차순 (Hybrid)
+   - Model B 랭킹 = LGBM predict 점수 내림차순 (TwoTower+LGBM)
+2. team_draft_interleave로 섞기
+3. label > 0인 movie_id를 "클릭"으로 간주
+4. 승자 결정
+5. 전체 세션 승률 계산
+
+출력:
+============================================================
+Interleaving Comparison: Hybrid v1 vs TwoTower+LGBM
+Sessions: 755, K=20
+Model A (Hybrid v1):     wins=210 (27.8%)
+Model B (TwoTower+LGBM): wins=385 (51.0%)
+Ties:                    160 (21.2%)
+Win rate (B, excl ties): 64.7% [95% CI: 60.3% - 69.1%]
+Verdict: TwoTower+LGBM significantly outperforms Hybrid v1
+
+JSON: data/offline/reports/interleaving_result.json
 
 ### 검증
-1. AUC > 0.6 (synthetic 데이터 기준)
-2. feature_importance 상위 피처가 합리적 (mbti_score, tt_score, weighted_score 등)
-3. 서빙 모듈 predict 동작 확인
-4. 재랭킹 후 후보 순서가 변경되는지 확인
-5. reranker=None일 때 fallback 동작
-6. 기존 control 그룹 미변경
-7. Ruff 린트 통과
-8. pytest 통과
+1. comparison_report.md가 4개 모델 비교표 + Ablation + Diversity + CI 포함
+2. Popularity < MBTI < Hybrid < TwoTower+LGBM 서열 확인 (대체로)
+3. Interleaving 승률이 50% 근처 (비슷한 모델) 또는 한쪽 우세
+4. team_draft_interleave: 동일 리스트 입력 시 tie
+5. 빈 데이터 시 깨끗한 종료
+6. Ruff 린트 통과
+7. pytest 통과
 
 ### 금지사항
-- CatBoost/XGBoost 금지 (LightGBM만, 의존성 최소화)
-- 학습 시 test 데이터 사용 금지
-- calculate_hybrid_scores 수정 금지
-- 기존 control/test_b 경로 변경 금지
+- scipy 의존 금지 (math + numpy만)
+- 실제 DB 조회 금지 (JSONL + 모델 파일만 사용)
+- 기존 백엔드/프론트엔드 코드 수정 금지
 
 ### 완료 후
 작업 결과를 claude_results.md에 저장하세요. 포함:
-- 생성/수정 파일 목록
-- 모델 성능 (AUC, logloss)
-- 피처 중요도 상위 10개
-- 서빙 성능 (predict 시간)
+- 생성 파일 목록
+- 비교 리포트 요약 (4개 모델 NDCG@10 비교)
+- Ablation 결과
+- Interleaving 승률
 - 검증 결과
