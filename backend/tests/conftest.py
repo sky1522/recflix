@@ -8,8 +8,9 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import JSON, create_engine, event
 
-# Map PostgreSQL JSONB → JSON for SQLite compatibility
-from sqlalchemy.dialects.postgresql import JSONB  # noqa: E402
+# Map PostgreSQL types → SQLite-compatible types
+from sqlalchemy import String  # noqa: E402
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID  # noqa: E402
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -21,6 +22,8 @@ for table in Base.metadata.tables.values():
     for column in table.columns:
         if isinstance(column.type, JSONB):
             column.type = JSON()
+        elif isinstance(column.type, PG_UUID):
+            column.type = String(36)
 
 # SQLite in-memory engine (shared across a single test)
 engine = create_engine(

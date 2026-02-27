@@ -47,14 +47,7 @@ jobs:
         env:
           DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci"
           JWT_SECRET_KEY: "ci-test-secret-key-1234567890"
-        run: |
-          cd backend
-          pytest -v --tb=long 2>&1 | tee /tmp/pytest.log; EXITCODE=${PIPESTATUS[0]}
-          if [ $EXITCODE -ne 0 ]; then
-            ERRMSG=$(tail -40 /tmp/pytest.log | tr '\n' ' | ')
-            echo "::error title=pytest exit $EXITCODE::$ERRMSG"
-            exit $EXITCODE
-          fi
+        run: cd backend && pytest -v --tb=short
 
   backend-typecheck:
     name: Backend Type Check
