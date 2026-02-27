@@ -45,7 +45,7 @@ jobs:
 
       - name: Run pytest
         env:
-          DATABASE_URL: "sqlite://"
+          DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci"
           JWT_SECRET_KEY: "ci-test-secret-key-1234567890"
         run: |
           cd backend
@@ -77,7 +77,7 @@ jobs:
 
       - name: Run pyright
         env:
-          DATABASE_URL: "sqlite://"
+          DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci"
           JWT_SECRET_KEY: "ci-test-secret-key-1234567890"
         run: cd backend && pyright app/
 
