@@ -38,10 +38,13 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: cd backend && pip install -r requirements.txt
+        run: |
+          cd backend
+          grep -v 'extra-index-url\|torch==\|lightgbm\|faiss-cpu' requirements.txt > requirements-ci.txt
+          pip install -r requirements-ci.txt
 
       - name: Run pytest
-        run: cd backend && pytest -v --tb=short
+        run: cd backend && pytest -v --tb=long
 
   backend-typecheck:
     name: Backend Type Check
@@ -57,7 +60,10 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt pyright
+        run: |
+          cd backend
+          grep -v 'extra-index-url\|torch==\|lightgbm\|faiss-cpu' requirements.txt > requirements-ci.txt
+          pip install -r requirements-ci.txt pyright
 
       - name: Run pyright
         run: cd backend && pyright app/
