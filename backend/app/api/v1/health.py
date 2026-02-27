@@ -48,6 +48,8 @@ async def health_check() -> dict:
     """Detailed health check with component status."""
     from app.api.v1.recommendation_cf import is_cf_available
     from app.api.v1.semantic_search import is_semantic_search_available
+    from app.services.reranker import get_reranker
+    from app.services.two_tower_retriever import get_retriever
 
     return {
         "status": "ok",
@@ -56,5 +58,7 @@ async def health_check() -> dict:
         "redis": _check_redis(),
         "semantic_search": "enabled" if is_semantic_search_available() else "disabled",
         "cf_model": "loaded" if is_cf_available() else "not_loaded",
-        "version": os.environ.get("GIT_SHA", os.environ.get("APP_VERSION", "v1.0.0")),
+        "two_tower": "loaded" if get_retriever() is not None else "not_loaded",
+        "reranker": "loaded" if get_reranker() is not None else "not_loaded",
+        "version": os.environ.get("GIT_SHA", os.environ.get("APP_VERSION", "v2.0.0")),
     }

@@ -36,7 +36,7 @@ RUN mkdir -p backend/data/movielens backend/data/embeddings && \
     echo "e76cb82509c1be887269548642c9cd8625206e641c10b47e2e53b33f88a3fcd6  backend/data/embeddings/movie_embeddings.npy" | sha256sum -c - && \
     curl -fSL -o backend/data/embeddings/embedding_metadata.json \
     "https://raw.githubusercontent.com/sky1522/recflix/main/backend/data/embeddings/embedding_metadata.json" && \
-    echo "767501ded5a0426e629648ab00e3f981d5f3728715ed193a37ebf1b67345afd7  backend/data/embeddings/embedding_metadata.json" | sha256sum -c - && \
+    echo "6b0fc85e83d86123eaeb6132f95fda51226fca38f739d4d3e40707dcd451c37b  backend/data/embeddings/embedding_metadata.json" | sha256sum -c - && \
     curl -fSL -o backend/data/embeddings/movie_id_index.json \
     "https://raw.githubusercontent.com/sky1522/recflix/main/backend/data/embeddings/movie_id_index.json" && \
     echo "6c248d08dcc1ed14b0fd9c7eb3a35bc415da538c383926501b7af59e692658ee  backend/data/embeddings/movie_id_index.json" | sha256sum -c -
