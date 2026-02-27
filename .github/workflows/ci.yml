@@ -113,10 +113,7 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
-
       - name: Deploy to Railway
-        run: railway up --service backend --environment production --detach
+        run: npx @railway/cli@4.30.5 up --service backend --environment production --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

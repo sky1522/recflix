@@ -1,0 +1,15 @@
+# Exclude Git LFS model files from railway up uploads
+# These files are downloaded during Docker build from GitHub LFS
+backend/data/models/
+backend/data/movielens/svd_model.pkl
+backend/data/embeddings/movie_embeddings.npy
+
+# Other large/unnecessary files
+.git/
+node_modules/
+frontend/node_modules/
+frontend/.next/
+__pycache__/
+*.pyc
+.venv/
+venv/
