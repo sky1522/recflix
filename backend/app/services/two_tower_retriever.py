@@ -66,32 +66,36 @@ class TwoTowerRetriever:
         Returns:
             [(movie_id, similarity_score), ...] 최대 top_k개
         """
-        exclude_ids = exclude_ids or set()
+        try:
+            exclude_ids = exclude_ids or set()
 
-        with torch.no_grad():
-            mbti_idx = torch.tensor([MBTI_TO_IDX.get(mbti or "INTJ", 0)], dtype=torch.long)
-            genre_vec = self._genre_multihot(preferred_genres or []).unsqueeze(0)
-            history_emb = torch.zeros(1, 128, dtype=torch.float32)
+            with torch.no_grad():
+                mbti_idx = torch.tensor([MBTI_TO_IDX.get(mbti or "INTJ", 0)], dtype=torch.long)
+                genre_vec = self._genre_multihot(preferred_genres or []).unsqueeze(0)
+                history_emb = torch.zeros(1, 128, dtype=torch.float32)
 
-            user_vec = self.model.user_tower(mbti_idx, genre_vec, history_emb)  # (1, 128)
-            user_vec_np = user_vec.numpy().astype(np.float32)
+                user_vec = self.model.user_tower(mbti_idx, genre_vec, history_emb)  # (1, 128)
+                user_vec_np = user_vec.numpy().astype(np.float32)
 
-        # exclude 고려하여 여유분 요청
-        search_k = top_k + len(exclude_ids) + 50
-        scores, indices = self.index.search(user_vec_np, min(search_k, self.index.ntotal))
+            # exclude 고려하여 여유분 요청
+            search_k = top_k + len(exclude_ids) + 50
+            scores, indices = self.index.search(user_vec_np, min(search_k, self.index.ntotal))
 
-        results: list[tuple[int, float]] = []
-        for score, idx in zip(scores[0], indices[0], strict=True):
-            if idx < 0 or idx >= len(self.movie_id_map):
-                continue
-            movie_id = self.movie_id_map[idx]
-            if movie_id in exclude_ids:
-                continue
-            results.append((movie_id, float(score)))
-            if len(results) >= top_k:
-                break
+            results: list[tuple[int, float]] = []
+            for score, idx in zip(scores[0], indices[0], strict=True):
+                if idx < 0 or idx >= len(self.movie_id_map):
+                    continue
+                movie_id = self.movie_id_map[idx]
+                if movie_id in exclude_ids:
+                    continue
+                results.append((movie_id, float(score)))
+                if len(results) >= top_k:
+                    break
 
-        return results
+            return results
+        except Exception:
+            logger.exception("two_tower_retrieve_failed")
+            return []
 
     @staticmethod
     def _genre_multihot(genres: list[str]) -> torch.Tensor:
