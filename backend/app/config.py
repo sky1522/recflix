@@ -72,6 +72,10 @@ class Settings(BaseSettings):
     TWO_TOWER_INDEX_PATH: str = "data/models/two_tower/faiss_index.bin"
     TWO_TOWER_MOVIE_MAP_PATH: str = "data/models/two_tower/movie_id_map.json"
 
+    # LGBM Reranker
+    RERANKER_ENABLED: bool = True
+    RERANKER_MODEL_PATH: str = "data/models/reranker/lgbm_v1.txt"
+
     @field_validator("DATABASE_URL")
     @classmethod
     def validate_database_url(cls, v: str) -> str:

@@ -123,8 +123,8 @@ SEMANTIC_GENRE_MAX = 5           # 시맨틱 검색 같은 장르 최대 편수
 # 새 알고리즘 도입 시 이 딕셔너리만 수정하면 됨
 GROUP_ALGORITHM_MAP: dict[str, str] = {
     "control": "hybrid_v1",
-    "test_a": "twotower_v1",
-    "test_b": "hybrid_v1_test_b",
+    "test_a": "twotower_lgbm_v1",
+    "test_b": "twotower_v1",
 }
 
 

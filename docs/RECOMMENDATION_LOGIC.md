@@ -473,6 +473,9 @@ const displayedMovies = useMemo(() => {
 | `backend/app/api/v1/recommendation_reason.py` | 추천 이유 생성 (43개 템플릿) |
 | `backend/app/api/v1/diversity.py` | 다양성 후처리 (장르/연도/serendipity/중복 제거) |
 | `backend/app/api/v1/semantic_search.py` | 시맨틱 검색 (인메모리 벡터 검색) |
+| `backend/app/services/two_tower_retriever.py` | Two-Tower ANN 후보 생성 (FAISS) |
+| `backend/app/services/reranker.py` | LightGBM CTR 예측 재랭커 서빙 |
+| `backend/scripts/train_reranker.py` | LightGBM 재랭커 학습 스크립트 |
 | `backend/app/api/v1/movies.py` | 영화 검색 API (시맨틱 검색 통합, 연령등급 필터) |
 | `backend/app/models/movie.py` | Movie 모델 (JSONB 컬럼) |
 | `backend/scripts/regenerate_emotion_tags.py` | 키워드 기반 emotion_tags 생성 |
@@ -767,6 +770,7 @@ EXPERIMENT_WEIGHTS=control:80,test_a:10,test_b:10  # 보수적 실험
 | 2026-02-20 | 다양성 후처리: 장르 다양성, 신선도, serendipity, 중복 제거 (diversity.py 신규) |
 | 2026-02-20 | SVD 모델 프로덕션 배포: Dockerfile LFS 다운로드, numpy 2.x 호환 |
 | 2026-02-20 | 시맨틱 검색: Voyage AI 임베딩 42,917편, NumPy 인메모리 코사인 유사도 (semantic_search.py 신규) |
+| 2026-02-27 | Step 05: LightGBM CTR 예측 재랭커 (76dim 피처, AUC 0.66). Two-Tower(200) → GBDT(50) → Hybrid(20). test_a=twotower_lgbm_v1, test_b=twotower_v1 |
 | 2026-02-25 | Phase 52: 이벤트 사각지대 해소 + 추천 컨텍스트 전파 + Z-test 통계 유의성 + A/B 메트릭 7종 + 그룹 가중치 배정 |
 | 2026-02-25 | preferred_genres 콜드스타트 가중치: 1 → 3 (온보딩 장르 기반 추천 강화) |
 | 2026-02-24 | 시맨틱 재랭킹 v2: semantic 60% + popularity 15% (log1p) + quality 25% (기존 70/15/15) |

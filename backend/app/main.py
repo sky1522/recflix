@@ -60,6 +60,14 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("Two-Tower retriever: disabled (TWO_TOWER_ENABLED=false)")
 
+    # Load LGBM Reranker (optional, graceful fallback)
+    if settings.RERANKER_ENABLED:
+        from app.services.reranker import init_reranker
+        reranker = init_reranker(model_path=settings.RERANKER_MODEL_PATH)
+        logger.info("LGBM reranker: %s", "enabled" if reranker else "disabled (model not found)")
+    else:
+        logger.info("LGBM reranker: disabled (RERANKER_ENABLED=false)")
+
     # Initialize shared httpx.AsyncClient
     from app.core.http_client import close_http_client, init_http_client
     await init_http_client()

@@ -35,6 +35,7 @@ from app.models import Collection, Genre, Movie, User
 from app.schemas import HomeRecommendations, MovieListItem, RecommendationRow
 from app.schemas.recommendation import HybridMovieItem, HybridRecommendationRow
 from app.services.reco_logger import log_impressions
+from app.services.reranker import get_reranker
 from app.services.two_tower_retriever import get_retriever
 
 router = APIRouter(prefix="/recommendations", tags=["Recommendations"])
@@ -62,6 +63,36 @@ def get_deterministic_group(
         if bucket < cumulative:
             return group
     return list(weights.keys())[-1]  # fallback
+
+
+def _prepare_reranker_input(
+    movies: list,
+    tt_score_map: dict[int, float],
+    tt_candidates: list[tuple[int, float]],
+    mbti: str | None,
+    weather: str | None,
+    mood: str | None,
+) -> list[dict]:
+    """Movie ORM 객체 → 재랭커 입력 딕셔너리 리스트."""
+    rank_map = {mid: rank for rank, (mid, _) in enumerate(tt_candidates)}
+    result = []
+    for m in movies:
+        genres = [g.name for g in m.genres] if m.genres else []
+        emotion_tags = m.emotion_tags if isinstance(m.emotion_tags, dict) else {}
+        mbti_scores = m.mbti_scores if isinstance(m.mbti_scores, dict) else {}
+        weather_scores = m.weather_scores if isinstance(m.weather_scores, dict) else {}
+
+        result.append({
+            "movie_id": m.id,
+            "genres": genres,
+            "weighted_score": m.weighted_score or 0,
+            "emotion_tags": emotion_tags,
+            "mbti_score": mbti_scores.get(mbti, 0.0) if mbti else 0.0,
+            "weather_score": weather_scores.get(weather, 0.0) if weather else 0.0,
+            "tt_score": tt_score_map.get(m.id, 0.0),
+            "rank": rank_map.get(m.id, 0),
+        })
+    return result
 
 
 @router.get("", response_model=HomeRecommendations)
@@ -105,7 +136,7 @@ def get_home_recommendations(
         retriever = get_retriever()
 
         if algorithm_version.startswith("twotower") and retriever is not None:
-            # Two-Tower 경로: 후보 200개 → 하이브리드 재랭킹
+            # Two-Tower 경로: 후보 200개 → (LGBM 재랭킹 50개) → 하이브리드 재랭킹
             preferred_genres_list = sorted(genre_counts, key=genre_counts.get, reverse=True)[:5] if genre_counts else []
             tt_candidates = retriever.retrieve(
                 mbti=mbti or "INTJ",
@@ -114,6 +145,7 @@ def get_home_recommendations(
                 exclude_ids=favorited_ids,
             )
             candidate_ids = [mid for mid, _ in tt_candidates]
+            tt_score_map = {mid: score for mid, score in tt_candidates}
 
             if len(candidate_ids) >= 20:
                 candidate_movies = (
@@ -121,6 +153,21 @@ def get_home_recommendations(
                     .filter(Movie.id.in_(candidate_ids))
                     .all()
                 )
+
+                # LGBM 재랭킹: Two-Tower 200 → GBDT Top 50
+                reranker = get_reranker()
+                if "lgbm" in algorithm_version and reranker is not None:
+                    reranker_input = _prepare_reranker_input(
+                        candidate_movies, tt_score_map, tt_candidates, mbti, weather, mood,
+                    )
+                    reranked = reranker.rerank(
+                        reranker_input,
+                        context={"mbti": mbti or "", "weather": weather or "", "mood": mood or ""},
+                        top_k=50,
+                    )
+                    reranked_ids = [c["movie_id"] for c in reranked]
+                    movie_map = {m.id: m for m in candidate_movies}
+                    candidate_movies = [movie_map[mid] for mid in reranked_ids if mid in movie_map]
             else:
                 # 후보 부족 → 기존 방식 보충
                 algorithm_version = "twotower_v1_supplemented"
