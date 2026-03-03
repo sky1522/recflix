@@ -2,6 +2,70 @@
 
 All notable changes to RecFlix will be documented in this file.
 
+## [v2.1.0] — 2026-03-03
+
+### 프론트엔드 UI 개선 + 다크/라이트 모드 (Phase 54)
+
+---
+
+## [2026-03-03]
+
+### Added
+- **다크/라이트 모드 (Phase 54A)**
+  - CSS 변수 기반 시맨틱 토큰 시스템 (surface/fg/overlay/divider 6종)
+  - `themeStore` Zustand persist + FOUC 방지 인라인 스크립트
+  - `ThemeProvider` 래퍼 컴포넌트
+  - 40개+ 컴포넌트 시맨틱 토큰 적용 (bg-dark-* 0건)
+- **MBTI 비로그인 지원**: `localStorage("guest_mbti")` 저장, 헤더 배지 표시
+- **프로필 드롭다운**: 아바타 클릭 → 설정/로그아웃 메뉴
+- **설정 페이지 (/settings)**: 닉네임, MBTI, 장르, 테마 토글, 계정 삭제
+- **트레일러 새 탭 열기**: YouTube 임베드 → 새 탭 링크
+- **홈 한국 인기 영화 섹션**: 한국 제작 영화 전용 섹션
+- **날씨/기분 헤더 드롭다운**: FeaturedBanner → Header 인라인 드롭다운 이동
+- **MBTI 드롭다운 (Phase 54B)**: 팝업 모달 → 인라인 드롭다운 (날씨/기분과 동일 패턴)
+- **모바일 드로어 MBTI 그리드**: 날씨/기분과 동일한 4x4 그리드
+
+### Changed
+- **MBTI 선택 UI**: MBTIModal 팝업 → 헤더 드롭다운 패널 (4x4 그리드)
+- **프로필 드롭다운 정리**: 찜/평점 제거 (헤더 메뉴와 중복)
+- **설정 페이지 정리**: 바로가기 섹션 제거 (중복)
+- **DropdownType**: weather/mood/profile → weather/mood/mbti/profile 4종
+
+### Technical Details
+- 신규 파일: `themeStore.ts`, `ThemeProvider.tsx`, `settings/page.tsx`, `useMoodStore.ts`
+- tailwind.config.ts: `surface`, `fg`, `overlay`, `divider` 시맨틱 컬러 토큰
+- globals.css: `:root` (다크), `html.light` (라이트) CSS 변수
+- layout.tsx: `suppressHydrationWarning` + 인라인 `<script>` FOUC 방지
+
+---
+
+## [v2.0.0] — 2026-02-27
+
+### ML 추천 파이프라인 프로덕션 배포 (Phase 53)
+
+---
+
+## [2026-02-27]
+
+### Added
+- **Two-Tower Retriever**: PyTorch + FAISS IndexFlatIP (42,917 items) 후보 생성
+- **LGBM Reranker**: LightGBM CTR 예측 (76dim 피처, 200→50→20 후보 축소)
+- **A/B 라우팅**: control→hybrid_v1, test_a→twotower_lgbm_v1, test_b→twotower_v1
+- **reco_* 테이블 3개**: reco_impressions, reco_interactions, reco_judgments (Alembic)
+- **Health v2.0**: two_tower/reranker 상태 추가
+
+### Changed
+- **Railway CLI**: `npm install -g` → `npx @railway/cli@4.30.5` (CI 안정성)
+- **numpy**: 1.26 → 2.x (SVD pickle 호환성)
+
+### Technical Details
+- Dockerfile: Two-Tower 4파일 + LGBM 1파일 SHA256 검증 다운로드
+- Git LFS: .gitattributes 4패턴, 5파일 (~45MB)
+- CI: `grep -v torch/lightgbm/faiss-cpu` ML 패키지 제외
+- .railwayignore: LFS 모델 파일 업로드 제외
+
+---
+
 ## [v1.1.0] — 2026-02-25
 
 ### A/B 테스트 고도화 (Phase 52)

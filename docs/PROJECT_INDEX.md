@@ -40,7 +40,7 @@ This file is a quick map for navigating the RecFlix repository.
 
 - `docs/ARCHITECTURE.md`: system architecture (data flow, cache, auth, CI/CD)
 - `docs/RECOMMENDATION_LOGIC.md`: recommendation scoring details
-- `docs/HANDOFF_CONTEXT.md`: project handoff context (Phase 53 기준)
+- `docs/HANDOFF_CONTEXT.md`: project handoff context (Phase 54 기준)
 - `docs/PROJECT_INDEX.md`: this file — project file index
 - `docs/DATA_PREPROCESSING.md`: data prep flow
 - `docs/PROJECT_REVIEW.md`: project review and roadmap

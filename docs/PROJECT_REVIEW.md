@@ -1,23 +1,26 @@
 # RecFlix 프로젝트 리뷰 & 로드맵
 
-**최종 업데이트**: 2026-02-12
+**최종 업데이트**: 2026-03-03
 
 ---
 
 ## 1. 초기 기획 vs 현재 구현 달성도
 
-| 영역 | 초기 기획 (Phase 1-8) | 현재 구현 (Phase 17) | 변화 |
+| 영역 | 초기 기획 (Phase 1-8) | 현재 구현 (Phase 54) | 변화 |
 |------|----------------------|---------------------|------|
 | **영화 데이터** | 32,625편 (CSV 1차) | **42,917편** (+31.5%) | 신규 CSV 마이그레이션 |
-| **DB 컬럼** | 18개 기본 컬럼 | **22개** (+6, -2 정리) | director, cast_ko, weighted_score 등 추가 |
-| **추천 요소** | MBTI + 날씨 + 개인취향 (3요소) | **MBTI + 날씨 + 기분 + 개인취향 (4요소)** | Mood(기분) 요소 추가 |
-| **추천 가중치** | MBTI 35% / Weather 25% / Personal 40% | **MBTI 25% / Weather 20% / Mood 30% / Personal 25%** | v2 튜닝 완료 |
+| **DB 컬럼** | 18개 기본 컬럼 | **23개** (+7, -2 정리) | director, cast_ko, weighted_score, trailer_key 등 추가 |
+| **추천 요소** | MBTI + 날씨 + 개인취향 (3요소) | **MBTI + 날씨 + 기분 + 개인취향 + CF (5요소)** | Mood + SVD 협업 필터링 추가 |
+| **추천 가중치** | MBTI 35% / Weather 25% / Personal 40% | **MBTI 20% / Weather 15% / Mood 25% / Personal 15% / CF 25%** | v3 튜닝 + CF 통합 |
+| **추천 파이프라인** | 없음 (Content-based만) | **Two-Tower + LGBM Reranker + A/B 테스트** | ML 파이프라인 v2.0 |
 | **감정 분석** | 없음 (Rule-based 점수만) | **2-Tier 시스템** (LLM 1,711편 + 키워드 41,206편) | Claude API 연동 |
 | **품질 필터** | 없음 | **weighted_score >= 6.0** + 연속 보정(x0.85~1.0) | 정밀 품질 관리 |
 | **연령등급** | certification 컬럼만 존재 | **4단계 필터링** (all/family/teen/adult) 전 API 적용 | 실질적 필터 구현 |
-| **API 엔드포인트** | ~12개 | **18개+** (LLM, emotion, hybrid 등 추가) | 기능 확장 |
-| **프론트엔드 페이지** | 6개 기본 페이지 | **8개 페이지** + 모달 + 모바일 네비게이션 | UX 고도화 |
-| **배포** | Docker 설정만 | **Vercel + Railway 프로덕션 운영 중** | 실서비스 가동 |
+| **API 엔드포인트** | ~12개 | **24개+** (LLM, emotion, hybrid, events, ab-report 등) | 기능 확장 |
+| **프론트엔드 페이지** | 6개 기본 페이지 | **12개 페이지** + 모달 + 모바일 네비게이션 | UX 고도화 |
+| **테마** | 다크 모드 고정 | **다크/라이트 모드** (CSS 변수 시맨틱 토큰) | 테마 시스템 |
+| **인증** | 이메일/비밀번호만 | **이메일 + Kakao + Google OAuth** | 소셜 로그인 |
+| **배포** | Docker 설정만 | **Vercel + Railway + CI/CD** 프로덕션 운영 중 | 자동 배포 |
 
 ---
 
@@ -33,6 +36,19 @@
 | **연령등급 필터** | 14 | NULL 등급 처리 포함 4단계 필터링 |
 | **날씨 한글 도시명** | 16 | Reverse Geocoding API + 70개+ 매핑 |
 | **모듈 레벨 캐싱** | 17 | 페이지 네비게이션 시 추천 데이터 보존 |
+| **시맨틱 검색** | 33 | Voyage AI 벡터 임베딩 + 자연어 질의 |
+| **추천 다양성 정책** | 34 | 장르 다양성, 신선도, Serendipity 삽입 |
+| **SVD 협업 필터링** | 35 | MovieLens 25M 매핑, 5축 하이브리드 |
+| **CI/CD + 헬스체크** | 36 | GitHub Actions + Railway CD + /health |
+| **추천 이유 생성** | 37 | 43개 한국어 템플릿, 비용 $0 |
+| **트레일러 연동** | 47 | TMDB 28,486편 YouTube 트레일러 |
+| **pytest 테스트** | 49 | 14건 (auth, health, movies, recommendations) |
+| **structlog 로깅** | 49 | JSON 구조화 로깅 + X-Request-ID |
+| **모바일 UI/UX** | 51 | 터치 44px, thumb zone, hover 대응 |
+| **A/B 테스트 고도화** | 52 | Z-test 유의성, 이벤트 사각지대 해소 |
+| **Two-Tower + Reranker** | 53 | PyTorch FAISS + LightGBM CTR 예측 |
+| **다크/라이트 모드** | 54 | CSS 변수 시맨틱 토큰, 40개+ 컴포넌트 |
+| **설정 페이지** | 54 | /settings — 닉네임, MBTI, 장르, 테마 |
 
 ---
 
@@ -51,6 +67,15 @@ Phase 14 (v2 최종)
   Score = 0.25*MBTI + 0.20*Weather + 0.30*Mood + 0.25*Personal
   필터: weighted_score >= 6.0
   보정: x0.85~1.0 연속 품질 보정
+
+Phase 35 (v3, CF 통합)
+  Score = 0.20*MBTI + 0.15*Weather + 0.25*Mood + 0.15*Personal + 0.25*CF
+  CF: SVD item_bias 기반 품질 점수 (MovieLens 25M 학습)
+
+Phase 53 (v2.0, ML 파이프라인)
+  Two-Tower Retriever: PyTorch + FAISS (42,917 items → 200 후보)
+  LGBM Reranker: LightGBM CTR 예측 (200→50→20)
+  A/B: control=hybrid_v1, test_a=twotower_lgbm_v1, test_b=twotower_v1
 ```
 
 ### 주요 변경 포인트
@@ -64,15 +89,19 @@ Phase 14 (v2 최종)
 
 ## 4. 데이터 진화
 
-| 항목 | Phase 1 (초기) | Phase 13 (현재) |
+| 항목 | Phase 1 (초기) | Phase 54 (현재) |
 |------|---------------|----------------|
 | 영화 수 | 32,625편 | 42,917편 |
 | 평균 평점 | 5.92 | 6.31 |
-| CSV 컬럼 | 41개 | 43개 |
+| DB 컬럼 | 18개 | 23개 |
 | emotion_tags | 없음 | 42,917편 (100%) |
 | mbti_scores | 32,625편 | 42,917편 (100%) |
 | weather_scores | 32,625편 | 42,917편 (100%) |
+| trailer_key | 없음 | 28,486편 (66.4%) |
+| similar_movies | 없음 | 429,170개 관계 (Top 10) |
 | 관계 데이터 | 장르/출연진만 | + 키워드, 제작국, 유사영화 |
+| ML 모델 | 없음 | SVD + Two-Tower + LGBM |
+| reco_* 테이블 | 없음 | impressions, interactions, judgments |
 
 ### emotion_tags 2-Tier 시스템
 
@@ -85,34 +114,34 @@ Phase 14 (v2 최종)
 
 ## 5. 고도화 제안 (로드맵)
 
-### A. 단기 (1-2일) - 즉시 적용 가능
+### A. 단기 — ✅ 모두 완료
 
-| # | 제안 | 설명 | 난이도 |
-|---|------|------|--------|
-| 1 | **검색 결과 하이라이팅** | 검색 키워드를 결과에서 볼드/하이라이트 처리 | 낮음 |
-| 2 | **유사 영화 섹션 강화** | similar_movies 테이블 활용도 낮음 → 상세 페이지 하단 "이 영화를 좋아하셨다면" 섹션 | 중간 |
-| 3 | **SEO 메타태그 최적화** | 영화 상세 페이지 `generateMetadata`로 동적 OG 태그 (포스터, 제목, 줄거리) | 낮음 |
-| 4 | **에러 바운더리 추가** | 전역 error.tsx + 개별 컴포넌트 에러 처리로 UX 안정성 향상 | 낮음 |
+| # | 제안 | 상태 | 완료 Phase |
+|---|------|------|-----------|
+| 1 | **검색 결과 하이라이팅** | ✅ 완료 | Phase 21 (HighlightText 컴포넌트) |
+| 2 | **유사 영화 섹션 강화** | ✅ 완료 | Phase 23 (자체 유사도 엔진, 429,170관계) |
+| 3 | **SEO 메타태그 최적화** | ✅ 완료 | Phase 24 (generateMetadata, OG 태그) |
+| 4 | **에러 바운더리 추가** | ✅ 완료 | Phase 25 (error.tsx, not-found.tsx) |
 
-### B. 중기 (3-7일) - 서비스 품질 향상
+### B. 중기 — ✅ 대부분 완료
 
-| # | 제안 | 설명 | 난이도 |
-|---|------|------|--------|
-| 5 | **소셜 로그인** | Google OAuth + Kakao 로그인으로 가입 허들 낮춤 | 중간 |
-| 6 | **시청 기록 기반 추천 강화** | 현재 찜+평점만 반영 → 상세 페이지 조회 기록도 Personal Score에 반영 | 중간 |
-| 7 | **추천 이유 설명 강화** | "#MBTI추천" 태그 외에 자연어 설명 ("당신의 INTJ 성향에 맞는 깊이 있는 스토리") | 중간 |
-| 8 | **PWA 지원** | manifest.json + Service Worker로 앱 설치 + 오프라인 지원 | 중간 |
-| 9 | **다크모드/라이트모드** | 현재 다크 고정 → 시스템 테마 연동 토글 추가 | 중간 |
+| # | 제안 | 상태 | 완료 Phase |
+|---|------|------|-----------|
+| 5 | **소셜 로그인** | ✅ 완료 | Phase 31 (Kakao + Google OAuth) |
+| 6 | **시청 기록 기반 추천 강화** | ✅ 완료 | Phase 46A (클릭/평점 피드백 루프) |
+| 7 | **추천 이유 설명 강화** | ✅ 완료 | Phase 37 (43개 한국어 템플릿) |
+| 8 | **PWA 지원** | ⬜ 미완료 | — |
+| 9 | **다크모드/라이트모드** | ✅ 완료 | Phase 54 (CSS 변수 시맨틱 토큰) |
 
-### C. 장기 (1-2주) - 기술 고도화
+### C. 장기 — ✅ 대부분 완료
 
-| # | 제안 | 설명 | 난이도 |
-|---|------|------|--------|
-| 10 | **CI/CD 파이프라인** | GitHub Actions: 린트/테스트 → Vercel Preview → Railway 스테이징 | 높음 |
-| 11 | **A/B 테스트 프레임워크** | 추천 가중치를 사용자 그룹별로 다르게 적용하여 효과 측정 | 높음 |
-| 12 | **Collaborative Filtering** | Content-based 중심 → 유사 사용자 기반 추천 추가 (Matrix Factorization) | 높음 |
-| 13 | **실시간 트렌딩** | 최근 24시간 조회/찜 수 기반 "지금 뜨는 영화" 섹션 | 중간 |
-| 14 | **모니터링** | Sentry (에러 추적) + API 응답 시간 로깅 | 중간 |
+| # | 제안 | 상태 | 완료 Phase |
+|---|------|------|-----------|
+| 10 | **CI/CD 파이프라인** | ✅ 완료 | Phase 36 (GitHub Actions + Railway CD) |
+| 11 | **A/B 테스트 프레임워크** | ✅ 완료 | Phase 32, 52 (그룹 배정, Z-test 유의성) |
+| 12 | **Collaborative Filtering** | ✅ 완료 | Phase 35 (SVD, MovieLens 25M) |
+| 13 | **실시간 트렌딩** | ⬜ 미완료 | — |
+| 14 | **모니터링** | ✅ 완료 | Phase 29 (Sentry) + Phase 49 (structlog) |
 
 ### D. 데이터 품질 개선
 
@@ -126,14 +155,16 @@ Phase 14 (v2 최종)
 
 ## 6. 기술 부채 (Technical Debt)
 
-| 항목 | 현재 상태 | 권장 |
+| 항목 | 현재 상태 | 비고 |
 |------|----------|------|
-| **테스트 코드** | 없음 | pytest (백엔드) + Jest/Vitest (프론트엔드) 최소 단위 테스트 |
-| **타입 안전성** | `any` 타입 일부 사용 | 엄격한 TypeScript (`strict: true`) |
-| **API 문서** | Swagger 자동 생성만 | API 사용 예시, 에러 코드 문서 보강 |
-| **환경 분리** | 로컬/프로덕션 2개 | 스테이징 환경 추가 (Railway 별도 서비스) |
-| **DB 마이그레이션** | 수동 스크립트 | Alembic 도입으로 버전 관리 |
-| **보안** | JWT + bcrypt 기본 | Rate Limiting, CSRF 토큰, 입력 검증 강화 |
+| **테스트 코드** | ✅ pytest 14건 (Phase 49) | 프론트엔드 테스트 미구현 |
+| **타입 안전성** | ✅ `any` 0건 (Phase 45) | strict 모드 |
+| **API 문서** | Swagger 자동 생성 | 사용 예시 보강 여지 |
+| **환경 분리** | 로컬/프로덕션 2개 | 스테이징 환경 미구현 |
+| **DB 마이그레이션** | ✅ Alembic (Phase 48) | reco_* 테이블 마이그레이션 완료 |
+| **보안** | ✅ Rate Limiting (Phase 29) | CSRF 토큰 미구현 |
+| **로깅** | ✅ structlog (Phase 49) | JSON 구조화 + X-Request-ID |
+| **에러 추적** | ✅ Sentry (Phase 29) | Backend + Frontend |
 
 ---
 
@@ -141,16 +172,17 @@ Phase 14 (v2 최종)
 
 ### 달성한 것
 
-- 초기 Phase 1-8 기획 대비 **17 Phase까지 확장**, 단순 MBTI+날씨 추천에서 **4요소 Hybrid 엔진 + LLM 감정 분석 + 품질 보정**까지 발전
-- 42,917편 영화 DB와 Vercel + Railway **프로덕션 운영 중**
-- Netflix/Watcha 수준의 반응형 UI + 모바일 최적화
-- 실시간 날씨 연동 + 기분 기반 추천이라는 **차별화된 UX**
+- 초기 Phase 1-8 기획 대비 **54 Phase까지 확장**, 단순 MBTI+날씨 추천에서 **5요소 Hybrid + ML 파이프라인 (Two-Tower + LGBM)**까지 발전
+- 42,917편 영화 DB와 Vercel + Railway **프로덕션 운영 중** + CI/CD 자동 배포
+- Netflix/Watcha 수준의 반응형 UI + 모바일 최적화 + 다크/라이트 모드
+- 실시간 날씨 연동 + 기분 + MBTI 기반 추천이라는 **차별화된 UX**
+- 소셜 로그인(Kakao/Google), A/B 테스트, 이벤트 추적 등 **서비스 운영 기반** 구축
+- 로드맵 14개 항목 중 **12개 완료** (85.7% 달성)
 
-### 가장 임팩트가 큰 다음 단계 (Top 3)
+### 남은 로드맵 항목
 
-1. **소셜 로그인** - 가입 허들 제거로 사용자 확보
-2. **SEO 메타태그** - 외부 유입 증가 (포트폴리오 노출)
-3. **추천 이유 자연어 설명** - 사용자 만족도 및 신뢰도 향상
+1. **PWA 지원** - manifest.json + Service Worker (앱 설치, 오프라인 지원)
+2. **실시간 트렌딩** - 최근 24시간 조회/찜 기반 "지금 뜨는 영화" 섹션
 
 ---
 
