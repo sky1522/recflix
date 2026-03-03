@@ -100,17 +100,17 @@ export default function HybridMovieRow({
         <div className="flex items-baseline gap-3">
           <div className="flex items-center space-x-2 flex-shrink-0">
             <Sparkles className="w-5 h-5 text-primary-400" />
-            <h2 className="text-xl md:text-2xl font-bold text-white">{title}</h2>
+            <h2 className="text-xl md:text-2xl font-bold text-fg">{title}</h2>
           </div>
           {subtitle && (
-            <span className="hidden sm:inline text-sm text-white/40 truncate">{subtitle}</span>
+            <span className="hidden sm:inline text-sm text-fg/40 truncate">{subtitle}</span>
           )}
           {/* Refresh Button */}
           {movies.length > displayCount && (
             <button
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="ml-auto p-1.5 rounded-full hover:bg-white/10 transition-colors group/refresh flex-shrink-0"
+              className="ml-auto p-1.5 rounded-full hover:bg-overlay/10 transition-colors group/refresh flex-shrink-0"
               title="다른 영화 보기"
             >
               <RefreshCw

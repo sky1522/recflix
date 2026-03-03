@@ -71,7 +71,7 @@ export default function MovieCard({ movie, index = 0, showQuickView = true, high
           }}
         >
           {/* Poster */}
-          <div className="relative aspect-[2/3] rounded-md overflow-hidden bg-dark-100 cursor-pointer">
+          <div className="relative aspect-[2/3] rounded-md overflow-hidden bg-surface-card cursor-pointer">
             {!imageError && movie.poster_path ? (
               <Image
                 src={getImageUrl(movie.poster_path, "w342")}
@@ -82,8 +82,8 @@ export default function MovieCard({ movie, index = 0, showQuickView = true, high
                 sizes="(max-width: 768px) 160px, 200px"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-dark-100">
-                <svg className="w-12 h-12 text-white/20" fill="currentColor" viewBox="0 0 24 24">
+              <div className="w-full h-full flex items-center justify-center bg-surface-card">
+                <svg className="w-12 h-12 text-fg/20" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z" />
                 </svg>
               </div>
@@ -114,6 +114,7 @@ export default function MovieCard({ movie, index = 0, showQuickView = true, high
                 </div>
                 <p className="text-sm text-white/80 mb-3">상세보기</p>
 
+
                 {/* Quick View Button */}
                 {showQuickView && (
                   <button
@@ -130,14 +131,14 @@ export default function MovieCard({ movie, index = 0, showQuickView = true, high
 
           {/* Info - 중앙 정렬 */}
           <div className="mt-2 px-1 text-center">
-            <h3 className="text-sm font-medium text-white truncate group-hover:text-primary-400 transition">
+            <h3 className="text-sm font-medium text-fg truncate group-hover:text-primary-400 transition">
               {highlightQuery ? (
                 <HighlightText text={movie.title_ko || movie.title} query={highlightQuery} />
               ) : (
                 movie.title_ko || movie.title
               )}
             </h3>
-            <div className="flex items-center justify-center gap-1.5 text-xs text-white/50 mt-1">
+            <div className="flex items-center justify-center gap-1.5 text-xs text-fg/50 mt-1">
               <span>{formatDate(movie.release_date)}</span>
               {movie.genres.length > 0 && (
                 <>

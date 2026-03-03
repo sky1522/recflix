@@ -1,6 +1,6 @@
 export default function HomeLoading() {
   return (
-    <div className="min-h-screen bg-dark-200">
+    <div className="min-h-screen bg-surface">
       {/* Banner skeleton */}
       <div className="relative h-[60vh] bg-zinc-800/50 animate-pulse rounded-b-lg" />
 

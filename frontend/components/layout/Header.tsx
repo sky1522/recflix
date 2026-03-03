@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Search, Heart, Star, Film, Home, Sun, CloudRain, Cloud, CloudSnow, RotateCcw } from "lucide-react";
+import { Menu, X, Search, Heart, Star, Film, Home, Sun, CloudRain, Cloud, CloudSnow, RotateCcw, Settings, LogOut } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { useMoodStore } from "@/stores/useMoodStore";
 import { useWeather } from "@/hooks/useWeather";
@@ -48,7 +48,37 @@ const WEATHER_EMOJIS: Record<WeatherType, string> = {
   snowy: "❄️",
 };
 
-type DropdownType = "weather" | "mood" | null;
+type DropdownType = "weather" | "mood" | "profile" | null;
+
+function useGuestMBTI() {
+  const [guestMBTI, setGuestMBTI] = useState<string | null>(null);
+  useEffect(() => {
+    setGuestMBTI(localStorage.getItem("guest_mbti"));
+  }, []);
+  const update = (mbti: string) => {
+    localStorage.setItem("guest_mbti", mbti);
+    setGuestMBTI(mbti);
+  };
+  return { guestMBTI, setGuestMBTI: update };
+}
+
+function MBTIBadge({ user, isAuthenticated, onClick }: { user: { mbti?: string | null } | null; isAuthenticated: boolean; onClick: () => void }) {
+  const { guestMBTI } = useGuestMBTI();
+  const mbti = isAuthenticated ? user?.mbti : guestMBTI;
+  return (
+    <button
+      onClick={onClick}
+      className="hidden md:flex items-center px-2.5 py-1 rounded-full bg-overlay/10 hover:bg-overlay/15 transition text-xs text-fg/80 hover:text-fg"
+      title={mbti ? `MBTI: ${mbti}` : "MBTI 설정하기"}
+    >
+      {mbti ? (
+        <span className="font-semibold text-primary-400">{mbti}</span>
+      ) : (
+        <span className="text-fg/50">MBTI 설정</span>
+      )}
+    </button>
+  );
+}
 
 export default function Header() {
   const pathname = usePathname();
@@ -64,6 +94,7 @@ export default function Header() {
 
   const weatherDropdownRef = useRef<HTMLDivElement>(null);
   const moodDropdownRef = useRef<HTMLDivElement>(null);
+  const profileDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -86,10 +117,9 @@ export default function Header() {
 
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as Node;
-      if (
-        weatherDropdownRef.current && !weatherDropdownRef.current.contains(target) &&
-        moodDropdownRef.current && !moodDropdownRef.current.contains(target)
-      ) {
+      const refs = [weatherDropdownRef, moodDropdownRef, profileDropdownRef];
+      const clickedInsideAny = refs.some((ref) => ref.current?.contains(target));
+      if (!clickedInsideAny) {
         setOpenDropdown(null);
       }
     };
@@ -143,8 +173,8 @@ export default function Header() {
       <header
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           scrolled || mobileMenuOpen
-            ? "bg-dark-200/95 backdrop-blur-sm shadow-lg"
-            : "bg-gradient-to-b from-dark-300/80 to-transparent"
+            ? "bg-surface/95 backdrop-blur-sm shadow-lg"
+            : "bg-gradient-to-b from-surface-deep/80 to-transparent"
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 md:px-8">
@@ -176,7 +206,7 @@ export default function Header() {
                   className={`transition ${
                     isActivePath(item.href)
                       ? "text-primary-400 font-medium"
-                      : "text-white/80 hover:text-white"
+                      : "text-fg/80 hover:text-fg"
                   }`}
                 >
                   {item.label}
@@ -190,7 +220,7 @@ export default function Header() {
                     className={`transition ${
                       isActivePath(item.href)
                         ? "text-primary-400 font-medium"
-                        : "text-white/80 hover:text-white"
+                        : "text-fg/80 hover:text-fg"
                     }`}
                   >
                     {item.label}
@@ -207,24 +237,24 @@ export default function Header() {
                     onClick={() => toggleDropdown("weather")}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-sm ${
                       openDropdown === "weather"
-                        ? "bg-white/20 ring-1 ring-white/30"
-                        : "bg-white/10 hover:bg-white/15"
+                        ? "bg-overlay/20 ring-1 ring-divider/30"
+                        : "bg-overlay/10 hover:bg-overlay/15"
                     }`}
                     aria-expanded={openDropdown === "weather"}
                     aria-haspopup="true"
                   >
                     <span className="text-base">{WEATHER_EMOJIS[weather.condition]}</span>
-                    <span className="font-medium text-white">{weather.temperature}°C</span>
+                    <span className="font-medium text-fg">{weather.temperature}°C</span>
                   </button>
 
                   <AnimatePresence>
                     {openDropdown === "weather" && (
                       <motion.div
                         {...dropdownAnimation}
-                        className="absolute right-0 top-full mt-2 w-56 bg-dark-100/95 backdrop-blur-md rounded-xl border border-white/15 shadow-2xl p-3 z-50"
+                        className="absolute right-0 top-full mt-2 w-56 bg-surface-card/95 backdrop-blur-md rounded-xl border border-divider/15 shadow-2xl p-3 z-50"
                         role="menu"
                       >
-                        <p className="text-xs text-white/50 mb-2 px-1">날씨에 따른 영화추천</p>
+                        <p className="text-xs text-fg/50 mb-2 px-1">날씨에 따른 영화추천</p>
                         <div className="grid grid-cols-2 gap-1.5">
                           {WEATHER_OPTIONS.map((w) => {
                             const Icon = w.icon;
@@ -235,13 +265,13 @@ export default function Header() {
                                 onClick={() => handleWeatherSelect(w.type)}
                                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
                                   isActive
-                                    ? "bg-white/20 ring-1 ring-white/30"
-                                    : "hover:bg-white/10"
+                                    ? "bg-overlay/20 ring-1 ring-divider/30"
+                                    : "hover:bg-overlay/10"
                                 } ${w.color}`}
                                 role="menuitem"
                               >
                                 <Icon className="w-4 h-4" />
-                                <span className="text-white/90">{w.label}</span>
+                                <span className="text-fg/90">{w.label}</span>
                               </button>
                             );
                           })}
@@ -249,7 +279,7 @@ export default function Header() {
                         {isManual && (
                           <button
                             onClick={handleResetWeather}
-                            className="flex items-center gap-2 w-full mt-2 px-3 py-2 rounded-lg text-xs text-white/60 hover:text-white hover:bg-white/10 transition"
+                            className="flex items-center gap-2 w-full mt-2 px-3 py-2 rounded-lg text-xs text-fg/60 hover:text-fg hover:bg-overlay/10 transition"
                           >
                             <RotateCcw className="w-3.5 h-3.5" />
                             <span>실시간 날씨로 돌아가기</span>
@@ -267,14 +297,14 @@ export default function Header() {
                   onClick={() => toggleDropdown("mood")}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-sm ${
                     openDropdown === "mood"
-                      ? "bg-white/20 ring-1 ring-white/30"
-                      : "bg-white/10 hover:bg-white/15"
+                      ? "bg-overlay/20 ring-1 ring-divider/30"
+                      : "bg-overlay/10 hover:bg-overlay/15"
                   }`}
                   aria-expanded={openDropdown === "mood"}
                   aria-haspopup="true"
                 >
                   <span className="text-base">{currentMoodOption?.emoji ?? "😊"}</span>
-                  <span className="text-white/80 text-xs">
+                  <span className="text-fg/80 text-xs">
                     {currentMoodOption?.label ?? "기분"}
                   </span>
                 </button>
@@ -283,10 +313,10 @@ export default function Header() {
                   {openDropdown === "mood" && (
                     <motion.div
                       {...dropdownAnimation}
-                      className="absolute right-0 top-full mt-2 w-64 bg-dark-100/95 backdrop-blur-md rounded-xl border border-white/15 shadow-2xl p-3 z-50"
+                      className="absolute right-0 top-full mt-2 w-64 bg-surface-card/95 backdrop-blur-md rounded-xl border border-divider/15 shadow-2xl p-3 z-50"
                       role="menu"
                     >
-                      <p className="text-xs text-white/50 mb-2 px-1">지금 기분이 어떠세요?</p>
+                      <p className="text-xs text-fg/50 mb-2 px-1">지금 기분이 어떠세요?</p>
                       <div className="grid grid-cols-2 gap-1.5">
                         {MOOD_OPTIONS.map((m) => {
                           const isActive = mood === m.type;
@@ -296,13 +326,13 @@ export default function Header() {
                               onClick={() => handleMoodSelect(m.type)}
                               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
                                 isActive
-                                  ? "bg-white/20 ring-1 ring-white/30"
-                                  : "hover:bg-white/10"
+                                  ? "bg-overlay/20 ring-1 ring-divider/30"
+                                  : "hover:bg-overlay/10"
                               }`}
                               role="menuitem"
                             >
                               <span className="text-base">{m.emoji}</span>
-                              <span className="text-white/90">{m.label}</span>
+                              <span className="text-fg/90">{m.label}</span>
                             </button>
                           );
                         })}
@@ -312,24 +342,16 @@ export default function Header() {
                 </AnimatePresence>
               </div>
 
-              {/* MBTI Badge (desktop) */}
-              {isAuthenticated && (
-                <button
-                  onClick={() => setMbtiModalOpen(true)}
-                  className="hidden md:flex items-center px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/15 transition text-xs text-white/80 hover:text-white"
-                  title={user?.mbti ? `MBTI: ${user.mbti}` : "MBTI 설정하기"}
-                >
-                  {user?.mbti ? (
-                    <span className="font-semibold text-primary-400">{user.mbti}</span>
-                  ) : (
-                    <span className="text-white/50">MBTI 설정</span>
-                  )}
-                </button>
-              )}
+              {/* MBTI Badge (desktop) — visible for all users */}
+              <MBTIBadge
+                user={user}
+                isAuthenticated={isAuthenticated}
+                onClick={() => setMbtiModalOpen(true)}
+              />
 
               <button
                 onClick={() => setSearchOpen(!searchOpen)}
-                className="md:hidden p-2.5 text-white/70 hover:text-white transition min-w-[44px] min-h-[44px] flex items-center justify-center"
+                className="md:hidden p-2.5 text-fg/70 hover:text-fg transition min-w-[44px] min-h-[44px] flex items-center justify-center"
                 aria-label="검색"
               >
                 <Search className="w-5 h-5" />
@@ -339,28 +361,84 @@ export default function Header() {
                 <SearchAutocomplete
                   placeholder="영화 검색..."
                   compact
-                  inputClassName="w-full bg-dark-100/50 border border-white/20 rounded-full pl-9 pr-8 py-1.5 text-sm text-white placeholder-white/50 focus:outline-none focus:border-primary-500 transition-all"
+                  inputClassName="w-full bg-surface-card/50 border border-divider/20 rounded-full pl-9 pr-8 py-1.5 text-sm text-fg placeholder-fg/50 focus:outline-none focus:border-primary-500 transition-all"
                 />
               </div>
 
               {isAuthenticated ? (
-                <div className="hidden md:flex items-center space-x-3">
-                  <Link
-                    href="/profile"
-                    className="flex items-center space-x-2 text-white/80 hover:text-white transition"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center">
-                      <span className="text-sm font-medium">
-                        {user?.nickname?.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                  </Link>
+                <div ref={profileDropdownRef} className="relative hidden md:block">
                   <button
-                    onClick={logout}
-                    className="text-sm text-white/60 hover:text-white transition"
+                    onClick={() => toggleDropdown("profile")}
+                    className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center hover:ring-2 hover:ring-primary-400/50 transition"
+                    aria-expanded={openDropdown === "profile"}
+                    aria-haspopup="true"
                   >
-                    로그아웃
+                    <span className="text-sm font-medium text-white">
+                      {user?.nickname?.charAt(0).toUpperCase()}
+                    </span>
                   </button>
+
+                  <AnimatePresence>
+                    {openDropdown === "profile" && (
+                      <motion.div
+                        {...dropdownAnimation}
+                        className="absolute right-0 top-full mt-2 w-56 bg-surface-card/95 backdrop-blur-md rounded-xl border border-divider/15 shadow-2xl z-50 overflow-hidden"
+                        role="menu"
+                      >
+                        {/* User Info */}
+                        <div className="px-4 py-3 border-b border-divider/10">
+                          <p className="text-sm font-medium text-fg">{user?.nickname}</p>
+                          <p className="text-xs text-fg/50">{user?.email}</p>
+                        </div>
+
+                        {/* Menu Items */}
+                        <div className="py-1">
+                          <Link
+                            href="/settings"
+                            onClick={() => setOpenDropdown(null)}
+                            className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-fg/80 hover:bg-overlay/10 transition"
+                            role="menuitem"
+                          >
+                            <Settings className="w-4 h-4" />
+                            <span>사용자 설정</span>
+                          </Link>
+                          <Link
+                            href="/favorites"
+                            onClick={() => setOpenDropdown(null)}
+                            className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-fg/80 hover:bg-overlay/10 transition"
+                            role="menuitem"
+                          >
+                            <Heart className="w-4 h-4" />
+                            <span>찜 목록</span>
+                          </Link>
+                          <Link
+                            href="/ratings"
+                            onClick={() => setOpenDropdown(null)}
+                            className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-fg/80 hover:bg-overlay/10 transition"
+                            role="menuitem"
+                          >
+                            <Star className="w-4 h-4" />
+                            <span>내 평점</span>
+                          </Link>
+                        </div>
+
+                        {/* Logout */}
+                        <div className="border-t border-divider/10 py-1">
+                          <button
+                            onClick={() => {
+                              logout();
+                              setOpenDropdown(null);
+                            }}
+                            className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-fg/60 hover:text-red-400 hover:bg-overlay/10 transition"
+                            role="menuitem"
+                          >
+                            <LogOut className="w-4 h-4" />
+                            <span>로그아웃</span>
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               ) : (
                 <Link
@@ -373,7 +451,7 @@ export default function Header() {
 
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden p-2.5 text-white/70 hover:text-white transition z-10 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                className="md:hidden p-2.5 text-fg/70 hover:text-fg transition z-10 min-w-[44px] min-h-[44px] flex items-center justify-center"
                 aria-label="메뉴"
               >
                 {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}

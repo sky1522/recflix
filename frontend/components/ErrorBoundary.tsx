@@ -34,9 +34,9 @@ export default class ErrorBoundary extends React.Component<
     }
 
     return (
-      <div className="flex items-center justify-center min-h-screen bg-dark-200 px-4">
+      <div className="flex items-center justify-center min-h-screen bg-surface px-4">
         <div className="text-center max-w-md">
-          <h2 className="text-2xl font-bold text-white mb-3">
+          <h2 className="text-2xl font-bold text-fg mb-3">
             문제가 발생했습니다
           </h2>
           <p className="text-zinc-400 mb-6">

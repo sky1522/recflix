@@ -178,15 +178,15 @@ export default function MovieModal({ movie, onClose, requestId }: MovieModalProp
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
-          className="relative w-full max-w-4xl max-h-[90vh] bg-dark-100 rounded-lg overflow-hidden overflow-y-auto"
+          className="relative w-full max-w-4xl max-h-[90vh] bg-surface-card rounded-lg overflow-hidden overflow-y-auto"
         >
           {/* Close Button */}
           <button
             onClick={onClose}
             aria-label="닫기"
-            className="absolute top-4 right-4 z-10 w-10 h-10 bg-dark-200/80 hover:bg-dark-200 rounded-full flex items-center justify-center transition"
+            className="absolute top-4 right-4 z-10 w-10 h-10 bg-surface/80 hover:bg-surface rounded-full flex items-center justify-center transition"
           >
-            <X className="w-6 h-6 text-white" />
+            <X className="w-6 h-6 text-fg" />
           </button>
 
           {/* Banner Image */}
@@ -197,17 +197,17 @@ export default function MovieModal({ movie, onClose, requestId }: MovieModalProp
               fill
               className="object-cover"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-dark-100 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-surface-card to-transparent" />
           </div>
 
           {/* Content */}
           <div className="p-6 md:p-8 -mt-20 relative">
             {/* Title & Meta */}
-            <h2 id="modal-movie-title" className="text-3xl md:text-4xl font-bold text-white mb-2">
+            <h2 id="modal-movie-title" className="text-3xl md:text-4xl font-bold text-fg mb-2">
               {movie.title_ko || movie.title}
             </h2>
 
-            <div className="flex flex-wrap items-center gap-3 text-sm text-white/70 mb-6">
+            <div className="flex flex-wrap items-center gap-3 text-sm text-fg/70 mb-6">
               <div className="flex items-center space-x-1 text-yellow-400">
                 <Star className="w-5 h-5 fill-current" />
                 <span className="font-medium">{movie.vote_average.toFixed(1)}</span>
@@ -223,7 +223,7 @@ export default function MovieModal({ movie, onClose, requestId }: MovieModalProp
               {movie.certification && (
                 <>
                   <span>|</span>
-                  <span className="px-2 py-0.5 border border-white/30 rounded text-xs">
+                  <span className="px-2 py-0.5 border border-divider/30 rounded text-xs">
                     {movie.certification}
                   </span>
                 </>
@@ -237,7 +237,7 @@ export default function MovieModal({ movie, onClose, requestId }: MovieModalProp
                 return (
                   <span
                     key={genreName || index}
-                    className="px-3 py-1 bg-white/10 rounded-full text-sm text-white/80"
+                    className="px-3 py-1 bg-overlay/10 rounded-full text-sm text-fg/80"
                   >
                     {genreName}
                   </span>
@@ -248,12 +248,12 @@ export default function MovieModal({ movie, onClose, requestId }: MovieModalProp
             {/* Overview */}
             {loading ? (
               <div className="animate-pulse space-y-2 mb-6">
-                <div className="h-4 bg-white/10 rounded w-full" />
-                <div className="h-4 bg-white/10 rounded w-5/6" />
-                <div className="h-4 bg-white/10 rounded w-4/6" />
+                <div className="h-4 bg-overlay/10 rounded w-full" />
+                <div className="h-4 bg-overlay/10 rounded w-5/6" />
+                <div className="h-4 bg-overlay/10 rounded w-4/6" />
               </div>
             ) : (
-              <p className="text-white/80 leading-relaxed mb-6">
+              <p className="text-fg/80 leading-relaxed mb-6">
                 {detail?.overview || "줄거리 정보가 없습니다."}
               </p>
             )}
@@ -261,22 +261,22 @@ export default function MovieModal({ movie, onClose, requestId }: MovieModalProp
             {/* Cast */}
             {detail?.cast_ko && (
               <div className="mb-6">
-                <h3 className="text-lg font-semibold text-white mb-2">출연</h3>
-                <p className="text-white/70">
+                <h3 className="text-lg font-semibold text-fg mb-2">출연</h3>
+                <p className="text-fg/70">
                   {detail.cast_ko}
                 </p>
               </div>
             )}
 
             {/* Action Buttons - 찜하기 & 평점 */}
-            <div className="flex flex-col sm:flex-row gap-4 mb-8 p-4 bg-white/5 rounded-lg">
+            <div className="flex flex-col sm:flex-row gap-4 mb-8 p-4 bg-overlay/5 rounded-lg">
               {/* 찜하기 버튼 */}
               <button
                 onClick={handleFavoriteClick}
                 className={`flex items-center justify-center space-x-2 px-6 py-3 rounded-md font-medium transition ${
                   isFavorited
                     ? "bg-red-500 hover:bg-red-600 text-white"
-                    : "bg-white/10 hover:bg-white/20 text-white"
+                    : "bg-overlay/10 hover:bg-overlay/20 text-fg"
                 }`}
               >
                 <Heart
@@ -289,7 +289,7 @@ export default function MovieModal({ movie, onClose, requestId }: MovieModalProp
               {detail?.trailer_key && (
                 <button
                   onClick={() => setIsTrailerOpen(true)}
-                  className="flex items-center justify-center space-x-2 px-6 py-3 rounded-md font-medium bg-white/10 hover:bg-white/20 text-white transition"
+                  className="flex items-center justify-center space-x-2 px-6 py-3 rounded-md font-medium bg-overlay/10 hover:bg-overlay/20 text-fg transition"
                 >
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
@@ -300,7 +300,7 @@ export default function MovieModal({ movie, onClose, requestId }: MovieModalProp
 
               {/* 별점 */}
               <div className="flex items-center space-x-3">
-                <span className="text-white/70 text-sm">내 평점:</span>
+                <span className="text-fg/70 text-sm">내 평점:</span>
                 <div className="flex items-center space-x-0.5">
                   {[1, 2, 3, 4, 5].map((score) => (
                     <button
@@ -314,7 +314,7 @@ export default function MovieModal({ movie, onClose, requestId }: MovieModalProp
                         className={`w-7 h-7 transition-colors ${
                           score <= displayRating
                             ? "text-yellow-400 fill-yellow-400"
-                            : "text-white/30"
+                            : "text-fg/30"
                         }`}
                       />
                     </button>
@@ -331,7 +331,7 @@ export default function MovieModal({ movie, onClose, requestId }: MovieModalProp
             {/* Similar Movies */}
             {similar.length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold text-white mb-4">비슷한 영화</h3>
+                <h3 className="text-lg font-semibold text-fg mb-4">비슷한 영화</h3>
                 <div className="flex space-x-3 overflow-x-auto hide-scrollbar pb-4">
                   {similar.map((m, i) => (
                     <MovieCard key={m.id} movie={m} index={i} section="similar_in_modal" />

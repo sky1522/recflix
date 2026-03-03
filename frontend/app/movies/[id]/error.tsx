@@ -31,7 +31,7 @@ export default function MovieError({
           />
         </svg>
       </div>
-      <h1 className="text-2xl font-bold text-white mb-2">
+      <h1 className="text-2xl font-bold text-fg mb-2">
         영화를 찾을 수 없습니다
       </h1>
       <p className="text-gray-400 mb-8 max-w-md">
@@ -41,7 +41,7 @@ export default function MovieError({
       <div className="flex gap-3">
         <button
           onClick={reset}
-          className="px-6 py-3 bg-dark-100 hover:bg-zinc-800 text-white font-medium rounded-lg transition-colors border border-zinc-700"
+          className="px-6 py-3 bg-surface-card hover:bg-zinc-800 text-fg font-medium rounded-lg transition-colors border border-zinc-700"
         >
           다시 시도
         </button>

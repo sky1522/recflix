@@ -3,6 +3,7 @@ import "./globals.css";
 import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import ThemeProvider from "@/components/layout/ThemeProvider";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://jnsquery-reflix.vercel.app"),
@@ -55,13 +56,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ko">
-      <body className="min-h-screen bg-dark-200">
-        <Header />
-        <ErrorBoundary>
-          <main className="pt-14 md:pt-16 pb-16 md:pb-0">{children}</main>
-        </ErrorBoundary>
-        <MobileNav />
+    <html lang="ko" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=JSON.parse(localStorage.getItem("theme-storage")||"{}");if(t&&t.state&&t.state.theme==="light"){document.documentElement.classList.add("light")}}catch(e){}})();`,
+          }}
+        />
+      </head>
+      <body className="min-h-screen bg-surface">
+        <ThemeProvider>
+          <Header />
+          <ErrorBoundary>
+            <main className="pt-14 md:pt-16 pb-16 md:pb-0">{children}</main>
+          </ErrorBoundary>
+          <MobileNav />
+        </ThemeProvider>
       </body>
     </html>
   );

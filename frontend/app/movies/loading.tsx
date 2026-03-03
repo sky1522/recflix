@@ -1,6 +1,6 @@
 export default function MoviesLoading() {
   return (
-    <div className="min-h-screen bg-dark-200 pt-20 pb-12 px-4">
+    <div className="min-h-screen bg-surface pt-20 pb-12 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Title */}
         <div className="mb-8">

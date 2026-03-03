@@ -54,7 +54,7 @@ function SemanticSection({
           <Sparkles className="w-5 h-5 text-purple-400" />
           <span className="text-purple-300 font-medium">AI가 찾은 영화</span>
         </div>
-        <span className="text-white/40 text-sm">
+        <span className="text-fg/40 text-sm">
           &quot;{query}&quot;
           {searchTime > 0 && ` (${(searchTime / 1000).toFixed(2)}초)`}
         </span>
@@ -92,8 +92,8 @@ function SemanticSection({
       ) : null}
 
       {hasKeywordResults && semanticMovies.length > 0 && (
-        <div className="mt-8 border-t border-white/10 pt-6">
-          <h3 className="text-lg font-semibold text-white/70">키워드 검색 결과</h3>
+        <div className="mt-8 border-t border-divider/10 pt-6">
+          <h3 className="text-lg font-semibold text-fg/70">키워드 검색 결과</h3>
         </div>
       )}
     </div>
@@ -116,7 +116,7 @@ function Pagination({
       <button
         onClick={() => onUpdateParams({ page: Math.max(1, currentPage - 1) })}
         disabled={currentPage === 1}
-        className="px-4 py-2 bg-dark-100 hover:bg-dark-100/70 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition"
+        className="px-4 py-2 bg-surface-card hover:bg-surface-card/70 disabled:opacity-50 disabled:cursor-not-allowed text-fg rounded-lg transition"
       >
         이전
       </button>
@@ -140,7 +140,7 @@ function Pagination({
               className={`w-10 h-10 rounded-lg transition ${
                 currentPage === pageNum
                   ? "bg-primary-600 text-white"
-                  : "bg-dark-100 text-white/70 hover:bg-dark-100/70"
+                  : "bg-surface-card text-fg/70 hover:bg-surface-card/70"
               }`}
             >
               {pageNum}
@@ -152,7 +152,7 @@ function Pagination({
       <button
         onClick={() => onUpdateParams({ page: Math.min(totalPages, currentPage + 1) })}
         disabled={currentPage === totalPages}
-        className="px-4 py-2 bg-dark-100 hover:bg-dark-100/70 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition"
+        className="px-4 py-2 bg-surface-card hover:bg-surface-card/70 disabled:opacity-50 disabled:cursor-not-allowed text-fg rounded-lg transition"
       >
         다음
       </button>
@@ -211,13 +211,13 @@ export default function MovieGrid({
             exit={{ opacity: 0 }}
             className="text-center py-12"
           >
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-white/5 rounded-full mb-6">
-              <Film className="w-10 h-10 text-white/20" />
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-overlay/5 rounded-full mb-6">
+              <Film className="w-10 h-10 text-fg/20" />
             </div>
-            <h3 className="text-xl font-semibold text-white mb-2">
+            <h3 className="text-xl font-semibold text-fg mb-2">
               검색 결과가 없습니다
             </h3>
-            <p className="text-white/60 mb-8">
+            <p className="text-fg/60 mb-8">
               {query
                 ? `"${query}"에 대한 검색 결과를 찾을 수 없습니다.`
                 : "조건에 맞는 영화가 없습니다."}
@@ -225,7 +225,7 @@ export default function MovieGrid({
 
             {recommendedMovies.length > 0 && (
               <div className="mt-8">
-                <h4 className="text-lg font-semibold text-white mb-4 text-left">
+                <h4 className="text-lg font-semibold text-fg mb-4 text-left">
                   이런 영화는 어떠세요?
                 </h4>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
@@ -262,14 +262,14 @@ export default function MovieGrid({
                   <div className="flex justify-center py-6">
                     <button
                       onClick={onLoadMore}
-                      className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg transition"
+                      className="px-6 py-3 bg-overlay/10 hover:bg-overlay/20 text-fg rounded-lg transition"
                     >
                       더 보기 ({infinitePage} / {totalPages} 페이지)
                     </button>
                   </div>
                 )}
                 {!hasMore && movies.length > 0 && (
-                  <p className="text-center text-white/40 py-8">
+                  <p className="text-center text-fg/40 py-8">
                     모든 영화를 불러왔습니다
                   </p>
                 )}

@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function MovieDetailSkeleton() {
   return (
-    <div className="min-h-screen bg-dark-200">
+    <div className="min-h-screen bg-surface">
       {/* Hero Skeleton */}
       <div className="relative h-[50vh] md:h-[70vh]">
         <Skeleton className="absolute inset-0" />

@@ -88,7 +88,7 @@ export default function TrailerModal({ trailerKey, onClose }: TrailerModalProps)
             <X className="w-6 h-6 text-white" />
           </button>
 
-          <div className="aspect-video rounded-xl overflow-hidden bg-dark-100">
+          <div className="aspect-video rounded-xl overflow-hidden bg-surface-card">
             <iframe
               src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1`}
               title="트레일러"

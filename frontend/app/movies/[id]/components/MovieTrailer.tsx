@@ -15,8 +15,8 @@ export default function MovieTrailer({ trailerKey }: MovieTrailerProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.45 }}
     >
-      <h2 className="text-xl font-semibold text-white mb-4">트레일러</h2>
-      <div className="aspect-video rounded-xl overflow-hidden bg-dark-100">
+      <h2 className="text-xl font-semibold text-fg mb-4">트레일러</h2>
+      <div className="aspect-video rounded-xl overflow-hidden bg-surface-card">
         <iframe
           src={`https://www.youtube.com/embed/${trailerKey}`}
           title="트레일러"

@@ -186,11 +186,11 @@ function MoviesPageContent() {
   };
 
   return (
-    <div className="min-h-screen bg-dark-200 pt-20 pb-12 px-4">
+    <div className="min-h-screen bg-surface pt-20 pb-12 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Search & Filters */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-6">영화 검색</h1>
+          <h1 className="text-3xl font-bold text-fg mb-6">영화 검색</h1>
 
           <div className="mb-6">
             <SearchAutocomplete
@@ -223,31 +223,31 @@ function MoviesPageContent() {
               {query && (
                 <span className="px-3 py-1 bg-primary-600/20 text-primary-400 rounded-full text-sm flex items-center gap-1.5">
                   검색: &quot;{query}&quot;
-                  <button onClick={() => updateParams({ query: null, page: null })} className="hover:text-white transition">✕</button>
+                  <button onClick={() => updateParams({ query: null, page: null })} className="hover:text-fg transition">✕</button>
                 </span>
               )}
               {selectedCountry && (
                 <span className="px-3 py-1 bg-emerald-600/20 text-emerald-400 rounded-full text-sm flex items-center gap-1.5">
                   🌍 {selectedCountry}
-                  <button onClick={() => updateParams({ country: null, page: null })} className="hover:text-white transition">✕</button>
+                  <button onClick={() => updateParams({ country: null, page: null })} className="hover:text-fg transition">✕</button>
                 </span>
               )}
               {selectedKeyword && (
                 <span className="px-3 py-1 bg-violet-600/20 text-violet-400 rounded-full text-sm flex items-center gap-1.5">
                   🏷️ {selectedKeyword}
-                  <button onClick={() => updateParams({ keyword: null, page: null })} className="hover:text-white transition">✕</button>
+                  <button onClick={() => updateParams({ keyword: null, page: null })} className="hover:text-fg transition">✕</button>
                 </span>
               )}
               {selectedMbti && (
                 <span className="px-3 py-1 bg-amber-600/20 text-amber-400 rounded-full text-sm flex items-center gap-1.5">
                   🧠 {selectedMbti} 추천순
-                  <button onClick={() => updateParams({ mbti: null, page: null })} className="hover:text-white transition">✕</button>
+                  <button onClick={() => updateParams({ mbti: null, page: null })} className="hover:text-fg transition">✕</button>
                 </span>
               )}
               {selectedWeather && (
                 <span className="px-3 py-1 bg-sky-600/20 text-sky-400 rounded-full text-sm flex items-center gap-1.5">
                   {{ sunny: "☀️ 맑은 날", rainy: "🌧️ 비 오는 날", cloudy: "☁️ 흐린 날", snowy: "❄️ 눈 오는 날" }[selectedWeather]} 추천순
-                  <button onClick={() => updateParams({ weather: null, page: null })} className="hover:text-white transition">✕</button>
+                  <button onClick={() => updateParams({ weather: null, page: null })} className="hover:text-fg transition">✕</button>
                 </span>
               )}
             </motion.div>
@@ -284,14 +284,14 @@ function MoviesPageContent() {
 
 function MoviesPageLoading() {
   return (
-    <div className="min-h-screen bg-dark-200 pt-20 pb-12 px-4">
+    <div className="min-h-screen bg-surface pt-20 pb-12 px-4">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <div className="h-10 w-48 bg-dark-100 rounded animate-pulse mb-6" />
-          <div className="h-12 w-full bg-dark-100 rounded-lg animate-pulse mb-6" />
+          <div className="h-10 w-48 bg-surface-card rounded animate-pulse mb-6" />
+          <div className="h-12 w-full bg-surface-card rounded-lg animate-pulse mb-6" />
           <div className="flex gap-4">
-            <div className="h-10 w-32 bg-dark-100 rounded-lg animate-pulse" />
-            <div className="h-10 w-32 bg-dark-100 rounded-lg animate-pulse" />
+            <div className="h-10 w-32 bg-surface-card rounded-lg animate-pulse" />
+            <div className="h-10 w-32 bg-surface-card rounded-lg animate-pulse" />
           </div>
         </div>
         <MovieGridSkeleton count={24} />

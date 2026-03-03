@@ -248,7 +248,7 @@ export default function SearchAutocomplete({
       <form onSubmit={handleSubmit}>
         <div className="relative">
           <Search
-            className={`absolute left-${compact ? "3" : "4"} top-1/2 -translate-y-1/2 ${compact ? "w-4 h-4" : "w-5 h-5"} text-white/40`}
+            className={`absolute left-${compact ? "3" : "4"} top-1/2 -translate-y-1/2 ${compact ? "w-4 h-4" : "w-5 h-5"} text-fg/40`}
           />
           <input
             ref={inputRef}
@@ -269,7 +269,7 @@ export default function SearchAutocomplete({
             aria-autocomplete="list"
             className={
               inputClassName ||
-              `w-full ${compact ? "pl-10 pr-8 py-1.5 text-sm" : "pl-12 pr-10 py-3"} bg-dark-100 border border-white/10 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-primary-500 transition`
+              `w-full ${compact ? "pl-10 pr-8 py-1.5 text-sm" : "pl-12 pr-10 py-3"} bg-surface-card border border-divider/10 rounded-lg text-fg placeholder-fg/40 focus:outline-none focus:border-primary-500 transition`
             }
             autoComplete="off"
           />
@@ -278,7 +278,7 @@ export default function SearchAutocomplete({
               type="button"
               onClick={handleClear}
               aria-label="검색어 지우기"
-              className={`absolute right-${compact ? "3" : "4"} top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition`}
+              className={`absolute right-${compact ? "3" : "4"} top-1/2 -translate-y-1/2 text-fg/40 hover:text-fg/70 transition`}
             >
               <X className={compact ? "w-4 h-4" : "w-5 h-5"} />
             </button>
@@ -294,13 +294,13 @@ export default function SearchAutocomplete({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.15 }}
-            className="absolute z-50 w-full mt-2 bg-dark-100 border border-white/10 rounded-lg shadow-2xl overflow-hidden"
+            className="absolute z-50 w-full mt-2 bg-surface-card border border-divider/10 rounded-lg shadow-2xl overflow-hidden"
           >
             {isLoading && !results ? (
               <div className="p-4">
                 <div className="flex items-center space-x-3">
                   <div className="w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
-                  <span className="text-white/60 text-sm">검색 중...</span>
+                  <span className="text-fg/60 text-sm">검색 중...</span>
                 </div>
               </div>
             ) : (

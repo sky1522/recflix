@@ -81,7 +81,7 @@ export default function OnboardingPage() {
   if (!isAuthenticated) return null;
 
   return (
-    <div className="min-h-screen bg-dark-200 py-8 px-4">
+    <div className="min-h-screen bg-surface py-8 px-4">
       <div className="max-w-4xl mx-auto">
         {/* Progress indicator */}
         <div className="flex items-center justify-center gap-3 mb-8">
@@ -90,10 +90,10 @@ export default function OnboardingPage() {
               step === "genres" ? "bg-primary-500" : "bg-primary-500/40"
             }`}
           />
-          <div className="w-12 h-0.5 bg-white/10" />
+          <div className="w-12 h-0.5 bg-overlay/10" />
           <div
             className={`w-3 h-3 rounded-full ${
-              step === "movies" ? "bg-primary-500" : "bg-white/20"
+              step === "movies" ? "bg-primary-500" : "bg-overlay/20"
             }`}
           />
         </div>
@@ -146,10 +146,10 @@ function GenreStep({
       exit={{ opacity: 0, x: -20 }}
       className="text-center"
     >
-      <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
+      <h1 className="text-2xl md:text-3xl font-bold text-fg mb-2">
         좋아하는 장르를 선택해주세요
       </h1>
-      <p className="text-white/50 mb-8">
+      <p className="text-fg/50 mb-8">
         {MIN_GENRES}개 이상 선택하면 더 정확한 추천을 받을 수 있어요
       </p>
 
@@ -163,7 +163,7 @@ function GenreStep({
               className={`relative py-4 px-3 rounded-xl font-medium transition-all ${
                 selected
                   ? "bg-primary-600 text-white ring-2 ring-primary-400"
-                  : "bg-dark-100 text-white/70 hover:bg-dark-100/80 hover:text-white"
+                  : "bg-surface-card text-fg/70 hover:bg-surface-card/80 hover:text-fg"
               }`}
             >
               {selected && (
@@ -179,7 +179,7 @@ function GenreStep({
         <button
           onClick={onNext}
           disabled={selectedGenres.length < MIN_GENRES || loading}
-          className="px-8 py-3 bg-primary-600 hover:bg-primary-700 disabled:bg-white/10 disabled:text-white/30 text-white font-medium rounded-lg transition flex items-center gap-2"
+          className="px-8 py-3 bg-primary-600 hover:bg-primary-700 disabled:bg-overlay/10 disabled:text-fg/30 text-white font-medium rounded-lg transition flex items-center gap-2"
         >
           {loading ? (
             <>
@@ -195,7 +195,7 @@ function GenreStep({
         </button>
         <button
           onClick={onSkip}
-          className="text-white/40 hover:text-white/60 text-sm transition"
+          className="text-fg/40 hover:text-fg/60 text-sm transition"
         >
           건너뛰기
         </button>
@@ -228,10 +228,10 @@ function MovieStep({
       exit={{ opacity: 0, x: -20 }}
     >
       <div className="text-center mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
+        <h1 className="text-2xl md:text-3xl font-bold text-fg mb-2">
           영화를 평가해주세요
         </h1>
-        <p className="text-white/50">
+        <p className="text-fg/50">
           최소 {MIN_RATINGS}편을 평가하면 맞춤 추천이 시작됩니다
         </p>
       </div>
@@ -239,14 +239,14 @@ function MovieStep({
       {/* Progress bar */}
       <div className="max-w-md mx-auto mb-8">
         <div className="flex justify-between text-sm mb-2">
-          <span className="text-white/60">
+          <span className="text-fg/60">
             <span className="text-primary-400 font-bold">{ratedCount}</span>/{MIN_RATINGS}편 평가 완료
           </span>
           {ratedCount >= MIN_RATINGS && (
             <span className="text-green-400 text-sm">완료!</span>
           )}
         </div>
-        <div className="h-2 bg-dark-100 rounded-full overflow-hidden">
+        <div className="h-2 bg-surface-card rounded-full overflow-hidden">
           <motion.div
             className="h-full bg-primary-500 rounded-full"
             initial={{ width: 0 }}
@@ -273,7 +273,7 @@ function MovieStep({
         <button
           onClick={onComplete}
           disabled={ratedCount < MIN_RATINGS || submitting}
-          className="px-8 py-3 bg-primary-600 hover:bg-primary-700 disabled:bg-white/10 disabled:text-white/30 text-white font-medium rounded-lg transition flex items-center gap-2"
+          className="px-8 py-3 bg-primary-600 hover:bg-primary-700 disabled:bg-overlay/10 disabled:text-fg/30 text-white font-medium rounded-lg transition flex items-center gap-2"
         >
           {submitting ? (
             <>
@@ -286,7 +286,7 @@ function MovieStep({
         </button>
         <button
           onClick={onSkip}
-          className="text-white/40 hover:text-white/60 text-sm transition"
+          className="text-fg/40 hover:text-fg/60 text-sm transition"
         >
           건너뛰기
         </button>
@@ -309,7 +309,7 @@ function OnboardingMovieCard({
 
   return (
     <div className="flex flex-col">
-      <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-dark-100 mb-1.5">
+      <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-surface-card mb-1.5">
         {movie.poster_path ? (
           <Image
             src={`https://image.tmdb.org/t/p/w300${movie.poster_path}`}
@@ -320,7 +320,7 @@ function OnboardingMovieCard({
             unoptimized
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-white/20 text-xs">
+          <div className="w-full h-full flex items-center justify-center text-fg/20 text-xs">
             No Image
           </div>
         )}
@@ -330,7 +330,7 @@ function OnboardingMovieCard({
           </div>
         )}
       </div>
-      <p className="text-white text-xs leading-tight line-clamp-2 mb-1">
+      <p className="text-fg text-xs leading-tight line-clamp-2 mb-1">
         {displayTitle}
       </p>
       {/* Star rating */}
@@ -347,7 +347,7 @@ function OnboardingMovieCard({
               className={`w-3.5 h-3.5 transition-colors ${
                 star <= (hoverStar || rating || 0)
                   ? "fill-yellow-400 text-yellow-400"
-                  : "text-white/20"
+                  : "text-fg/20"
               }`}
             />
           </button>

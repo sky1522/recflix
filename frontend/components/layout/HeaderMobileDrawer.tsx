@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Home, Film, Heart, Star, LogOut, Sun, CloudRain, Cloud, CloudSnow, RotateCcw } from "lucide-react";
+import { Home, Film, Heart, Star, LogOut, Settings, Sun, CloudRain, Cloud, CloudSnow, RotateCcw } from "lucide-react";
 import { useWeather } from "@/hooks/useWeather";
 import { useMoodStore } from "@/stores/useMoodStore";
 import type { Weather, User as UserType, WeatherType, MoodType } from "@/types";
@@ -125,21 +125,21 @@ export default function HeaderMobileDrawer({
         animate={{ x: 0 }}
         exit={{ x: "100%" }}
         transition={{ type: "spring", damping: 25, stiffness: 300 }}
-        className="fixed top-0 right-0 bottom-0 w-72 bg-dark-200 z-50 md:hidden shadow-2xl outline-none"
+        className="fixed top-0 right-0 bottom-0 w-72 bg-surface z-50 md:hidden shadow-2xl outline-none"
       >
         <div className="flex flex-col h-full pt-16 overflow-y-auto">
           {/* Weather Info + Selection */}
           {weather && (
-            <div className="px-4 py-3 border-b border-white/10">
+            <div className="px-4 py-3 border-b border-divider/10">
               <div className="flex items-center space-x-3 mb-3">
                 <span className="text-2xl">{WEATHER_EMOJIS[weather.condition]}</span>
                 <div>
-                  <p className="text-white font-medium">{weather.temperature}°C</p>
-                  <p className="text-white/60 text-sm">{weather.city}</p>
+                  <p className="text-fg font-medium">{weather.temperature}°C</p>
+                  <p className="text-fg/60 text-sm">{weather.city}</p>
                 </div>
               </div>
 
-              <p className="text-xs text-white/50 mb-2">날씨 설정</p>
+              <p className="text-xs text-fg/50 mb-2">날씨 설정</p>
               <div className="grid grid-cols-4 gap-1.5">
                 {WEATHER_OPTIONS.map((w) => {
                   const Icon = w.icon;
@@ -150,12 +150,12 @@ export default function HeaderMobileDrawer({
                       onClick={() => setManualWeather(w.type)}
                       className={`flex flex-col items-center gap-1 py-2 rounded-lg transition-all min-h-[44px] ${
                         isActive
-                          ? "bg-white/20 ring-1 ring-white/30"
-                          : "hover:bg-white/10 active:bg-white/15"
+                          ? "bg-overlay/20 ring-1 ring-divider/30"
+                          : "hover:bg-overlay/10 active:bg-overlay/15"
                       } ${w.color}`}
                     >
                       <Icon className="w-5 h-5" />
-                      <span className="text-[10px] text-white/80">{w.label}</span>
+                      <span className="text-[10px] text-fg/80">{w.label}</span>
                     </button>
                   );
                 })}
@@ -163,7 +163,7 @@ export default function HeaderMobileDrawer({
               {isManual && (
                 <button
                   onClick={() => resetToRealWeather()}
-                  className="flex items-center gap-1.5 w-full mt-2 px-2 py-1.5 rounded-lg text-xs text-white/50 hover:text-white hover:bg-white/10 transition"
+                  className="flex items-center gap-1.5 w-full mt-2 px-2 py-1.5 rounded-lg text-xs text-fg/50 hover:text-fg hover:bg-overlay/10 transition"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span>실시간 날씨로 돌아가기</span>
@@ -173,8 +173,8 @@ export default function HeaderMobileDrawer({
           )}
 
           {/* Mood Selection */}
-          <div className="px-4 py-3 border-b border-white/10">
-            <p className="text-xs text-white/50 mb-2">기분 설정</p>
+          <div className="px-4 py-3 border-b border-divider/10">
+            <p className="text-xs text-fg/50 mb-2">기분 설정</p>
             <div className="grid grid-cols-4 gap-1.5">
               {MOOD_OPTIONS.map((m) => {
                 const isActive = mood === m.type;
@@ -184,12 +184,12 @@ export default function HeaderMobileDrawer({
                     onClick={() => setMood(mood === m.type ? null : m.type)}
                     className={`flex flex-col items-center gap-0.5 py-2 rounded-lg transition-all min-h-[44px] ${
                       isActive
-                        ? "bg-white/20 ring-1 ring-white/30 scale-105"
-                        : "hover:bg-white/10 active:bg-white/15"
+                        ? "bg-overlay/20 ring-1 ring-divider/30 scale-105"
+                        : "hover:bg-overlay/10 active:bg-overlay/15"
                     }`}
                   >
                     <span className="text-lg">{m.emoji}</span>
-                    <span className="text-[10px] text-white/80">{m.label}</span>
+                    <span className="text-[10px] text-fg/80">{m.label}</span>
                   </button>
                 );
               })}
@@ -207,7 +207,7 @@ export default function HeaderMobileDrawer({
                   className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition ${
                     isActivePath(item.href)
                       ? "bg-primary-600/20 text-primary-400"
-                      : "text-white/80 hover:bg-white/5"
+                      : "text-fg/80 hover:bg-overlay/5"
                   }`}
                 >
                   <Icon className="w-5 h-5" />
@@ -218,7 +218,7 @@ export default function HeaderMobileDrawer({
 
             {isAuthenticated && (
               <>
-                <div className="h-px bg-white/10 my-2" />
+                <div className="h-px bg-overlay/10 my-2" />
                 {authNavItems.map((item) => {
                   const Icon = item.icon;
                   return (
@@ -228,7 +228,7 @@ export default function HeaderMobileDrawer({
                       className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition ${
                         isActivePath(item.href)
                           ? "bg-primary-600/20 text-primary-400"
-                          : "text-white/80 hover:bg-white/5"
+                          : "text-fg/80 hover:bg-overlay/5"
                       }`}
                     >
                       <Icon className="w-5 h-5" />
@@ -241,12 +241,12 @@ export default function HeaderMobileDrawer({
           </nav>
 
           {/* User Section */}
-          <div className="px-4 py-4 border-t border-white/10">
+          <div className="px-4 py-4 border-t border-divider/10">
             {isAuthenticated ? (
               <div className="space-y-3">
                 <Link
                   href="/profile"
-                  className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-white/5 transition"
+                  className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-overlay/5 transition"
                 >
                   <div className="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center">
                     <span className="font-medium">
@@ -254,16 +254,23 @@ export default function HeaderMobileDrawer({
                     </span>
                   </div>
                   <div>
-                    <p className="text-white font-medium">{user?.nickname}</p>
-                    <p className="text-white/60 text-sm">{user?.mbti || "MBTI 미설정"}</p>
+                    <p className="text-fg font-medium">{user?.nickname}</p>
+                    <p className="text-fg/60 text-sm">{user?.mbti || "MBTI 미설정"}</p>
                   </div>
+                </Link>
+                <Link
+                  href="/settings"
+                  className="flex items-center space-x-3 px-4 py-3 rounded-lg text-fg/80 hover:bg-overlay/5 transition"
+                >
+                  <Settings className="w-5 h-5" />
+                  <span>사용자 설정</span>
                 </Link>
                 <button
                   onClick={() => {
                     onLogout();
                     onClose();
                   }}
-                  className="flex items-center space-x-3 px-4 py-3 w-full text-left text-white/60 hover:text-white hover:bg-white/5 rounded-lg transition"
+                  className="flex items-center space-x-3 px-4 py-3 w-full text-left text-fg/60 hover:text-fg hover:bg-overlay/5 rounded-lg transition"
                 >
                   <LogOut className="w-5 h-5" />
                   <span>로그아웃</span>
@@ -279,7 +286,7 @@ export default function HeaderMobileDrawer({
                 </Link>
                 <Link
                   href="/signup"
-                  className="block w-full px-4 py-3 bg-white/10 hover:bg-white/20 text-white text-center rounded-lg transition"
+                  className="block w-full px-4 py-3 bg-overlay/10 hover:bg-overlay/20 text-fg text-center rounded-lg transition"
                 >
                   회원가입
                 </Link>

@@ -167,7 +167,7 @@ export default function MovieDetailPage() {
 
   if (error || !movie) {
     return (
-      <div className="min-h-screen bg-dark-200 pt-20 flex items-center justify-center">
+      <div className="min-h-screen bg-surface pt-20 flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-500 text-lg mb-4">{error || "영화를 찾을 수 없습니다."}</p>
           <button
@@ -185,7 +185,7 @@ export default function MovieDetailPage() {
   const overview = movie.overview;
 
   return (
-    <div className="min-h-screen bg-dark-200">
+    <div className="min-h-screen bg-surface">
       {/* Hero Section */}
       <MovieHero
         movie={movie}
@@ -208,10 +208,10 @@ export default function MovieDetailPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="p-6 bg-dark-100 rounded-lg"
+              className="p-6 bg-surface-card rounded-lg"
             >
               <div className="flex items-center gap-4 flex-wrap">
-                <h2 className="text-xl font-semibold text-white">내 평점</h2>
+                <h2 className="text-xl font-semibold text-fg">내 평점</h2>
                 <div className="flex items-center gap-0">
                   {[1, 2, 3, 4, 5].map((score) => (
                     <button
@@ -225,7 +225,7 @@ export default function MovieDetailPage() {
                         className={`w-7 h-7 transition-colors ${
                           score <= displayRating
                             ? "text-yellow-400 fill-yellow-400"
-                            : "text-white/30"
+                            : "text-fg/30"
                         }`}
                       />
                     </button>
@@ -250,8 +250,8 @@ export default function MovieDetailPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
             >
-              <h2 className="text-xl font-semibold text-white mb-4">줄거리</h2>
-              <p className="text-white/80 leading-relaxed text-lg">
+              <h2 className="text-xl font-semibold text-fg mb-4">줄거리</h2>
+              <p className="text-fg/80 leading-relaxed text-lg">
                 {overview || "줄거리 정보가 없습니다."}
               </p>
             </motion.section>
@@ -263,18 +263,18 @@ export default function MovieDetailPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
               >
-                <h2 className="text-xl font-semibold text-white mb-4">출연진</h2>
+                <h2 className="text-xl font-semibold text-fg mb-4">출연진</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                   {movie.cast_ko.split(", ").slice(0, 8).map((name) => (
                     <Link
                       key={name}
                       href={`/movies?query=${encodeURIComponent(name)}`}
-                      className="flex items-center space-x-3 p-3 bg-dark-100 hover:bg-dark-100/70 rounded-lg transition"
+                      className="flex items-center space-x-3 p-3 bg-surface-card hover:bg-surface-card/70 rounded-lg transition"
                     >
-                      <div className="w-10 h-10 bg-dark-200 rounded-full flex items-center justify-center flex-shrink-0">
-                        <Users className="w-5 h-5 text-white/30" />
+                      <div className="w-10 h-10 bg-surface rounded-full flex items-center justify-center flex-shrink-0">
+                        <Users className="w-5 h-5 text-fg/30" />
                       </div>
-                      <span className="text-white/80 text-sm truncate">{name}</span>
+                      <span className="text-fg/80 text-sm truncate">{name}</span>
                     </Link>
                   ))}
                 </div>

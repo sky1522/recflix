@@ -40,10 +40,10 @@ function GoogleCallbackContent() {
   }, [searchParams, socialLogin, router]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-dark-200">
+    <div className="min-h-screen flex items-center justify-center bg-surface">
       <div className="text-center">
         <div className="w-10 h-10 border-3 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-white/60">Google 로그인 처리 중...</p>
+        <p className="text-fg/60">Google 로그인 처리 중...</p>
       </div>
     </div>
   );
@@ -53,7 +53,7 @@ export default function GoogleCallbackPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-dark-200">
+        <div className="min-h-screen flex items-center justify-center bg-surface">
           <div className="w-10 h-10 border-3 border-primary-500 border-t-transparent rounded-full animate-spin" />
         </div>
       }

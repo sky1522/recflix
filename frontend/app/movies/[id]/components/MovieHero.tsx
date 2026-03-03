@@ -53,11 +53,11 @@ export default function MovieHero({
             priority
           />
         ) : (
-          <div className="w-full h-full bg-dark-100" />
+          <div className="w-full h-full bg-surface-card" />
         )}
         {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-dark-200 via-dark-200/70 to-dark-200/30" />
-        <div className="absolute inset-0 bg-gradient-to-r from-dark-200/90 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/70 to-surface/30" />
+        <div className="absolute inset-0 bg-gradient-to-r from-surface/90 via-transparent to-transparent" />
       </div>
 
       {/* Back Button */}
@@ -89,7 +89,7 @@ export default function MovieHero({
                   className="object-cover"
                 />
               ) : (
-                <div className="w-full h-full bg-dark-100 flex items-center justify-center">
+                <div className="w-full h-full bg-surface-card flex items-center justify-center">
                   <span className="text-4xl">🎬</span>
                 </div>
               )}
@@ -111,7 +111,7 @@ export default function MovieHero({
                   className="object-cover"
                 />
               ) : (
-                <div className="w-full h-full bg-dark-100 flex items-center justify-center">
+                <div className="w-full h-full bg-surface-card flex items-center justify-center">
                   <span className="text-6xl">🎬</span>
                 </div>
               )}
@@ -180,7 +180,7 @@ export default function MovieHero({
                   <Link
                     key={genreName || index}
                     href={`/movies?genre=${encodeURIComponent(genreName)}`}
-                    className="px-2 md:px-3 py-1 bg-white/10 hover:bg-white/20 rounded-full text-xs md:text-sm text-white/80 transition"
+                    className="px-2 md:px-3 py-1 bg-overlay/10 hover:bg-overlay/20 rounded-full text-xs md:text-sm text-white/80 transition"
                   >
                     {genreName}
                   </Link>
@@ -204,7 +204,7 @@ export default function MovieHero({
                 className={`flex items-center space-x-1.5 md:space-x-2 px-4 md:px-6 py-2.5 md:py-3 rounded-lg font-medium transition text-sm md:text-base ${
                   isFavorited
                     ? "bg-red-500 hover:bg-red-600 active:bg-red-700 text-white"
-                    : "bg-white/10 hover:bg-white/20 active:bg-white/30 text-white"
+                    : "bg-overlay/10 hover:bg-overlay/20 active:bg-overlay/30 text-white"
                 }`}
               >
                 <Heart className={`w-4 h-4 md:w-5 md:h-5 ${isFavorited ? "fill-current" : ""}`} />

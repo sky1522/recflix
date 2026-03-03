@@ -33,11 +33,18 @@ interface MBTIModalProps {
 }
 
 export default function MBTIModal({ onClose }: MBTIModalProps) {
-  const { user, updateMBTI } = useAuthStore();
+  const { user, isAuthenticated, updateMBTI } = useAuthStore();
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const [guestMBTI, setGuestMBTI] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setGuestMBTI(localStorage.getItem("guest_mbti"));
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -81,14 +88,21 @@ export default function MBTIModal({ onClose }: MBTIModalProps) {
     };
   }, [onClose]);
 
+  const currentMBTI = isAuthenticated ? user?.mbti : guestMBTI;
+
   const handleSelect = async (mbti: MBTIType) => {
-    if (saving || mbti === user?.mbti) return;
+    if (saving || mbti === currentMBTI) return;
 
     setSaving(true);
     setError(null);
 
     try {
-      await updateMBTI(mbti);
+      if (isAuthenticated) {
+        await updateMBTI(mbti);
+      } else {
+        localStorage.setItem("guest_mbti", mbti);
+        setGuestMBTI(mbti);
+      }
       setSaved(true);
       setTimeout(() => onClose(), 1500);
     } catch {
@@ -121,23 +135,23 @@ export default function MBTIModal({ onClose }: MBTIModalProps) {
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="relative w-full max-w-md bg-dark-100 rounded-xl overflow-hidden outline-none"
+          className="relative w-full max-w-md bg-surface-card rounded-xl overflow-hidden outline-none"
         >
           {/* Close Button */}
           <button
             onClick={onClose}
             aria-label="닫기"
-            className="absolute top-3 right-3 z-10 w-8 h-8 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition"
+            className="absolute top-3 right-3 z-10 w-8 h-8 bg-overlay/10 hover:bg-overlay/20 rounded-full flex items-center justify-center transition"
           >
-            <X className="w-4 h-4 text-white" />
+            <X className="w-4 h-4 text-fg" />
           </button>
 
           {/* Content */}
           <div className="p-6">
-            <h2 id="mbti-modal-title" className="text-xl font-bold text-white mb-1">
+            <h2 id="mbti-modal-title" className="text-xl font-bold text-fg mb-1">
               MBTI 설정
             </h2>
-            <p className="text-sm text-white/60 mb-5">
+            <p className="text-sm text-fg/60 mb-5">
               MBTI를 설정하면 성격에 맞는 영화를 추천받을 수 있어요.
             </p>
 
@@ -163,7 +177,7 @@ export default function MBTIModal({ onClose }: MBTIModalProps) {
             {/* 4x4 Grid */}
             <div className="grid grid-cols-4 gap-2">
               {MBTI_TYPES.map((mbti) => {
-                const isActive = user?.mbti === mbti;
+                const isActive = currentMBTI === mbti;
                 const colorClass = getMBTIColor(mbti);
                 return (
                   <button
@@ -173,8 +187,8 @@ export default function MBTIModal({ onClose }: MBTIModalProps) {
                     title={getMBTIGroupLabel(mbti)}
                     className={`relative px-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
                       isActive
-                        ? `${colorClass} text-white ring-2 ring-white/50 scale-105`
-                        : `bg-white/10 text-white/80 hover:bg-white/20 hover:scale-105`
+                        ? `${colorClass} text-white ring-2 ring-divider/50 scale-105`
+                        : `bg-overlay/10 text-fg/80 hover:bg-overlay/20 hover:scale-105`
                     } ${saving ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
                   >
                     {mbti}
@@ -189,9 +203,9 @@ export default function MBTIModal({ onClose }: MBTIModalProps) {
             </div>
 
             {/* Current MBTI info */}
-            {user?.mbti && !saved && (
-              <p className="mt-4 text-xs text-white/40 text-center">
-                현재: <span className="text-white/60 font-medium">{user.mbti}</span>
+            {currentMBTI && !saved && (
+              <p className="mt-4 text-xs text-fg/40 text-center">
+                현재: <span className="text-fg/60 font-medium">{currentMBTI}</span>
               </p>
             )}
           </div>

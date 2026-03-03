@@ -34,19 +34,19 @@ export default function MovieSidebar({ movie }: MovieSidebarProps) {
       className="space-y-6"
     >
       {/* Movie Info Card */}
-      <div className="p-6 bg-dark-100 rounded-lg space-y-5">
-        <h3 className="text-lg font-semibold text-white">영화 정보</h3>
+      <div className="p-6 bg-surface-card rounded-lg space-y-5">
+        <h3 className="text-lg font-semibold text-fg">영화 정보</h3>
 
         {/* Countries */}
         {movie.production_countries_ko && (
           <div>
-            <p className="text-white/50 text-sm mb-2">🌍 제작 국가</p>
+            <p className="text-fg/50 text-sm mb-2">🌍 제작 국가</p>
             <div className="flex flex-wrap gap-1.5">
               {movie.production_countries_ko.split(", ").map((c) => (
                 <Link
                   key={c}
                   href={`/movies?country=${encodeURIComponent(c.trim())}`}
-                  className="px-2 py-1 bg-dark-200 rounded text-xs text-white/70 hover:bg-white/20 hover:text-white transition cursor-pointer"
+                  className="px-2 py-1 bg-surface rounded text-xs text-fg/70 hover:bg-overlay/20 hover:text-fg transition cursor-pointer"
                 >
                   {c.trim()}
                 </Link>
@@ -58,13 +58,13 @@ export default function MovieSidebar({ movie }: MovieSidebarProps) {
         {/* Keywords */}
         {movie.keywords && movie.keywords.length > 0 && (
           <div>
-            <p className="text-white/50 text-sm mb-2">🏷️ 키워드</p>
+            <p className="text-fg/50 text-sm mb-2">🏷️ 키워드</p>
             <div className="flex flex-wrap gap-1.5">
               {movie.keywords.slice(0, 10).map((keyword) => (
                 <Link
                   key={keyword}
                   href={`/movies?keyword=${encodeURIComponent(keyword)}`}
-                  className="px-2 py-1 bg-dark-200 rounded text-xs text-white/70 hover:bg-violet-600/30 hover:text-violet-300 transition cursor-pointer"
+                  className="px-2 py-1 bg-surface rounded text-xs text-fg/70 hover:bg-violet-600/30 hover:text-violet-300 transition cursor-pointer"
                 >
                   {keyword}
                 </Link>
@@ -75,19 +75,19 @@ export default function MovieSidebar({ movie }: MovieSidebarProps) {
 
         {/* Popularity */}
         <div>
-          <p className="text-white/50 text-sm mb-2">📈 인기도</p>
-          <p className="text-white/80 text-sm">
+          <p className="text-fg/50 text-sm mb-2">📈 인기도</p>
+          <p className="text-fg/80 text-sm">
             {pop.emoji}{pop.emoji && " "}
             {pop.score.toFixed(1)} / 10
-            {pop.label && <span className="text-white/50"> · {pop.label}</span>}
+            {pop.label && <span className="text-fg/50"> · {pop.label}</span>}
           </p>
         </div>
       </div>
 
       {/* MBTI Scores */}
       {movie.mbti_scores && Object.keys(movie.mbti_scores).length > 0 && (
-        <div className="p-6 bg-dark-100 rounded-lg space-y-5">
-          <h3 className="text-lg font-semibold text-white">MBTI 추천 점수</h3>
+        <div className="p-6 bg-surface-card rounded-lg space-y-5">
+          <h3 className="text-lg font-semibold text-fg">MBTI 추천 점수</h3>
           <div className="grid grid-cols-2 gap-2">
             {Object.entries(movie.mbti_scores)
               .sort(([, a], [, b]) => b - a)
@@ -97,9 +97,9 @@ export default function MovieSidebar({ movie }: MovieSidebarProps) {
                   key={mbti}
                   href={`/movies?mbti=${mbti}`}
                   title={`${mbti} 추천 영화 보기`}
-                  className="flex items-center justify-between p-2 bg-dark-200 rounded hover:bg-amber-600/20 transition cursor-pointer"
+                  className="flex items-center justify-between p-2 bg-surface rounded hover:bg-amber-600/20 transition cursor-pointer"
                 >
-                  <span className="text-white/80 text-sm font-medium">{mbti}</span>
+                  <span className="text-fg/80 text-sm font-medium">{mbti}</span>
                   <span className="text-primary-400 text-sm">
                     {(Number(score) * 100).toFixed(0)}%
                   </span>
@@ -111,8 +111,8 @@ export default function MovieSidebar({ movie }: MovieSidebarProps) {
 
       {/* Weather Scores */}
       {movie.weather_scores && Object.keys(movie.weather_scores).length > 0 && (
-        <div className="p-6 bg-dark-100 rounded-lg space-y-5">
-          <h3 className="text-lg font-semibold text-white">날씨별 추천</h3>
+        <div className="p-6 bg-surface-card rounded-lg space-y-5">
+          <h3 className="text-lg font-semibold text-fg">날씨별 추천</h3>
           <div className="space-y-2">
             {Object.entries(movie.weather_scores)
               .sort(([, a], [, b]) => b - a)
@@ -121,9 +121,9 @@ export default function MovieSidebar({ movie }: MovieSidebarProps) {
                   key={w}
                   href={`/movies?weather=${w}`}
                   title={`${WEATHER_LABEL[w]} 추천 영화 보기`}
-                  className="flex items-center justify-between p-2 bg-dark-200 rounded hover:bg-sky-600/20 transition cursor-pointer"
+                  className="flex items-center justify-between p-2 bg-surface rounded hover:bg-sky-600/20 transition cursor-pointer"
                 >
-                  <span className="text-white/80 text-sm">
+                  <span className="text-fg/80 text-sm">
                     {WEATHER_EMOJI[w]} {WEATHER_LABEL[w]}
                   </span>
                   <span className="text-blue-400 text-sm">

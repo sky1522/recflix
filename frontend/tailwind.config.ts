@@ -27,6 +27,14 @@ const config: Config = {
           200: "#141414",
           300: "#0a0a0a",
         },
+        surface: {
+          DEFAULT: "rgb(var(--surface-main) / <alpha-value>)",
+          card: "rgb(var(--surface-card) / <alpha-value>)",
+          deep: "rgb(var(--surface-deep) / <alpha-value>)",
+        },
+        fg: "rgb(var(--fg) / <alpha-value>)",
+        overlay: "rgb(var(--overlay) / <alpha-value>)",
+        divider: "rgb(var(--divider) / <alpha-value>)",
       },
       animation: {
         "fade-in": "fadeIn 0.3s ease-in-out",

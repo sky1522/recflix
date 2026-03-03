@@ -89,16 +89,16 @@ export default function MovieRow({ title, description, subtitle, movies, display
     <section ref={impressionRef} className="relative group/row">
       {/* Header */}
       <div className="mb-3 flex items-baseline gap-3">
-        <h2 className="text-xl md:text-2xl font-bold text-white flex-shrink-0">{title}</h2>
+        <h2 className="text-xl md:text-2xl font-bold text-fg flex-shrink-0">{title}</h2>
         {subtitle && (
-          <span className="hidden sm:inline text-sm text-white/40 truncate">{subtitle}</span>
+          <span className="hidden sm:inline text-sm text-fg/40 truncate">{subtitle}</span>
         )}
         {/* Refresh Button */}
         {movies.length > displayCount && (
           <button
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="ml-auto p-2.5 sm:p-1.5 rounded-full hover:bg-white/10 transition-colors group/refresh flex-shrink-0 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
+            className="ml-auto p-2.5 sm:p-1.5 rounded-full hover:bg-overlay/10 transition-colors group/refresh flex-shrink-0 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
             title="다른 영화 보기"
           >
             <RefreshCw

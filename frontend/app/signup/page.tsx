@@ -60,26 +60,26 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-dark-200">
+    <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-surface">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="text-4xl font-bold text-primary-500">
             RecFlix
           </Link>
-          <p className="text-white/60 mt-2">맞춤형 영화 추천 플랫폼</p>
+          <p className="text-fg/60 mt-2">맞춤형 영화 추천 플랫폼</p>
         </div>
 
         {/* Signup Form */}
-        <div className="relative bg-dark-100 rounded-lg p-8">
+        <div className="relative bg-surface-card rounded-lg p-8">
           <button
             onClick={() => router.back()}
             aria-label="닫기"
-            className="absolute top-3 right-3 p-2.5 text-white/40 hover:text-white hover:bg-white/10 rounded-full transition min-w-[44px] min-h-[44px] flex items-center justify-center"
+            className="absolute top-3 right-3 p-2.5 text-fg/40 hover:text-fg hover:bg-overlay/10 rounded-full transition min-w-[44px] min-h-[44px] flex items-center justify-center"
           >
             <X className="w-5 h-5" />
           </button>
-          <h1 className="text-2xl font-bold text-white mb-6">회원가입</h1>
+          <h1 className="text-2xl font-bold text-fg mb-6">회원가입</h1>
 
           {error && (
             <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-md text-red-500 text-sm">
@@ -89,7 +89,7 @@ export default function SignupPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-white/80 mb-1.5">
+              <label className="block text-sm font-medium text-fg/80 mb-1.5">
                 이메일 *
               </label>
               <input
@@ -97,14 +97,14 @@ export default function SignupPage() {
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                className="w-full px-4 py-3 bg-dark-200 border border-white/10 rounded-md text-white placeholder-white/40 focus:outline-none focus:border-primary-500 transition text-base"
+                className="w-full px-4 py-3 bg-surface border border-divider/10 rounded-md text-fg placeholder-fg/40 focus:outline-none focus:border-primary-500 transition text-base"
                 placeholder="your@email.com"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-white/80 mb-1.5">
+              <label className="block text-sm font-medium text-fg/80 mb-1.5">
                 닉네임 *
               </label>
               <input
@@ -112,14 +112,14 @@ export default function SignupPage() {
                 name="nickname"
                 value={formData.nickname}
                 onChange={handleChange}
-                className="w-full px-4 py-3 bg-dark-200 border border-white/10 rounded-md text-white placeholder-white/40 focus:outline-none focus:border-primary-500 transition text-base"
+                className="w-full px-4 py-3 bg-surface border border-divider/10 rounded-md text-fg placeholder-fg/40 focus:outline-none focus:border-primary-500 transition text-base"
                 placeholder="닉네임을 입력하세요"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-white/80 mb-1.5">
+              <label className="block text-sm font-medium text-fg/80 mb-1.5">
                 비밀번호 *
               </label>
               <input
@@ -127,14 +127,14 @@ export default function SignupPage() {
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                className="w-full px-4 py-3 bg-dark-200 border border-white/10 rounded-md text-white placeholder-white/40 focus:outline-none focus:border-primary-500 transition text-base"
+                className="w-full px-4 py-3 bg-surface border border-divider/10 rounded-md text-fg placeholder-fg/40 focus:outline-none focus:border-primary-500 transition text-base"
                 placeholder="6자 이상"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-white/80 mb-1.5">
+              <label className="block text-sm font-medium text-fg/80 mb-1.5">
                 비밀번호 확인 *
               </label>
               <input
@@ -142,21 +142,21 @@ export default function SignupPage() {
                 name="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={handleChange}
-                className="w-full px-4 py-3 bg-dark-200 border border-white/10 rounded-md text-white placeholder-white/40 focus:outline-none focus:border-primary-500 transition text-base"
+                className="w-full px-4 py-3 bg-surface border border-divider/10 rounded-md text-fg placeholder-fg/40 focus:outline-none focus:border-primary-500 transition text-base"
                 placeholder="비밀번호를 다시 입력"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-white/80 mb-1.5">
+              <label className="block text-sm font-medium text-fg/80 mb-1.5">
                 MBTI (선택)
               </label>
               <select
                 name="mbti"
                 value={formData.mbti}
                 onChange={handleChange}
-                className="w-full px-4 py-2.5 bg-dark-200 border border-white/10 rounded-md text-white focus:outline-none focus:border-primary-500 transition"
+                className="w-full px-4 py-2.5 bg-surface border border-divider/10 rounded-md text-fg focus:outline-none focus:border-primary-500 transition"
               >
                 <option value="">선택 안함</option>
                 {MBTI_TYPES.map((type) => (
@@ -165,7 +165,7 @@ export default function SignupPage() {
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-white/40 mt-1">
+              <p className="text-xs text-fg/40 mt-1">
                 MBTI를 입력하면 더 정확한 추천을 받을 수 있어요!
               </p>
             </div>
@@ -182,10 +182,10 @@ export default function SignupPage() {
           {/* Divider */}
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-white/10" />
+              <div className="w-full border-t border-divider/10" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-3 bg-dark-100 text-white/40">또는</span>
+              <span className="px-3 bg-surface-card text-fg/40">또는</span>
             </div>
           </div>
 
@@ -231,7 +231,7 @@ export default function SignupPage() {
             </button>
           </div>
 
-          <div className="mt-6 text-center text-white/60">
+          <div className="mt-6 text-center text-fg/60">
             이미 계정이 있으신가요?{" "}
             <Link href="/login" className="text-primary-500 hover:text-primary-400 transition">
               로그인

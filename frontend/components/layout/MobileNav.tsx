@@ -23,7 +23,7 @@ export default function MobileNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-dark-200/95 backdrop-blur-sm border-t border-white/10 md:hidden safe-area-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-surface/95 backdrop-blur-sm border-t border-divider/10 md:hidden safe-area-bottom">
       <div className="flex items-center justify-around h-16">
         {navItems.map((item) => {
           // Skip auth-required items for non-authenticated users
@@ -39,7 +39,7 @@ export default function MobileNav() {
               key={item.href}
               href={item.href}
               className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
-                active ? "text-primary-500" : "text-white/60"
+                active ? "text-primary-500" : "text-fg/60"
               }`}
             >
               <Icon className={`w-5 h-5 ${active ? "fill-current" : ""}`} />

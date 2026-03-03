@@ -9,7 +9,7 @@ interface SkeletonProps {
 export function Skeleton({ className = "" }: SkeletonProps) {
   return (
     <motion.div
-      className={`bg-white/10 rounded ${className}`}
+      className={`bg-overlay/10 rounded ${className}`}
       animate={{
         opacity: [0.5, 0.8, 0.5],
       }}
@@ -71,7 +71,7 @@ export function FeaturedBannerSkeleton() {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="relative w-full h-[50vh] md:h-[70vh] bg-dark-100"
+      className="relative w-full h-[50vh] md:h-[70vh] bg-surface-card"
     >
       <Skeleton className="absolute inset-0" />
       <div className="absolute bottom-0 left-0 right-0 p-8">
@@ -92,7 +92,7 @@ export function WeatherBannerSkeleton() {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="relative w-full h-48 md:h-64 rounded-lg overflow-hidden bg-dark-100"
+      className="relative w-full h-48 md:h-64 rounded-lg overflow-hidden bg-surface-card"
     >
       <Skeleton className="absolute inset-0" />
       <div className="absolute inset-0 flex items-center justify-center">

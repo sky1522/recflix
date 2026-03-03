@@ -1,6 +1,6 @@
 export default function MovieDetailLoading() {
   return (
-    <div className="min-h-screen bg-dark-200">
+    <div className="min-h-screen bg-surface">
       {/* Hero area */}
       <div className="relative h-[50vh] bg-zinc-800/50 animate-pulse" />
 

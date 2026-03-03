@@ -46,7 +46,7 @@ export default function MovieFilters({
         value={selectedGenre}
         onChange={(e) => onUpdateParams({ genre: e.target.value, page: null })}
         aria-label="장르 선택"
-        className="px-4 py-2.5 bg-dark-100 border border-white/10 rounded-lg text-white focus:outline-none focus:border-primary-500 transition"
+        className="px-4 py-2.5 bg-surface-card border border-divider/10 rounded-lg text-fg focus:outline-none focus:border-primary-500 transition"
       >
         <option value="">모든 장르</option>
         {genres.map((genre) => (
@@ -61,7 +61,7 @@ export default function MovieFilters({
         value={selectedAgeRating}
         onChange={(e) => onUpdateParams({ age_rating: e.target.value, page: null })}
         aria-label="연령 등급 선택"
-        className="px-4 py-2.5 bg-dark-100 border border-white/10 rounded-lg text-white focus:outline-none focus:border-primary-500 transition"
+        className="px-4 py-2.5 bg-surface-card border border-divider/10 rounded-lg text-fg focus:outline-none focus:border-primary-500 transition"
       >
         {AGE_RATING_OPTIONS.map((option) => (
           <option key={option.value} value={option.value}>
@@ -75,7 +75,7 @@ export default function MovieFilters({
         value={sortBy}
         onChange={(e) => onUpdateParams({ sort: e.target.value, page: null })}
         aria-label="정렬 방식"
-        className="px-4 py-2.5 bg-dark-100 border border-white/10 rounded-lg text-white focus:outline-none focus:border-primary-500 transition"
+        className="px-4 py-2.5 bg-surface-card border border-divider/10 rounded-lg text-fg focus:outline-none focus:border-primary-500 transition"
       >
         {SORT_OPTIONS.map((option) => (
           <option key={option.value} value={option.value}>
@@ -90,7 +90,7 @@ export default function MovieFilters({
         className={`px-4 py-2.5 rounded-lg transition flex items-center space-x-2 ${
           useInfiniteMode
             ? "bg-primary-600 text-white"
-            : "bg-white/10 text-white/70 hover:bg-white/20"
+            : "bg-overlay/10 text-fg/70 hover:bg-overlay/20"
         }`}
       >
         <RefreshCw className="w-4 h-4" />
@@ -101,7 +101,7 @@ export default function MovieFilters({
       {(query || selectedGenre || selectedAgeRating) && (
         <button
           onClick={onClearFilters}
-          className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition"
+          className="px-4 py-2.5 bg-overlay/10 hover:bg-overlay/20 text-fg rounded-lg transition"
         >
           필터 초기화
         </button>

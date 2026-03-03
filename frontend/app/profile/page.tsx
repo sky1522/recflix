@@ -1,23 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Settings, ChevronRight } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { getMBTIColor } from "@/lib/utils";
 import type { MBTIType } from "@/types";
 
-const MBTI_TYPES: MBTIType[] = [
-  "INTJ", "INTP", "ENTJ", "ENTP",
-  "INFJ", "INFP", "ENFJ", "ENFP",
-  "ISTJ", "ISFJ", "ESTJ", "ESFJ",
-  "ISTP", "ISFP", "ESTP", "ESFP",
-];
-
 export default function ProfilePage() {
   const router = useRouter();
-  const { user, isAuthenticated, fetchUser, updateMBTI, logout } = useAuthStore();
-  const [selectedMBTI, setSelectedMBTI] = useState("");
-  const [saving, setSaving] = useState(false);
+  const { user, isAuthenticated, fetchUser } = useAuthStore();
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -26,24 +19,6 @@ export default function ProfilePage() {
     }
     fetchUser();
   }, [isAuthenticated, router, fetchUser]);
-
-  useEffect(() => {
-    if (user?.mbti) {
-      setSelectedMBTI(user.mbti);
-    }
-  }, [user]);
-
-  const handleMBTIChange = async (mbti: string) => {
-    setSelectedMBTI(mbti);
-    setSaving(true);
-    try {
-      await updateMBTI(mbti);
-    } catch (error) {
-      console.error("Failed to update MBTI:", error);
-    } finally {
-      setSaving(false);
-    }
-  };
 
   if (!user) {
     return (
@@ -54,10 +29,10 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen py-12 px-4 bg-dark-200">
+    <div className="min-h-screen py-12 px-4 bg-surface">
       <div className="max-w-2xl mx-auto">
         {/* Profile Header */}
-        <div className="bg-dark-100 rounded-lg p-8 mb-6">
+        <div className="bg-surface-card rounded-lg p-8 mb-6 border border-divider/10">
           <div className="flex items-center space-x-4">
             <div className="w-20 h-20 rounded-full bg-primary-600 flex items-center justify-center">
               <span className="text-3xl font-bold text-white">
@@ -65,59 +40,36 @@ export default function ProfilePage() {
               </span>
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white">{user.nickname}</h1>
-              <p className="text-white/60">{user.email}</p>
+              <h1 className="text-2xl font-bold text-fg">{user.nickname}</h1>
+              <p className="text-fg/60">{user.email}</p>
               {user.mbti && (
-                <span className={`inline-block mt-2 px-3 py-1 rounded-full text-sm text-white ${getMBTIColor(user.mbti)}`}>
+                <span className={`inline-block mt-2 px-3 py-1 rounded-full text-sm text-white ${getMBTIColor(user.mbti as MBTIType)}`}>
                   {user.mbti}
                 </span>
+              )}
+              {user.auth_provider && (
+                <p className="text-fg/40 text-xs mt-1">
+                  {user.auth_provider === "kakao" ? "카카오" : user.auth_provider === "google" ? "Google" : "이메일"} 로그인
+                </p>
               )}
             </div>
           </div>
         </div>
 
-        {/* MBTI Selection */}
-        <div className="bg-dark-100 rounded-lg p-8 mb-6">
-          <h2 className="text-xl font-bold text-white mb-4">MBTI 설정</h2>
-          <p className="text-white/60 mb-6">
-            MBTI를 설정하면 성격에 맞는 영화를 추천받을 수 있어요.
-          </p>
-
-          <div className="grid grid-cols-4 gap-3">
-            {MBTI_TYPES.map((mbti) => (
-              <button
-                key={mbti}
-                onClick={() => handleMBTIChange(mbti)}
-                disabled={saving}
-                className={`py-3 rounded-lg font-medium transition ${
-                  selectedMBTI === mbti
-                    ? `${getMBTIColor(mbti)} text-white`
-                    : "bg-dark-200 text-white/60 hover:bg-dark-200/70"
-                }`}
-              >
-                {mbti}
-              </button>
-            ))}
+        {/* Settings Link */}
+        <Link
+          href="/settings"
+          className="flex items-center justify-between bg-surface-card rounded-lg p-5 border border-divider/10 hover:bg-overlay/5 transition"
+        >
+          <div className="flex items-center gap-3">
+            <Settings className="w-5 h-5 text-fg/60" />
+            <div>
+              <p className="text-fg font-medium">사용자 설정</p>
+              <p className="text-fg/50 text-sm">MBTI, 선호 장르, 테마 등을 설정하세요</p>
+            </div>
           </div>
-
-          {saving && (
-            <p className="text-primary-500 text-sm mt-4">저장 중...</p>
-          )}
-        </div>
-
-        {/* Account Actions */}
-        <div className="bg-dark-100 rounded-lg p-8">
-          <h2 className="text-xl font-bold text-white mb-4">계정</h2>
-          <button
-            onClick={() => {
-              logout();
-              router.push("/");
-            }}
-            className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-md transition min-h-[44px]"
-          >
-            로그아웃
-          </button>
-        </div>
+          <ChevronRight className="w-5 h-5 text-fg/30" />
+        </Link>
       </div>
     </div>
   );

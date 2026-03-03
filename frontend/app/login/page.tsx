@@ -40,7 +40,7 @@ function LoginContent() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-8 bg-dark-200">
+    <div className="min-h-screen flex items-center justify-center px-4 py-8 bg-surface">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -51,19 +51,19 @@ function LoginContent() {
           <Link href="/" className="text-3xl md:text-4xl font-bold text-primary-500">
             RecFlix
           </Link>
-          <p className="text-white/60 mt-2 text-sm md:text-base">맞춤형 영화 추천 플랫폼</p>
+          <p className="text-fg/60 mt-2 text-sm md:text-base">맞춤형 영화 추천 플랫폼</p>
         </div>
 
         {/* Login Form */}
-        <div className="relative bg-dark-100 rounded-xl p-6 md:p-8 shadow-xl">
+        <div className="relative bg-surface-card rounded-xl p-6 md:p-8 shadow-xl">
           <button
             onClick={() => router.back()}
             aria-label="닫기"
-            className="absolute top-3 right-3 p-2.5 text-white/40 hover:text-white hover:bg-white/10 rounded-full transition min-w-[44px] min-h-[44px] flex items-center justify-center"
+            className="absolute top-3 right-3 p-2.5 text-fg/40 hover:text-fg hover:bg-overlay/10 rounded-full transition min-w-[44px] min-h-[44px] flex items-center justify-center"
           >
             <X className="w-5 h-5" />
           </button>
-          <h1 className="text-xl md:text-2xl font-bold text-white mb-6">로그인</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-fg mb-6">로그인</h1>
 
           {error && (
             <motion.div
@@ -77,16 +77,16 @@ function LoginContent() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-white/80 mb-1.5">
+              <label className="block text-sm font-medium text-fg/80 mb-1.5">
                 이메일
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-fg/40" />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-dark-200 border border-white/10 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-primary-500 transition text-base"
+                  className="w-full pl-10 pr-4 py-3 bg-surface border border-divider/10 rounded-lg text-fg placeholder-fg/40 focus:outline-none focus:border-primary-500 transition text-base"
                   placeholder="your@email.com"
                   required
                   autoComplete="email"
@@ -95,16 +95,16 @@ function LoginContent() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-white/80 mb-1.5">
+              <label className="block text-sm font-medium text-fg/80 mb-1.5">
                 비밀번호
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-fg/40" />
                 <input
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-12 py-3 bg-dark-200 border border-white/10 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-primary-500 transition text-base"
+                  className="w-full pl-10 pr-12 py-3 bg-surface border border-divider/10 rounded-lg text-fg placeholder-fg/40 focus:outline-none focus:border-primary-500 transition text-base"
                   placeholder="••••••••"
                   required
                   autoComplete="current-password"
@@ -113,7 +113,7 @@ function LoginContent() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-white/40 hover:text-white/60 transition"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-fg/40 hover:text-fg/60 transition"
                 >
                   {showPassword ? (
                     <EyeOff className="w-5 h-5" />
@@ -143,10 +143,10 @@ function LoginContent() {
           {/* Divider */}
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-white/10" />
+              <div className="w-full border-t border-divider/10" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-3 bg-dark-100 text-white/40">또는</span>
+              <span className="px-3 bg-surface-card text-fg/40">또는</span>
             </div>
           </div>
 
@@ -192,7 +192,7 @@ function LoginContent() {
             </button>
           </div>
 
-          <div className="mt-6 text-center text-white/60 text-sm md:text-base">
+          <div className="mt-6 text-center text-fg/60 text-sm md:text-base">
             계정이 없으신가요?{" "}
             <Link href="/signup" className="text-primary-500 hover:text-primary-400 transition font-medium">
               회원가입
@@ -206,7 +206,7 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-dark-200" />}>
+    <Suspense fallback={<div className="min-h-screen bg-surface" />}>
       <LoginContent />
     </Suspense>
   );

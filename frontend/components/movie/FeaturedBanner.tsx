@@ -79,9 +79,9 @@ export default function FeaturedBanner({ movie }: FeaturedBannerProps) {
             priority
           />
           {/* Gradient Overlays */}
-          <div className="absolute inset-0 bg-gradient-to-r from-dark-200 via-dark-200/70 to-dark-200/30" />
-          <div className="absolute inset-0 bg-gradient-to-t from-dark-200 via-transparent to-dark-200/50" />
-          <div className="absolute inset-0 bg-gradient-to-b from-dark-200/60 via-transparent to-dark-200" />
+          <div className="absolute inset-0 bg-gradient-to-r from-surface via-surface/70 to-surface/30" />
+          <div className="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-surface/50" />
+          <div className="absolute inset-0 bg-gradient-to-b from-surface/60 via-transparent to-surface" />
         </div>
 
         {/* Content Container */}

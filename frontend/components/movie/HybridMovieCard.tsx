@@ -83,7 +83,7 @@ export default function HybridMovieCard({ movie, index = 0, showQuickView = true
           }}
         >
           {/* Poster Container */}
-          <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-dark-100 ring-2 ring-primary-500/30 group-hover:ring-primary-500/70 transition-all duration-300 cursor-pointer">
+          <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-surface-card ring-2 ring-primary-500/30 group-hover:ring-primary-500/70 transition-all duration-300 cursor-pointer">
             {movie.poster_path && !imageError ? (
               <Image
                 src={getImageUrl(movie.poster_path, "w342")}
@@ -94,8 +94,8 @@ export default function HybridMovieCard({ movie, index = 0, showQuickView = true
                 sizes="(max-width: 640px) 160px, 180px"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-dark-100">
-                <span className="text-white/30 text-4xl">🎬</span>
+              <div className="w-full h-full flex items-center justify-center bg-surface-card">
+                <span className="text-fg/30 text-4xl">🎬</span>
               </div>
             )}
 
@@ -146,11 +146,11 @@ export default function HybridMovieCard({ movie, index = 0, showQuickView = true
 
           {/* Info - 중앙 정렬 */}
           <div className="mt-2 space-y-1 text-center">
-            <h3 className="text-white font-medium text-sm truncate group-hover:text-primary-400 transition">
+            <h3 className="text-fg font-medium text-sm truncate group-hover:text-primary-400 transition">
               {displayTitle}
             </h3>
 
-            <div className="flex items-center justify-center gap-1.5 text-xs text-white/50">
+            <div className="flex items-center justify-center gap-1.5 text-xs text-fg/50">
               {year && <span>{year}</span>}
               {movie.genres.length > 0 && (
                 <>
@@ -171,7 +171,7 @@ export default function HybridMovieCard({ movie, index = 0, showQuickView = true
 
             {/* Recommendation Reason */}
             {movie.recommendation_reason && (
-              <p className="text-xs text-white/50 italic line-clamp-2 mt-1">
+              <p className="text-xs text-fg/50 italic line-clamp-2 mt-1">
                 {movie.recommendation_reason}
               </p>
             )}
