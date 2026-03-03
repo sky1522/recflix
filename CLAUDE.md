@@ -80,7 +80,8 @@ frontend/
       [id]/page.tsx        # 영화 상세 (263줄, 동적 OG 태그)
     login/page.tsx         # 로그인 (Kakao/Google 소셜 로그인)
     signup/page.tsx        # 회원가입 + MBTI 선택
-    profile/page.tsx       # 프로필 + MBTI 변경
+    profile/page.tsx       # 프로필 정보 + 설정 링크
+    settings/page.tsx      # 설정 (닉네임, MBTI, 장르, 테마, 계정)
     favorites/page.tsx     # 찜 목록
     ratings/page.tsx       # 내 평점 목록
     onboarding/page.tsx    # 온보딩 (장르 선택 + 영화 평가)
@@ -98,25 +99,32 @@ frontend/
       MovieGrid.tsx        # 영화 그리드 레이아웃
       MovieFilters.tsx     # 영화 필터 컴포넌트
     layout/
-      Header.tsx           # 네비게이션 + 검색 + 날씨 인디케이터
-      HeaderMobileDrawer.tsx # 모바일 네비게이션 드로어
+      Header.tsx           # 네비게이션 + 검색 + 날씨/기분/MBTI 드롭다운 + 프로필 드롭다운
+      HeaderMobileDrawer.tsx # 모바일 드로어 (날씨/기분/MBTI 그리드 + 네비)
+      MBTIModal.tsx        # MBTI 선택 모달 (설정 페이지에서 사용)
+      ThemeProvider.tsx     # 테마 클래스 적용 래퍼 (다크/라이트)
     weather/
       WeatherBanner.tsx    # 날씨 정보 + 테마 전환
     search/
       SearchAutocomplete.tsx # 자동완성 (키보드, 하이라이팅)
       SearchResults.tsx    # 검색 결과 컴포넌트
+    ui/
       HighlightText.tsx    # 검색어 하이라이팅
+      Skeleton.tsx         # 스켈레톤 로딩 UI
     ErrorBoundary.tsx      # 에러 바운더리 (전역)
   lib/
     api.ts                 # 24개 API 함수 (fetchAPI 래퍼)
     eventTracker.ts        # 사용자 행동 이벤트 배치 전송 (Beacon API)
     curationMessages.ts    # 258개 큐레이션 문구
     contextCuration.ts     # 시간대/계절/기온 컨텍스트 감지
+    searchUtils.ts         # 검색 필터 유틸리티
     constants.ts           # 캐시 키, 매직넘버 상수
     utils.ts               # 유틸리티 함수
   stores/
     authStore.ts           # Zustand: 인증 상태
     interactionStore.ts    # Zustand: 찜/평점 Optimistic UI
+    themeStore.ts          # Zustand: 다크/라이트 테마 (persist)
+    useMoodStore.ts        # Zustand: 기분 선택 상태
   hooks/
     useWeather.ts          # Geolocation + localStorage 캐시
     useInfiniteScroll.ts   # 무한스크롤
@@ -137,6 +145,8 @@ docs/
   HANDOFF_CONTEXT.md       # 프로젝트 핸드오프 컨텍스트
   PROJECT_INDEX.md         # 프로젝트 파일 인덱스
   PROJECT_REVIEW.md        # 프로젝트 리뷰 & 로드맵
+  DECISION.md              # 아키텍처 의사결정 기록
+  DATA_PREPROCESSING.md    # 데이터 전처리 파이프라인
 ```
 
 ## DB 모델

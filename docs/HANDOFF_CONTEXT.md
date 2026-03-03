@@ -1,6 +1,6 @@
 # RecFlix 프로젝트 컨텍스트 핸드오프
 
-> 클로드 웹 새 채팅에 붙여넣기용. 2026-02-27 기준. (Phase 53 완료, v2.0.0)
+> 클로드 웹 새 채팅에 붙여넣기용. 2026-03-03 기준. (Phase 54 완료, v2.0.0)
 
 ---
 
@@ -18,7 +18,7 @@
 | Backend 배포 | Railway — https://backend-production-cff2.up.railway.app |
 | API 문서 | https://backend-production-cff2.up.railway.app/docs |
 | GitHub | https://github.com/sky1522/recflix |
-| 총 커밋 | 280개+, Phase 53 완료 (v2.0.0) |
+| 총 커밋 | 290개+, Phase 54 완료 (v2.0.0) |
 | 소스 파일 | Backend 60개+ (.py) / Frontend 50개+ (.ts/.tsx) |
 
 ---
@@ -64,18 +64,21 @@ frontend/
     page.tsx                  # 홈 (배너 + 추천 Row + 큐레이션)
     movies/page.tsx           # 영화 검색 (필터/정렬/무한스크롤/시맨틱검색)
     movies/[id]/page.tsx      # 영화 상세 (231줄 + 4개 서브컴포넌트)
-    login/ signup/ profile/ favorites/ ratings/ onboarding/
+    login/ signup/ profile/ favorites/ ratings/ onboarding/ settings/
     auth/kakao/callback/ auth/google/callback/
   components/movie/
     MovieRow / HybridMovieRow / MovieCard / HybridMovieCard
-    MovieModal / FeaturedBanner
-  components/layout/ Header / MobileNav
+    MovieModal / FeaturedBanner / MovieGrid / MovieFilters / TrailerModal
+  components/layout/
+    Header (날씨/기분/MBTI/프로필 드롭다운) / HeaderMobileDrawer
+    MobileNav / MBTIModal / ThemeProvider
   components/weather/ WeatherBanner
-  components/search/ SearchAutocomplete / HighlightText
+  components/search/ SearchAutocomplete / SearchResults
+  components/ui/ HighlightText / Skeleton
   lib/
     api.ts (24개 API 함수) / curationMessages.ts (258개 문구)
-    contextCuration.ts / constants.ts / eventTracker.ts / utils.ts
-  stores/ authStore / interactionStore
+    contextCuration.ts / searchUtils.ts / constants.ts / eventTracker.ts / utils.ts
+  stores/ authStore / interactionStore / themeStore / useMoodStore
   hooks/ useWeather / useInfiniteScroll / useDebounce / useImpressionTracker
 ```
 

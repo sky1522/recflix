@@ -1,6 +1,6 @@
 # RecFlix 개발 진행 상황
 
-**최종 업데이트**: 2026-02-27 (v2.0.0)
+**최종 업데이트**: 2026-03-03 (v2.0.0 + UI 개선)
 
 ---
 
@@ -634,6 +634,27 @@
 | health 엔드포인트 v2.0 | ✅ | two_tower, reranker 상태 추가 |
 | Railway 배포 성공 | ✅ | 모든 모델 로드 확인 (v2.0.0) |
 
+### Phase 54: 프론트엔드 UI 개선 + 다크/라이트 모드 (2026-03-03)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 트레일러 새 탭 열기 | ✅ | YouTube 임베드 → 새 탭 링크 |
+| 홈 한국 인기 영화 섹션 | ✅ | 한국 제작 영화 전용 섹션 추가 |
+| 히어로 유도 UI 개선 | ✅ | 날씨/기분 유도 UI 헤더 드롭다운 이동 |
+| 트레일러 UI 일관성 통일 | ✅ | 카드/모달/상세 트레일러 버튼 스타일 통일 |
+| 날씨/기분 헤더 드롭다운 | ✅ | FeaturedBanner → Header 인라인 드롭다운 이동 |
+| MBTI 헤더 인라인 모달 | ✅ | 별도 모달 → 헤더 드롭다운으로 변경 |
+| CSS 변수 기반 테마 시스템 | ✅ | 6개 시맨틱 토큰 (surface/fg/overlay/divider) |
+| 다크/라이트 모드 | ✅ | 40개+ 컴포넌트 시맨틱 토큰 적용, FOUC 방지 |
+| themeStore | ✅ | Zustand persist, localStorage 영속화 |
+| MBTI 비로그인 지원 | ✅ | localStorage("guest_mbti") 저장, 헤더 배지 표시 |
+| 프로필 드롭다운 | ✅ | 아바타 클릭 → 설정/로그아웃 메뉴 |
+| 설정 페이지 (/settings) | ✅ | 닉네임, MBTI, 장르, 테마 토글, 계정 삭제 |
+| MBTI 드롭다운 일관성 | ✅ | 날씨/기분과 동일한 드롭다운 패턴 (4x4 그리드) |
+| 프로필 드롭다운 중복 제거 | ✅ | 찜/평점 제거 (헤더 메뉴와 중복) |
+| 설정 바로가기 제거 | ✅ | 중복 바로가기 섹션 삭제 |
+| 모바일 드로어 MBTI 그리드 | ✅ | 날씨/기분과 동일한 그리드 패턴 |
+
 ---
 
 ## 프로젝트 구조
@@ -686,6 +707,7 @@ C:\dev\recflix\
 │   │   ├── login/page.tsx
 │   │   ├── signup/page.tsx
 │   │   ├── profile/page.tsx
+│   │   ├── settings/page.tsx
 │   │   ├── movies/page.tsx
 │   │   ├── movies/[id]/layout.tsx
 │   │   ├── movies/[id]/page.tsx
@@ -702,19 +724,28 @@ C:\dev\recflix\
 │   ├── components/
 │   │   ├── layout/
 │   │   │   ├── Header.tsx
-│   │   │   └── MobileNav.tsx
+│   │   │   ├── HeaderMobileDrawer.tsx
+│   │   │   ├── MobileNav.tsx
+│   │   │   ├── MBTIModal.tsx
+│   │   │   └── ThemeProvider.tsx
 │   │   ├── movie/
 │   │   │   ├── MovieCard.tsx
 │   │   │   ├── MovieRow.tsx
 │   │   │   ├── MovieModal.tsx
-│   │   │   └── FeaturedBanner.tsx
+│   │   │   ├── FeaturedBanner.tsx
+│   │   │   ├── HybridMovieRow.tsx
+│   │   │   ├── HybridMovieCard.tsx
+│   │   │   ├── MovieGrid.tsx
+│   │   │   ├── MovieFilters.tsx
+│   │   │   └── TrailerModal.tsx
 │   │   ├── weather/WeatherBanner.tsx
-│   │   ├── search/SearchAutocomplete.tsx
-│   │   ├── ui/HighlightText.tsx
-│   │   ├── ui/Skeleton.tsx
-│   │   └── movie/
-│   │       ├── HybridMovieRow.tsx
-│   │       └── HybridMovieCard.tsx
+│   │   ├── search/
+│   │   │   ├── SearchAutocomplete.tsx
+│   │   │   └── SearchResults.tsx
+│   │   ├── ui/
+│   │   │   ├── HighlightText.tsx
+│   │   │   └── Skeleton.tsx
+│   │   └── ErrorBoundary.tsx
 │   ├── hooks/
 │   │   ├── useWeather.ts
 │   │   ├── useDebounce.ts
@@ -722,10 +753,15 @@ C:\dev\recflix\
 │   │   └── useImpressionTracker.ts
 │   ├── stores/
 │   │   ├── authStore.ts
-│   │   └── interactionStore.ts
+│   │   ├── interactionStore.ts
+│   │   ├── themeStore.ts
+│   │   └── useMoodStore.ts
 │   ├── lib/
 │   │   ├── api.ts
 │   │   ├── eventTracker.ts
+│   │   ├── curationMessages.ts
+│   │   ├── contextCuration.ts
+│   │   ├── searchUtils.ts
 │   │   ├── constants.ts
 │   │   └── utils.ts
 │   └── types/index.ts
@@ -871,6 +907,10 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 - [x] **모바일 UI/UX 개선** (터치 영역 44px + 유도섹션 thumb zone + hover-only 대응) (2026-02-24)
 - [x] **A/B 테스트 강화** (이벤트 사각지대 해소 + 통계 유의성 Z-test + 추가 메트릭 + 그룹 가중치) (2026-02-25)
 - [x] **v2.0 ML 파이프라인 프로덕션 배포** (Two-Tower + LGBM + FAISS + reco_* 테이블 + CI/CD 수정) (2026-02-27)
+- [x] **프론트엔드 UI 개선** (트레일러 새 탭, 한국 인기 영화, 헤더 드롭다운) (2026-03-03)
+- [x] **다크/라이트 모드** (CSS 변수 시맨틱 토큰, 40개+ 컴포넌트 적용, FOUC 방지) (2026-03-03)
+- [x] **MBTI 비로그인 + 프로필 드롭다운 + 설정 페이지** (2026-03-03)
+- [x] **MBTI 드롭다운 일관성 + 중복 메뉴 제거** (날씨/기분과 동일 패턴, 프로필/설정 중복 정리) (2026-03-03)
 
 ### 향후 개선사항
 - [ ] PWA 지원

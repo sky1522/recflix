@@ -1,6 +1,6 @@
 # RecFlix 시스템 아키텍처
 
-> v2.0 업데이트: 2026-02-27 — ML 추천 파이프라인, A/B 실험 프레임워크, 오프라인 평가 체계 추가
+> v2.0 업데이트: 2026-03-03 — ML 추천 파이프라인, A/B 실험 프레임워크, 다크/라이트 모드
 
 ## 전체 구조
 
@@ -8,7 +8,7 @@
 ┌──────────────────────────────────────────────────────────────────┐
 │                         Client (Browser)                        │
 │  Geolocation → useWeather → 날씨 기반 추천                       │
-│  Zustand (authStore, interactionStore) → Optimistic UI           │
+│  Zustand (auth, interaction, theme, mood) → Optimistic UI        │
 │  eventTracker → Beacon API → 행동 이벤트 배치 전송                │
 └──────────────────┬───────────────────────────────────────────────┘
                    │ HTTPS

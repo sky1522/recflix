@@ -1,7 +1,7 @@
 # 프론트엔드 패턴
 
 ## 핵심 파일
-→ `frontend/stores/` (Zustand 2개: authStore, interactionStore)
+→ `frontend/stores/` (Zustand 4개: authStore, interactionStore, themeStore, useMoodStore)
 → `frontend/hooks/` (useWeather, useInfiniteScroll, useDebounce, useImpressionTracker)
 → `frontend/lib/api.ts` (24개 API 함수, fetchAPI 래퍼)
 → `frontend/lib/constants.ts` (캐시 키, 매직넘버)
@@ -29,6 +29,17 @@
 → `frontend/stores/interactionStore.ts` 참조
 - 찜/평점 상태 캐싱
 - Optimistic UI: 요청 전 UI 즉시 반영, 실패 시 롤백
+
+### themeStore
+→ `frontend/stores/themeStore.ts` 참조
+- `theme: "dark" | "light"`, `toggleTheme()`, `setTheme()`
+- persist middleware로 localStorage 영속화 ("theme-storage")
+- `onRehydrateStorage` 콜백으로 `html.light` 클래스 적용
+
+### useMoodStore
+→ `frontend/stores/useMoodStore.ts` 참조
+- `mood: MoodType | null`, `setMood()`
+- 기분 선택 상태 관리 (8종: relaxed, tense, excited, emotional, imaginative, light, gloomy, stifled)
 
 ## API 패턴
 → `frontend/lib/api.ts` 참조
@@ -100,6 +111,39 @@ trackEvent({
   metadata: { source: "component_name", section: sectionKey },
 });
 ```
+
+## 테마 시스템 (Phase 54)
+
+### CSS 변수 기반 시맨틱 토큰
+→ `frontend/app/globals.css`, `frontend/tailwind.config.ts` 참조
+- `:root`에 다크 모드 기본값, `html.light`에 라이트 모드 오버라이드
+- 6개 시맨틱 토큰: `--surface-main`, `--surface-card`, `--surface-deep`, `--fg`, `--overlay`, `--divider`
+- Tailwind 확장: `bg-surface`, `text-fg`, `bg-overlay/10`, `border-divider/10` 등
+- `bg-dark-*` → `bg-surface-*`, `text-white` (중립 배경) → `text-fg`, `bg-white/*` → `bg-overlay/*`
+- 유지: `text-white` on 컬러 배경 (`bg-primary-600`), `bg-black/*` 백드롭, 의도적 `bg-white`
+
+### FOUC 방지
+→ `frontend/app/layout.tsx` 참조
+- `<html>` 태그에 `suppressHydrationWarning`
+- 인라인 `<script>` → localStorage 즉시 읽어 `html.light` 클래스 적용 (paint 전)
+- `ThemeProvider` 래퍼 → `useEffect`에서 theme store 동기화
+
+## 헤더 드롭다운 패턴 (Phase 54)
+
+### 4종 드롭다운 (weather/mood/mbti/profile)
+→ `frontend/components/layout/Header.tsx` 참조
+- `DropdownType = "weather" | "mood" | "mbti" | "profile" | null`
+- `openDropdown` 단일 state로 상호 배타적 관리
+- 각 드롭다운: `useRef` → `refs[]` 배열 → `mousedown` 외부 클릭 감지
+- 공유 `dropdownAnimation` 객체 (scale 0.95 → 1, opacity)
+- `AnimatePresence` + `motion.div` 패턴
+- ESC 키 닫기: `keydown` 이벤트 리스너
+
+### 게스트 MBTI 패턴
+- `useGuestMBTI()` 훅: `localStorage("guest_mbti")` 읽기/쓰기
+- `useEffect`에서 localStorage 읽기 (SSR 안전)
+- `currentMBTI = isAuthenticated ? user?.mbti : guestMBTI`
+- 인증 시 `updateMBTI()` API, 비인증 시 localStorage 저장
 
 ## 새 페이지 추가 시 체크리스트
 1. `app/경로/page.tsx` 생성
