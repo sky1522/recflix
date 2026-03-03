@@ -1,68 +1,121 @@
-# 긴급 수정: 시청하기 버튼 YouTube 새 탭 → 트레일러 팝업 모달로 변경
+# 유도 섹션(날씨/기분) 헤더 드롭다운 이동 + FeaturedBanner 정리
 
-## 문제
-영화 상세 페이지의 "시청하기" 버튼이 YouTube 페이지를 새 탭으로 열고 있음.
-미리보기(MovieModal)에서 트레일러 버튼을 누르면 팝업 모달로 깔끔하게 YouTube 영상이 재생되는 패턴이 이미 존재함.
-→ 상세 페이지의 시청하기 버튼도 동일한 팝업 모달 방식으로 구현해야 함. **일관성 필수.**
+## 목적
+히어로 영역의 fixed 유도 섹션(날씨 4종 + 기분 8종)을 헤더 메뉴 안의 드롭다운으로 이동하여 UX 개선. 히어로 영역은 영화 포스터만 깔끔하게 보이도록 정리.
 
-## 수정 추가: 메인 화면 MovieCard 트레일러 버튼 제거
-
-### 문제
-메인 화면에서 미리보기 버튼 우측에 별도 트레일러 버튼이 있음. 미리보기 안에 이미 트레일러 기능이 있으므로 **중복**. 제거해야 함.
-
-### 작업
-- 메인 화면의 MovieCard (또는 MovieRow 내 카드 컴포넌트)에서 트레일러 버튼 제거
-- 미리보기 버튼만 남기고, 트레일러는 미리보기 모달 안에서만 접근 가능하도록
-- 해당 버튼이 어떤 컴포넌트에 있는지 먼저 확인 (MovieCard.tsx? MoviePoster.tsx?)
+## 현재 구조 (확인됨)
+- 유도 섹션: `FeaturedBanner.tsx` lines 290-414, `position: fixed`, z-40
+- 날씨 상태: `useWeather` 훅 (localStorage 캐시 30분)
+- 기분 상태: `page.tsx` 로컬 useState + 모듈 캐시
+- MBTI: `useAuthStore` Zustand (서버 저장, 프로필에서 설정)
+- 추천 연결: `getHomeRecommendations(weather.condition, mood)`
 
 ---
 
-## 현재 상태 확인 (반드시 먼저)
+## 구현 계획
 
-1. **메인 화면 MovieCard의 트레일러 버튼이 어떤 컴포넌트/파일에 있는지 확인**
+### Step 1: 기분(Mood) 상태를 Zustand store로 이동
 
-2. **미리보기(MovieModal)의 트레일러 팝업이 어떻게 구현되어 있는지 확인**
-   - 어떤 컴포넌트를 사용하는지 (TrailerModal? VideoModal? 인라인 모달?)
-   - 모달 열기/닫기 상태 관리 방식 (useState? 전역 상태?)
-   - YouTube iframe 임베드 방식 (embed URL? 사이즈? 비율?)
-   - 닫기 버튼, 배경 클릭으로 닫기, ESC 키 등
+현재 mood가 `page.tsx` 로컬 state라서 헤더에서 접근 불가. Zustand store로 올려야 함.
 
-2. **해당 모달 컴포넌트가 재사용 가능한지 확인**
-   - 상세 페이지에서도 import해서 그대로 쓸 수 있는지
-   - props가 `trailerKey`만 받으면 되는지
+**새 파일: `frontend/stores/useMoodStore.ts`** (또는 기존 store에 추가)
+```typescript
+// 참고 구조 — 실제 구현 시 기존 Zustand 패턴(authStore 등) 따를 것
+interface MoodStore {
+  mood: MoodType | null;
+  setMood: (mood: MoodType | null) => void;
+}
+```
 
-## 구현
+- `page.tsx`의 `useState<MoodType | null>` → `useMoodStore` 로 교체
+- `cachedMood` 모듈 레벨 캐시 → store persist 또는 제거
+- `page.tsx`의 `useEffect([weather, mood, ...])` 에서 mood를 store에서 가져오도록 변경
 
-### 핵심: 미리보기의 트레일러 팝업과 100% 동일한 방식으로 구현
+**날씨(useWeather)는 이미 훅으로 분리되어 있으므로 헤더에서 그대로 호출 가능. 이동 불필요.**
 
-1. **기존 팝업 모달 컴포넌트 재사용**
-   - MovieModal에서 사용하는 트레일러 팝업 컴포넌트를 그대로 import
-   - 새로 만들지 말고, 기존 것을 재사용할 것
+### Step 2: 헤더에 날씨/기분 드롭다운 추가
 
-2. **상세 페이지 시청하기 버튼 수정** (`MovieHero.tsx`):
-   - 현재: `window.open(YouTube URL, '_blank')` ← 이거 제거
-   - 변경: 버튼 클릭 → 트레일러 모달 열기 (useState로 open/close)
-   - 모달 안에서 YouTube embed iframe 재생
-   - 모달 닫기: 배경 클릭, X 버튼, ESC 키
+**`frontend/components/layout/Header.tsx`** 수정:
 
-3. **trailer_key 없는 영화**: 기존대로 버튼 숨김 유지
+**데스크탑 UI:**
+- 기존 메뉴(홈, 영화 검색) 우측, 검색바 좌측 영역에 드롭다운 2개 추가
+- **날씨 드롭다운**: 현재 날씨 아이콘(☀️/🌧️/☁️/❄️) 표시 + 클릭 시 4종 선택 패널 펼침
+  - 선택된 날씨 하이라이트 (ring 또는 배경색)
+  - "실시간 날씨로 돌아가기" 버튼 (수동 선택 시만 표시)
+  - 현재 기온 표시
+- **기분 드롭다운**: 현재 기분 이모지 표시 (미선택 시 😊 기본 아이콘) + 클릭 시 8종 선택 패널 펼침
+  - 이모지 + 라벨 표시
+  - 토글 방식 (재클릭 시 해제)
+  - 선택된 기분 하이라이트
 
-### 절대 하지 말 것
-- ❌ YouTube 새 탭 열기 (window.open)
-- ❌ 새로운 모달 컴포넌트 만들기 (기존 것 재사용)
-- ❌ 미리보기와 다른 UI/동작
+**드롭다운 구현 방식:**
+- `useState(isOpen)` + Framer Motion AnimatePresence (기존 프로젝트 패턴)
+- 외부 클릭 감지 (useRef + useEffect로 document.addEventListener)
+- ESC 키로 닫기
+- 다른 드롭다운 열면 기존 드롭다운 자동 닫기
+
+**MBTI는 드롭다운 불필요:**
+- 헤더에서 현재 MBTI 표시만 (예: 프로필 아이콘 옆에 "INTJ" 텍스트)
+- 클릭 시 /profile로 이동 (기존과 동일)
+- MBTI 미설정 시 "MBTI 설정하기" 링크
+
+### Step 3: 모바일 드로어에 날씨/기분 추가
+
+**`frontend/components/layout/HeaderMobileDrawer.tsx`** 수정:
+
+- 기존 날씨 인디케이터 영역을 확장하여 날씨 4종 선택 버튼 추가
+- 기분 8종 이모지 그리드 추가 (2×4)
+- 터치 타겟 44px 이상 확보
+- 선택 시 즉시 반영 (드로어 닫지 않음, 사용자가 직접 닫기)
+- 섹션 구분: "날씨 설정", "기분 설정" 라벨 추가
+
+### Step 4: FeaturedBanner 유도 섹션 제거
+
+**`frontend/components/movie/FeaturedBanner.tsx`** 수정:
+
+- lines 290-414 유도 섹션 (fixed 영역) 전체 제거
+- 관련 props 정리: `onWeatherChange`, `onMoodChange` 등 FeaturedBanner에서 제거
+- FeaturedBanner는 순수하게 영화 포스터 + 미리보기 버튼만 남김
+- MBTI 유도 카드(로그인/설정 유도)도 헤더 쪽으로 이동 또는 제거
+
+### Step 5: page.tsx 정리
+
+**`frontend/app/page.tsx`** 수정:
+
+- mood 로컬 state 제거 → `useMoodStore()` 사용
+- weather 관련 props를 FeaturedBanner에 더 이상 전달하지 않음
+- `useEffect` 의존성에서 mood 소스를 store로 변경
+- FeaturedBanner에서 유도 관련 props 전부 제거
+
+---
+
+## 주의사항
+
+1. **홈 페이지 전용 vs 전역**: 날씨/기분 드롭다운은 **모든 페이지**에서 표시. 단, 추천 API 호출은 홈에서만 발생하므로 다른 페이지에서 변경해도 문제없음 (다음에 홈 방문 시 반영)
+
+2. **기존 동작 유지**: 날씨 또는 기분 변경 → 홈 페이지 추천 전체 갱신 (기존과 동일한 useEffect 트리거)
+
+3. **debounce 불필요**: 드롭다운에서 하나씩 선택하는 방식이므로 빠른 연속 토글 가능성 낮음. 필요 시 추후 추가
+
+4. **접근성**: 드롭다운에 aria-expanded, aria-haspopup, role="menu" 적용. 키보드 네비게이션 지원
+
+5. **애니메이션**: Framer Motion으로 드롭다운 열기/닫기 (scale + opacity, 기존 모달 패턴 참고)
+
+6. **z-index**: 헤더 드롭다운이 다른 요소 위에 표시되도록 z-50 이상
 
 ---
 
 ## 완료 조건
 
-- [ ] 시청하기 버튼 클릭 → 팝업 모달로 YouTube 트레일러 재생
-- [ ] 미리보기(MovieModal)의 트레일러 팝업과 동일한 UI/동작
-- [ ] 모달 닫기: 배경 클릭, X 버튼, ESC 키
-- [ ] trailer_key 없는 영화 → 버튼 숨김 유지
-- [ ] 모바일에서도 모달 정상 동작
-- [ ] 메인 화면 MovieCard에서 미리보기 우측 트레일러 버튼 제거됨
-- [ ] 트레일러는 미리보기 모달 안에서만 접근 가능
+- [ ] 헤더에 날씨 드롭다운: 아이콘 클릭 → 4종 선택 패널
+- [ ] 헤더에 기분 드롭다운: 이모지 클릭 → 8종 선택 패널
+- [ ] 날씨/기분 선택 시 홈 추천 갱신 (기존과 동일하게 동작)
+- [ ] 모바일 드로어에 날씨/기분 선택 UI 포함
+- [ ] FeaturedBanner fixed 유도 섹션 완전 제거
+- [ ] 히어로 영역 깔끔하게 영화 포스터만 표시
+- [ ] 외부 클릭, ESC로 드롭다운 닫기
+- [ ] 데스크탑/모바일 모두 정상 동작
+- [ ] MBTI 현재 상태 헤더에 표시 + 프로필 링크
 
 ---
 
@@ -70,21 +123,21 @@
 
 ```bash
 git add -A
-git commit -m "fix: 트레일러 UI 일관성 통일
+git commit -m "feat: 날씨/기분 유도 UI를 헤더 드롭다운으로 이동
 
-- 상세 페이지 시청하기: window.open 제거 → 팝업 모달 (미리보기와 동일)
-- 메인 화면 MovieCard: 미리보기 우측 트레일러 버튼 제거 (중복)
-- 트레일러는 미리보기 모달 내부 + 상세 페이지 시청하기에서만 접근
-- 모달 닫기: 배경 클릭, X 버튼, ESC 키 지원"
+- 헤더: 날씨 드롭다운(4종) + 기분 드롭다운(8종) 추가
+- 모바일 드로어: 날씨/기분 선택 UI 추가
+- FeaturedBanner: fixed 유도 섹션 완전 제거, 히어로 깔끔하게
+- Mood 상태: page.tsx 로컬 → Zustand store로 이동
+- 기존 추천 갱신 동작 100% 유지"
 
 git push origin main
 ```
 
 배포 후 검증:
-- 프로덕션 영화 상세 → 시청하기 클릭 → 팝업 모달로 트레일러 재생 확인
-- 미리보기 → 트레일러 버튼 클릭 → 동일한 팝업 확인 (일관성)
-- 메인 화면 MovieCard → 미리보기 버튼만 존재, 트레일러 버튼 없음 확인
-- 모바일에서 모달 동작 확인
-- trailer_key 없는 영화 → 버튼 숨김 확인
+- 데스크탑: 헤더 날씨/기분 드롭다운 동작 + 추천 갱신 확인
+- 모바일: 드로어 내 날씨/기분 선택 동작 확인
+- 히어로 영역: 유도 섹션 없이 깔끔한지 확인
+- 다른 페이지(/movies, /favorites)에서 헤더 드롭다운 표시 확인
 
 결과를 `claude_results.md`에 저장해줘.

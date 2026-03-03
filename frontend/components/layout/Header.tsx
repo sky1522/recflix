@@ -10,6 +10,7 @@ import { useMoodStore } from "@/stores/useMoodStore";
 import { useWeather } from "@/hooks/useWeather";
 import SearchAutocomplete from "@/components/search/SearchAutocomplete";
 import HeaderMobileDrawer from "@/components/layout/HeaderMobileDrawer";
+import MBTIModal from "@/components/layout/MBTIModal";
 import type { WeatherType, MoodType } from "@/types";
 
 const NAV_ITEMS = [
@@ -59,6 +60,7 @@ export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<DropdownType>(null);
+  const [mbtiModalOpen, setMbtiModalOpen] = useState(false);
 
   const weatherDropdownRef = useRef<HTMLDivElement>(null);
   const moodDropdownRef = useRef<HTMLDivElement>(null);
@@ -312,8 +314,8 @@ export default function Header() {
 
               {/* MBTI Badge (desktop) */}
               {isAuthenticated && (
-                <Link
-                  href="/profile"
+                <button
+                  onClick={() => setMbtiModalOpen(true)}
                   className="hidden md:flex items-center px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/15 transition text-xs text-white/80 hover:text-white"
                   title={user?.mbti ? `MBTI: ${user.mbti}` : "MBTI 설정하기"}
                 >
@@ -322,7 +324,7 @@ export default function Header() {
                   ) : (
                     <span className="text-white/50">MBTI 설정</span>
                   )}
-                </Link>
+                </button>
               )}
 
               <button
@@ -413,6 +415,9 @@ export default function Header() {
           />
         )}
       </AnimatePresence>
+
+      {/* MBTI Modal */}
+      {mbtiModalOpen && <MBTIModal onClose={() => setMbtiModalOpen(false)} />}
     </>
   );
 }
