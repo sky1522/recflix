@@ -69,12 +69,17 @@
 
 ## 배포 검증 결과
 
-### CI/CD
+### CI/CD (Railway 백엔드)
 - ✅ backend-lint 통과
 - ✅ backend-test 통과
 - ✅ frontend-build 통과
 - ✅ deploy-backend 성공 (Railway)
 - ⚠️ backend-typecheck 실패 (continue-on-error, 기존 타입 이슈)
+
+### Vercel 프론트엔드
+- ⚠️ Vercel GitHub 자동 배포 미동작 → `npx vercel --prod` 수동 배포로 해결
+- ✅ 프로덕션 JS 번들에 `/movies?country=`, `/movies?keyword=`, `/movies?mbti=`, `/movies?weather=` 모두 포함 확인
+- 프로덕션 청크: `page-a235fd75428358b0.js`
 
 ### 프로덕션 API 테스트
 ```
