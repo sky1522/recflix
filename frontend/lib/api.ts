@@ -141,6 +141,10 @@ export async function getMovies(params?: {
   query?: string;
   genres?: string;
   age_rating?: string;
+  country?: string;
+  keyword?: string;
+  mbti?: string;
+  weather?: string;
   page?: number;
   page_size?: number;
   sort_by?: string;
@@ -149,6 +153,10 @@ export async function getMovies(params?: {
   if (params?.query) searchParams.set("query", params.query);
   if (params?.genres) searchParams.set("genres", params.genres);
   if (params?.age_rating) searchParams.set("age_rating", params.age_rating);
+  if (params?.country) searchParams.set("country", params.country);
+  if (params?.keyword) searchParams.set("keyword", params.keyword);
+  if (params?.mbti) searchParams.set("mbti", params.mbti);
+  if (params?.weather) searchParams.set("weather", params.weather);
   if (params?.page) searchParams.set("page", params.page.toString());
   if (params?.page_size) searchParams.set("page_size", params.page_size.toString());
   if (params?.sort_by) searchParams.set("sort_by", params.sort_by);

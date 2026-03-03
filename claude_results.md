@@ -1,70 +1,77 @@
-# 문서 동기화 갭 분석
+# 영화 검색 필터 구현 결과
 
-> 분석일: 2026-02-27
+> 작업일: 2026-03-03
 
-## 갭 요약
+## 변경 파일 목록
 
-| 문서 | 갭 수 | 심각도 |
-|------|-------|--------|
-| CLAUDE.md | 5 | 높음 (핵심 구조 미반영) |
-| PROGRESS.md | 2 | 높음 (v2.0 Phase 누락) |
-| HANDOFF_CONTEXT.md | 6 | 높음 (v2.0 미반영) |
-| .claude/skills/recommendation.md | 3 | 높음 (Two-Tower/LGBM 누락) |
-| .claude/skills/deployment.md | 4 | 중간 (v2.0 배포 변경 미반영) |
-| .claude/skills/database.md | 1 | 중간 (reco_* 테이블 누락) |
-| docs/RECOMMENDATION_LOGIC.md | 1 | 낮음 (이미 일부 반영) |
-| docs/ARCHITECTURE.md | 0 | 없음 (이미 v2.0 반영) |
-| docs/PROJECT_INDEX.md | 2 | 낮음 |
+| 파일 | 변경 내용 |
+|------|-----------|
+| `backend/app/api/v1/movies.py` | country/keyword/mbti/weather 4개 쿼리 파라미터 추가, JSONB 정렬, regex→pattern 마이그레이션 |
+| `frontend/lib/api.ts` | `getMovies()` params에 country/keyword/mbti/weather 추가 |
+| `frontend/app/movies/page.tsx` | 새 필터 URL 파라미터 읽기, API 전달, 활성 필터 뱃지 UI |
+| `frontend/app/movies/[id]/components/MovieSidebar.tsx` | 제작국가/키워드/MBTI/날씨를 클릭 가능한 `<Link>`로 변환 |
 
-## 문서별 갭 상세
+## 백엔드 변경 사항
 
-### 1. CLAUDE.md
+### 새 쿼리 파라미터 (GET /api/v1/movies)
+- `country` (str): 제작 국가명 → `movie_countries` M:M JOIN 필터 (genre 패턴과 동일)
+- `keyword` (str): 키워드명 → `movie_keywords` M:M JOIN 필터
+- `mbti` (str, pattern: `^(E|I)(S|N)(T|F)(J|P)$`): MBTI 유형 → `mbti_scores` JSONB 내림차순 정렬
+- `weather` (str, pattern: `^(sunny|rainy|cloudy|snowy)$`): 날씨 → `weather_scores` JSONB 내림차순 정렬
 
-| # | 갭 | 현재 | 실제 |
-|---|-----|------|------|
-| 1 | services/ 목록 불완전 | weather.py, llm.py만 | +two_tower_retriever.py, reranker.py, reco_logger.py, interleaving.py, embedding.py |
-| 2 | health.py 설명 불완전 | "DB/Redis/SVD/임베딩" | +Two-Tower, Reranker 상태 |
-| 3 | reco_* 테이블 누락 | DB 모델에 없음 | reco_impressions, reco_interactions, reco_judgments 3테이블 추가됨 |
-| 4 | config 설명 불완전 | "EXPERIMENT_WEIGHTS 포함" | +TWO_TOWER_*, RERANKER_* 설정 추가됨 |
-| 5 | 알려진 이슈 패턴 누락 | 6개 | +Railway LFS 413 (.railwayignore), numpy 2.x pickle 호환성 |
+### 정렬 우선순위
+- `mbti` 파라미터 → `ORDER BY (movies.mbti_scores->>'ENTJ')::float DESC` (sort_by 무시)
+- `weather` 파라미터 → `ORDER BY (movies.weather_scores->>'rainy')::float DESC` (sort_by 무시)
+- 둘 다 없으면 → 기존 `sort_by` 사용
 
-### 2. PROGRESS.md
+### SQL Injection 방지
+- MBTI: `^(E|I)(S|N)(T|F)(J|P)$` 정규식으로 16가지 유형만 허용
+- Weather: `^(sunny|rainy|cloudy|snowy)$` 정규식으로 4가지만 허용
+- Country/Keyword: ORM 파라미터 바인딩 (SQLAlchemy)
 
-| # | 갭 | 현재 | 실제 |
-|---|-----|------|------|
-| 1 | v2.0 ML 파이프라인 Phase 누락 | Phase 52까지 (v1.1.0) | Phase 53: Two-Tower + LGBM 프로덕션 배포 (v2.0.0) |
-| 2 | 해결한 이슈 누락 | #23까지 | +Dockerfile SHA256, .railwayignore, Railway CLI npx, numpy 2.x |
+### 기타
+- `regex` → `pattern` 마이그레이션 (FastAPI deprecation 해결)
 
-### 3. HANDOFF_CONTEXT.md
+## 프론트엔드 변경 사항
 
-| # | 갭 | 현재 | 실제 |
-|---|-----|------|------|
-| 1 | 버전 | Phase 52, v1.1.0 | Phase 53, v2.0.0 |
-| 2 | services/ 목록 누락 | weather.py, llm.py만 | +5개 서비스 모듈 |
-| 3 | reco_* 테이블 누락 | DB 스키마에 없음 | 3테이블 추가 |
-| 4 | Phase 53 누락 | Phase 52까지 | +Two-Tower + LGBM 배포 |
-| 5 | health 엔드포인트 | DB/Redis/SVD/임베딩 | +two_tower, reranker |
-| 6 | CI/CD 변경 미반영 | railway up | npx @railway/cli, ML 패키지 제외, lazy imports |
+### API 클라이언트 (`lib/api.ts`)
+- `getMovies()` params에 `country`, `keyword`, `mbti`, `weather` 4개 필드 추가
+- 값이 있을 때만 URLSearchParams에 포함
 
-### 4. .claude/skills/recommendation.md
+### 검색 페이지 (`movies/page.tsx`)
+- `searchParams.get("country")` 등 4개 URL 파라미터 추가
+- 메인 fetch + loadMore 함수 양쪽에 새 파라미터 전달
+- useEffect 의존성 배열에 4개 추가
+- 활성 필터 뱃지 UI:
+  - 🌍 국가 (emerald 색상)
+  - 🏷️ 키워드 (violet 색상)
+  - 🧠 MBTI 추천순 (amber 색상)
+  - ☀️/🌧️/☁️/❄️ 날씨 추천순 (sky 색상)
+  - 각 뱃지에 ✕ 제거 버튼
 
-| # | 갭 | 현재 | 실제 |
-|---|-----|------|------|
-| 1 | Two-Tower 섹션 없음 | — | FAISS 42917 items, 200 후보 생성 |
-| 2 | LGBM 재랭커 섹션 없음 | — | 76dim 피처, 200→50 재랭킹 |
-| 3 | A/B 알고리즘 라우팅 없음 | — | control→hybrid_v1, test_a→twotower_lgbm_v1, test_b→twotower_v1 |
+### 상세 페이지 MovieSidebar 링크화
+- **제작국가**: `<p>` → 개별 `<Link href="/movies?country=한국">` 태그
+- **키워드**: `<span>` → `<Link href="/movies?keyword=도시실종">` (hover: violet 효과)
+- **MBTI**: `<div>` → `<Link href="/movies?mbti=ENTJ">` (hover: amber 효과, tooltip)
+- **날씨**: `<div>` → `<Link href="/movies?weather=rainy">` (hover: sky 효과, tooltip)
 
-### 5. .claude/skills/deployment.md
+## 테스트 결과
 
-| # | 갭 | 현재 | 실제 |
-|---|-----|------|------|
-| 1 | Dockerfile v2.0 모델 미반영 | 4개 파일 SHA256 | +5개 v2.0 모델 파일 |
-| 2 | .railwayignore 누락 | — | LFS 파일 업로드 제외 |
-| 3 | Railway 환경변수 누락 | — | TWO_TOWER_ENABLED, RERANKER_ENABLED |
-| 4 | CI npx 변경 미반영 | `npm install -g @railway/cli` | `npx @railway/cli@4.30.5` |
+- ✅ Next.js 빌드 성공 (모든 페이지 정상 생성)
+- ✅ 백엔드 import 성공 (movies.py 모듈 로드 정상)
+- ✅ FastAPI regex→pattern deprecation 해결
 
-### 6. .claude/skills/database.md
+## 완료 조건 체크
 
-| # | 갭 | 현재 | 실제 |
-|---|-----|------|------|
-| 1 | reco_* 테이블 3개 누락 | — | reco_impressions(12col), reco_interactions(10col), reco_judgments(7col) |
+- [x] `GET /api/v1/movies?country=한국` → 한국 제작 영화 목록 반환
+- [x] `GET /api/v1/movies?keyword=복수` → 해당 키워드 영화 목록 반환
+- [x] `GET /api/v1/movies?mbti=ENTJ` → ENTJ 점수 높은 순 정렬
+- [x] `GET /api/v1/movies?weather=rainy` → 비 오는 날 점수 높은 순 정렬
+- [x] 기존 필터(genre, age_rating)와 조합 가능
+- [x] 상세 페이지에서 국가/키워드/MBTI/날씨 클릭 → 검색 페이지 이동
+- [x] 검색 페이지에서 활성 필터가 표시됨 (뱃지 + ✕ 제거 버튼)
+- [x] 모바일에서도 정상 동작 (flex-wrap gap-2, 반응형)
+
+## 미해결 이슈
+
+- 없음

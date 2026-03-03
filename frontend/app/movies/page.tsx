@@ -37,6 +37,10 @@ function MoviesPageContent() {
   const selectedAgeRating = searchParams.get("age_rating") || "";
   const sortBy = searchParams.get("sort") || "popularity";
   const currentPage = Number(searchParams.get("page")) || 1;
+  const selectedCountry = searchParams.get("country") || "";
+  const selectedKeyword = searchParams.get("keyword") || "";
+  const selectedMbti = searchParams.get("mbti") || "";
+  const selectedWeather = searchParams.get("weather") || "";
 
   // Infinite scroll mode
   const [useInfiniteMode, setUseInfiniteMode] = useState(false);
@@ -84,6 +88,10 @@ function MoviesPageContent() {
           query: query || undefined,
           genres: selectedGenre || undefined,
           age_rating: selectedAgeRating || undefined,
+          country: selectedCountry || undefined,
+          keyword: selectedKeyword || undefined,
+          mbti: selectedMbti || undefined,
+          weather: selectedWeather || undefined,
           page: currentPage,
           page_size: 24,
           sort_by: sortBy,
@@ -105,7 +113,7 @@ function MoviesPageContent() {
     };
     fetchMovies();
     window.scrollTo(0, 0);
-  }, [query, selectedGenre, selectedAgeRating, sortBy, currentPage]);
+  }, [query, selectedGenre, selectedAgeRating, sortBy, currentPage, selectedCountry, selectedKeyword, selectedMbti, selectedWeather]);
 
   // Semantic search for natural language queries
   useEffect(() => {
@@ -148,6 +156,10 @@ function MoviesPageContent() {
         query: query || undefined,
         genres: selectedGenre || undefined,
         age_rating: selectedAgeRating || undefined,
+        country: selectedCountry || undefined,
+        keyword: selectedKeyword || undefined,
+        mbti: selectedMbti || undefined,
+        weather: selectedWeather || undefined,
         page: nextPage,
         page_size: 24,
         sort_by: sortBy,
@@ -159,7 +171,7 @@ function MoviesPageContent() {
     } finally {
       setLoadingMore(false);
     }
-  }, [infinitePage, totalPages, loadingMore, query, selectedGenre, selectedAgeRating, sortBy]);
+  }, [infinitePage, totalPages, loadingMore, query, selectedGenre, selectedAgeRating, sortBy, selectedCountry, selectedKeyword, selectedMbti, selectedWeather]);
 
   const { loadMoreRef } = useInfiniteScroll({
     onLoadMore: loadMore,
@@ -202,16 +214,42 @@ function MoviesPageContent() {
             onClearFilters={() => router.push("/movies")}
           />
 
-          {query && (
+          {(query || selectedCountry || selectedKeyword || selectedMbti || selectedWeather) && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mt-4 flex items-center space-x-2"
+              className="mt-4 flex items-center flex-wrap gap-2"
             >
-              <span className="text-white/60">검색어:</span>
-              <span className="px-3 py-1 bg-primary-600/20 text-primary-400 rounded-full text-sm">
-                &quot;{query}&quot;
-              </span>
+              {query && (
+                <span className="px-3 py-1 bg-primary-600/20 text-primary-400 rounded-full text-sm flex items-center gap-1.5">
+                  검색: &quot;{query}&quot;
+                  <button onClick={() => updateParams({ query: null, page: null })} className="hover:text-white transition">✕</button>
+                </span>
+              )}
+              {selectedCountry && (
+                <span className="px-3 py-1 bg-emerald-600/20 text-emerald-400 rounded-full text-sm flex items-center gap-1.5">
+                  🌍 {selectedCountry}
+                  <button onClick={() => updateParams({ country: null, page: null })} className="hover:text-white transition">✕</button>
+                </span>
+              )}
+              {selectedKeyword && (
+                <span className="px-3 py-1 bg-violet-600/20 text-violet-400 rounded-full text-sm flex items-center gap-1.5">
+                  🏷️ {selectedKeyword}
+                  <button onClick={() => updateParams({ keyword: null, page: null })} className="hover:text-white transition">✕</button>
+                </span>
+              )}
+              {selectedMbti && (
+                <span className="px-3 py-1 bg-amber-600/20 text-amber-400 rounded-full text-sm flex items-center gap-1.5">
+                  🧠 {selectedMbti} 추천순
+                  <button onClick={() => updateParams({ mbti: null, page: null })} className="hover:text-white transition">✕</button>
+                </span>
+              )}
+              {selectedWeather && (
+                <span className="px-3 py-1 bg-sky-600/20 text-sky-400 rounded-full text-sm flex items-center gap-1.5">
+                  {{ sunny: "☀️ 맑은 날", rainy: "🌧️ 비 오는 날", cloudy: "☁️ 흐린 날", snowy: "❄️ 눈 오는 날" }[selectedWeather]} 추천순
+                  <button onClick={() => updateParams({ weather: null, page: null })} className="hover:text-white transition">✕</button>
+                </span>
+              )}
             </motion.div>
           )}
         </div>

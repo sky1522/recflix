@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { getPopularityScore } from "@/lib/utils";
 import type { MovieDetail } from "@/types";
@@ -37,10 +38,20 @@ export default function MovieSidebar({ movie }: MovieSidebarProps) {
         <h3 className="text-lg font-semibold text-white">영화 정보</h3>
 
         {/* Countries */}
-        {(movie.production_countries_ko || (movie.countries && movie.countries.length > 0)) && (
+        {(movie.countries && movie.countries.length > 0) && (
           <div>
             <p className="text-white/50 text-sm mb-2">🌍 제작 국가</p>
-            <p className="text-white/80 text-sm">{movie.production_countries_ko || movie.countries.join(", ")}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {movie.countries.map((c) => (
+                <Link
+                  key={c}
+                  href={`/movies?country=${encodeURIComponent(c)}`}
+                  className="px-2 py-1 bg-dark-200 rounded text-xs text-white/70 hover:bg-white/20 hover:text-white transition cursor-pointer"
+                >
+                  {c}
+                </Link>
+              ))}
+            </div>
           </div>
         )}
 
@@ -50,12 +61,13 @@ export default function MovieSidebar({ movie }: MovieSidebarProps) {
             <p className="text-white/50 text-sm mb-2">🏷️ 키워드</p>
             <div className="flex flex-wrap gap-1.5">
               {movie.keywords.slice(0, 10).map((keyword) => (
-                <span
+                <Link
                   key={keyword}
-                  className="px-2 py-1 bg-dark-200 rounded text-xs text-white/70"
+                  href={`/movies?keyword=${encodeURIComponent(keyword)}`}
+                  className="px-2 py-1 bg-dark-200 rounded text-xs text-white/70 hover:bg-violet-600/30 hover:text-violet-300 transition cursor-pointer"
                 >
                   {keyword}
-                </span>
+                </Link>
               ))}
             </div>
           </div>
@@ -81,15 +93,17 @@ export default function MovieSidebar({ movie }: MovieSidebarProps) {
               .sort(([, a], [, b]) => b - a)
               .slice(0, 4)
               .map(([mbti, score]) => (
-                <div
+                <Link
                   key={mbti}
-                  className="flex items-center justify-between p-2 bg-dark-200 rounded"
+                  href={`/movies?mbti=${mbti}`}
+                  title={`${mbti} 추천 영화 보기`}
+                  className="flex items-center justify-between p-2 bg-dark-200 rounded hover:bg-amber-600/20 transition cursor-pointer"
                 >
                   <span className="text-white/80 text-sm font-medium">{mbti}</span>
                   <span className="text-primary-400 text-sm">
                     {(Number(score) * 100).toFixed(0)}%
                   </span>
-                </div>
+                </Link>
               ))}
           </div>
         </div>
@@ -102,18 +116,20 @@ export default function MovieSidebar({ movie }: MovieSidebarProps) {
           <div className="space-y-2">
             {Object.entries(movie.weather_scores)
               .sort(([, a], [, b]) => b - a)
-              .map(([weather, score]) => (
-                <div
-                  key={weather}
-                  className="flex items-center justify-between p-2 bg-dark-200 rounded"
+              .map(([w, score]) => (
+                <Link
+                  key={w}
+                  href={`/movies?weather=${w}`}
+                  title={`${WEATHER_LABEL[w]} 추천 영화 보기`}
+                  className="flex items-center justify-between p-2 bg-dark-200 rounded hover:bg-sky-600/20 transition cursor-pointer"
                 >
                   <span className="text-white/80 text-sm">
-                    {WEATHER_EMOJI[weather]} {WEATHER_LABEL[weather]}
+                    {WEATHER_EMOJI[w]} {WEATHER_LABEL[w]}
                   </span>
                   <span className="text-blue-400 text-sm">
                     {(Number(score) * 100).toFixed(0)}%
                   </span>
-                </div>
+                </Link>
               ))}
           </div>
         </div>

@@ -11,7 +11,7 @@ import time
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from redis.exceptions import RedisError
-from sqlalchemy import distinct, extract, func, or_, select
+from sqlalchemy import distinct, extract, func, or_, select, text
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.v1.recommendation_constants import (
@@ -22,8 +22,8 @@ from app.api.v1.recommendation_constants import (
 from app.api.v1.semantic_search import is_semantic_search_available, search_similar
 from app.core.deps import get_db
 from app.core.rate_limit import limiter
-from app.models import Genre, Movie, Person
-from app.models.movie import movie_cast, similar_movies
+from app.models import Country, Genre, Keyword, Movie, Person
+from app.models.movie import movie_cast, movie_countries, movie_keywords, similar_movies
 from app.schemas import GenreResponse, MovieDetail, MovieListItem, PaginatedMovies
 from app.services.embedding import get_query_embedding
 from app.services.llm import get_redis_client
@@ -111,13 +111,17 @@ def get_movies(
     query: str | None = None,
     genres: str | None = Query(None, description="Comma-separated genre names"),
     person: str | None = Query(None, description="Actor or director name"),
+    country: str | None = Query(None, description="Production country name"),
+    keyword: str | None = Query(None, description="Movie keyword"),
+    mbti: str | None = Query(None, pattern="^(E|I)(S|N)(T|F)(J|P)$", description="MBTI type for sorting"),
+    weather: str | None = Query(None, pattern="^(sunny|rainy|cloudy|snowy)$", description="Weather for sorting"),
     min_rating: float | None = None,
     max_rating: float | None = None,
     year_from: int | None = None,
     year_to: int | None = None,
-    age_rating: str | None = Query(None, regex="^(all|family|teen|adult)$"),
-    sort_by: str = Query("popularity", regex="^(popularity|weighted_score|release_date)$"),
-    sort_order: str = Query("desc", regex="^(asc|desc)$"),
+    age_rating: str | None = Query(None, pattern="^(all|family|teen|adult)$"),
+    sort_by: str = Query("popularity", pattern="^(popularity|weighted_score|release_date)$"),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db)
@@ -186,14 +190,43 @@ def get_movies(
             or_(Movie.certification.in_(allowed), Movie.certification.is_(None))
         )
 
+    # Filter by country (M:M JOIN)
+    if country:
+        country_movie_ids = (
+            db.query(Movie.id)
+            .join(Movie.countries)
+            .filter(Country.name == country)
+            .distinct()
+            .subquery()
+        )
+        q = q.filter(Movie.id.in_(select(country_movie_ids)))
+
+    # Filter by keyword (M:M JOIN)
+    if keyword:
+        keyword_movie_ids = (
+            db.query(Movie.id)
+            .join(Movie.keywords)
+            .filter(Keyword.name == keyword)
+            .distinct()
+            .subquery()
+        )
+        q = q.filter(Movie.id.in_(select(keyword_movie_ids)))
+
     # Get total count
     total = q.count()
 
-    # Sort
-    sort_column = getattr(Movie, sort_by)
-    if sort_order == "desc":
-        sort_column = sort_column.desc()
-    q = q.order_by(sort_column.nulls_last())
+    # Sort — MBTI/weather override sort_by
+    if mbti:
+        score_expr = text(f"(movies.mbti_scores->>'{mbti}')::float")
+        q = q.order_by(score_expr.desc().nulls_last())
+    elif weather:
+        score_expr = text(f"(movies.weather_scores->>'{weather}')::float")
+        q = q.order_by(score_expr.desc().nulls_last())
+    else:
+        sort_column = getattr(Movie, sort_by)
+        if sort_order == "desc":
+            sort_column = sort_column.desc()
+        q = q.order_by(sort_column.nulls_last())
 
     # Paginate
     offset = (page - 1) * page_size
