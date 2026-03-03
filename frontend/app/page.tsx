@@ -114,7 +114,7 @@ export default function HomePage() {
 
   // Fetch Korean popular movies (independent, one-time)
   useEffect(() => {
-    getMovies({ country: "대한민국", sort_by: "popularity", page_size: 20 })
+    getMovies({ country: "대한민국", sort_by: "popularity", page_size: 40 })
       .then((res) => setKoreanMovies(res.items))
       .catch((err) => console.error("Failed to fetch Korean movies:", err));
   }, []);
@@ -319,7 +319,7 @@ export default function HomePage() {
         {/* Korean Popular Movies */}
         {koreanMovies.length > 0 && (
           <MovieRow
-            title="한국 인기 영화"
+            title="🇰🇷 한국 인기 영화"
             subtitle="지금 한국에서 사랑받는 영화들"
             movies={koreanMovies}
             section="korean_popular"

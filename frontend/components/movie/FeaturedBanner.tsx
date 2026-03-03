@@ -31,11 +31,11 @@ const LOGIN_MESSAGES = [
 ];
 
 // 날씨 관련 설정
-const weatherConfig: Record<WeatherType, { icon: React.ReactNode; label: string; color: string }> = {
-  sunny: { icon: <Sun className="w-4 h-4" />, label: "맑음", color: "text-yellow-400" },
-  rainy: { icon: <CloudRain className="w-4 h-4" />, label: "비", color: "text-blue-400" },
-  cloudy: { icon: <Cloud className="w-4 h-4" />, label: "흐림", color: "text-gray-400" },
-  snowy: { icon: <CloudSnow className="w-4 h-4" />, label: "눈", color: "text-cyan-300" },
+const weatherConfig: Record<WeatherType, { icon: React.ReactNode; iconLg: React.ReactNode; label: string; color: string }> = {
+  sunny: { icon: <Sun className="w-4 h-4" />, iconLg: <Sun className="w-5 h-5" />, label: "맑음", color: "text-yellow-400" },
+  rainy: { icon: <CloudRain className="w-4 h-4" />, iconLg: <CloudRain className="w-5 h-5" />, label: "비", color: "text-blue-400" },
+  cloudy: { icon: <Cloud className="w-4 h-4" />, iconLg: <Cloud className="w-5 h-5" />, label: "흐림", color: "text-gray-400" },
+  snowy: { icon: <CloudSnow className="w-4 h-4" />, iconLg: <CloudSnow className="w-5 h-5" />, label: "눈", color: "text-cyan-300" },
 };
 
 // 날씨 섹션 고정 문구
@@ -321,7 +321,7 @@ export default function FeaturedBanner({
             >
               <Link
                 href={isAuthenticated ? "/profile" : "/login"}
-                className="flex items-center gap-3 w-full px-4 py-3 sm:py-2.5 bg-black/60 sm:bg-black/40 hover:bg-black/70 sm:hover:bg-black/60 backdrop-blur-md rounded-2xl border border-white/20 transition-all duration-300 group min-h-[44px]"
+                className="flex items-center gap-3 w-full px-4 py-3 sm:py-2.5 bg-black/60 sm:bg-black/40 hover:bg-black/70 sm:hover:bg-black/60 backdrop-blur-md rounded-2xl border border-white/20 hover:border-white/30 transition-all duration-300 group min-h-[44px] hover:scale-[1.01] active:scale-[0.99]"
               >
                 <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex-shrink-0">
                   {isAuthenticated ? (
@@ -357,44 +357,45 @@ export default function FeaturedBanner({
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="w-full sm:w-80 flex flex-col gap-1.5 px-4 py-2.5 bg-black/60 sm:bg-black/40 backdrop-blur-md rounded-2xl border border-white/20"
+            className="w-full sm:w-80 flex flex-col gap-2 px-4 py-3 bg-black/60 sm:bg-black/40 backdrop-blur-md rounded-2xl border border-white/20"
           >
-            <div className="text-xs text-white/70 text-center">
+            <div className="text-xs sm:text-sm text-white/70 text-center font-medium">
               {WEATHER_MESSAGE}
             </div>
-            <div className="flex items-center justify-center gap-2">
+            <div className="flex items-center justify-center gap-2 sm:gap-3">
               <div className={`flex items-center gap-1.5 ${weatherConfig[weather.condition].color}`}>
                 {weatherConfig[weather.condition].icon}
-                <span className="text-sm font-medium text-white">
+                <span className="text-sm sm:text-base font-medium text-white">
                   {weather.temperature}°C
                 </span>
               </div>
-              <div className="w-px h-4 bg-white/20" />
-              <div className="flex items-center gap-1.5 sm:gap-1">
+              <div className="w-px h-5 bg-white/20" />
+              <div className="flex items-center gap-1 sm:gap-1.5">
                 {(["sunny", "rainy", "cloudy", "snowy"] as WeatherType[]).map((w) => (
                   <button
                     key={w}
                     onClick={() => onWeatherChange?.(w)}
-                    className={`p-2.5 sm:p-1.5 rounded-full transition-all ${
+                    className={`flex items-center justify-center min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] rounded-full transition-all duration-200 ${
                       weather.condition === w
-                        ? "bg-white/25 scale-110"
-                        : "hover:bg-white/15"
+                        ? "bg-white/30 ring-2 ring-white/40 scale-110"
+                        : "hover:bg-white/15 hover:scale-105 active:scale-95"
                     } ${weatherConfig[w].color}`}
                     title={weatherConfig[w].label}
                   >
-                    {weatherConfig[w].icon}
+                    <span className="sm:hidden">{weatherConfig[w].iconLg}</span>
+                    <span className="hidden sm:inline-flex">{weatherConfig[w].icon}</span>
                   </button>
                 ))}
               </div>
               {isManualWeather && onResetWeather && (
                 <>
-                  <div className="w-px h-4 bg-white/20" />
+                  <div className="w-px h-5 bg-white/20" />
                   <button
                     onClick={onResetWeather}
-                    className="p-2.5 sm:p-1.5 rounded-full transition-all hover:bg-white/15 text-white/70 hover:text-white"
+                    className="flex items-center justify-center min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] rounded-full transition-all duration-200 hover:bg-white/15 hover:scale-105 active:scale-95 text-white/70 hover:text-white"
                     title="실시간 날씨로 복귀"
                   >
-                    <RotateCcw className="w-4 h-4" />
+                    <RotateCcw className="w-5 h-5 sm:w-4 sm:h-4" />
                   </button>
                 </>
               )}
@@ -407,24 +408,24 @@ export default function FeaturedBanner({
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="w-full sm:w-80 flex flex-col gap-1.5 px-4 py-2.5 bg-black/60 sm:bg-black/40 backdrop-blur-md rounded-2xl border border-white/20"
+          className="w-full sm:w-80 flex flex-col gap-2 px-4 py-3 bg-black/60 sm:bg-black/40 backdrop-blur-md rounded-2xl border border-white/20"
         >
-          <div className="text-xs text-white/70 text-center">
+          <div className="text-xs sm:text-sm text-white/70 text-center font-medium">
             {MOOD_MESSAGE}
           </div>
-          <div className="grid grid-cols-4 gap-1.5 sm:gap-1">
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-1.5">
             {moodOrder.map((m) => (
               <button
                 key={m}
                 onClick={() => onMoodChange?.(mood === m ? null : m)}
-                className={`px-2 py-2 sm:px-1.5 sm:py-1 rounded-full text-xs transition-all whitespace-nowrap text-center min-h-[36px] sm:min-h-0 ${
+                className={`flex items-center justify-center px-2 py-2 sm:px-2 sm:py-1.5 rounded-lg text-xs sm:text-sm transition-all duration-200 whitespace-nowrap text-center min-h-[44px] sm:min-h-[34px] ${
                   mood === m
-                    ? "bg-white/25 scale-105"
-                    : "hover:bg-white/15"
+                    ? "bg-white/30 ring-2 ring-white/40 scale-105"
+                    : "hover:bg-white/15 hover:scale-105 active:scale-95"
                 }`}
                 title={moodConfig[m].label}
               >
-                <span>{moodConfig[m].emoji}</span>
+                <span className="text-base sm:text-sm">{moodConfig[m].emoji}</span>
                 <span className="ml-0.5 text-white/90 hidden sm:inline">{moodConfig[m].label}</span>
               </button>
             ))}
