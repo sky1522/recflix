@@ -1,133 +1,106 @@
-# 영화 상세 페이지 → 검색 연결: country/keyword/mbti/weather 필터 구현
+# 기능 구현 2건: 트레일러 UX 변경 + 메인 한국 인기 영화 섹션
 
-## 목적
-영화 상세 페이지(MovieSidebar)에서 제작국가, 키워드, MBTI, 날씨를 클릭하면 `/movies` 검색 페이지로 이동하여 해당 조건으로 필터/정렬된 영화 목록을 보여주는 기능 구현.
+## 기능 1: 트레일러 인라인 iframe 제거 → 시청하기 버튼으로 YouTube 새 탭 열기
 
-## 구현 범위
+### 목적
+영화 상세 페이지에 인라인 YouTube iframe이 페이지를 무겁게 만들고 레이아웃을 차지함. 제거하고, 기존 "시청하기" 버튼 클릭 시 YouTube 새 탭으로 열리도록 변경.
 
-### Part 1: 백엔드 — `backend/app/api/v1/movies.py`
+### 현재 상태 확인 (먼저)
+- `frontend/app/movies/[id]/page.tsx`에서 트레일러 iframe 위치 확인
+- "시청하기" 버튼이 어떤 컴포넌트에 있는지, 현재 동작 확인
+- `movie.trailer_key` 데이터 전달 경로 확인
 
-기존 `GET /api/v1/movies` 엔드포인트에 4개 쿼리 파라미터 추가:
-
-**1. `country` (제작 국가)**
-- 파라미터: `country: Optional[str] = Query(None)`
-- 쿼리: `movie_countries` M:M JOIN 또는 `production_countries_ko LIKE '%{country}%'`
-- 기존 `genres` 필터의 M:M JOIN 패턴 참고해서 동일하게 구현
-- 예: `GET /api/v1/movies?country=한국`
-
-**2. `keyword` (키워드)**
-- 파라미터: `keyword: Optional[str] = Query(None)`
-- 쿼리: `movie_keywords` M:M JOIN → `Keyword.name == keyword`
-- 기존 `genres` 필터와 동일 패턴
-- 예: `GET /api/v1/movies?keyword=도시실종`
-
-**3. `mbti` (MBTI 유형별 정렬)**
-- 파라미터: `mbti: Optional[str] = Query(None, regex="^(E|I)(S|N)(T|F)(J|P)$")`
-- 쿼리: `ORDER BY (movies.mbti_scores->>:mbti)::float DESC`
-- mbti 파라미터가 있으면 자동으로 해당 MBTI 점수 내림차순 정렬
-- 추천 엔진(`recommendation_engine.py`)에서 이미 사용 중인 JSONB 쿼리 패턴 참고
-- 예: `GET /api/v1/movies?mbti=ENTJ`
-
-**4. `weather` (날씨별 정렬)**
-- 파라미터: `weather: Optional[str] = Query(None, regex="^(sunny|rainy|cloudy|snowy)$")`
-- 쿼리: `ORDER BY (movies.weather_scores->>:weather)::float DESC`
-- mbti와 동일 패턴
-- 예: `GET /api/v1/movies?weather=rainy`
-
-**주의사항:**
-- mbti/weather 파라미터가 있으면 sort_by 파라미터를 무시하고 해당 점수로 정렬 (또는 sort_by에 `mbti_score`, `weather_score` 옵션 추가)
-- 기존 필터(genre, age_rating, person 등)와 조합 가능해야 함
-- 품질 필터(weighted_score >= 6.0)는 유지
-- SQL Injection 방지: JSONB 키는 화이트리스트 검증 (MBTI 16유형, 날씨 4종만 허용)
+### 구현
+1. **인라인 YouTube iframe 영역 전체 삭제** (래퍼 div, 스타일 포함)
+2. **시청하기 버튼 수정**:
+   - 클릭 → `window.open(`https://www.youtube.com/watch?v=${movie.trailer_key}`, '_blank')`
+   - trailer_key가 없는 영화(33.6%) → 버튼 비활성화 또는 숨김
+   - 버튼에 외부 링크 느낌 표시 (아이콘 또는 텍스트)
+3. **모바일에서도 새 탭 정상 열리는지 확인**
 
 ---
 
-### Part 2: 프론트엔드 — API 클라이언트
+## 기능 2: 메인 화면에 "한국 인기 영화" 섹션 추가
 
-**`frontend/lib/api.ts`** (또는 API 호출 파일):
-- `getMovies()` 함수의 params에 `country`, `keyword`, `mbti`, `weather` 추가
-- 값이 있을 때만 쿼리스트링에 포함
+### 목적
+홈 페이지에 한국 제작 인기 영화 전용 섹션을 추가하여 국내 콘텐츠를 강조.
 
----
+### 현재 상태 확인 (먼저)
+- `frontend/app/page.tsx` (홈 페이지)에서 기존 추천 섹션 구조 확인
+- MovieRow 컴포넌트가 어떤 props를 받는지 (title, movies, subtitle 등)
+- 백엔드 `GET /api/v1/recommendations`의 섹션 구조 확인
+- 백엔드 `GET /api/v1/movies?country=대한민국&sort_by=popularity` 가 이미 동작하는지 확인 (Step 이전에 구현한 country 필터)
 
-### Part 3: 프론트엔드 — 검색 페이지
+### 구현 방법 — 2가지 중 선택
 
-**`frontend/app/movies/page.tsx`**:
-- `searchParams`에서 `country`, `keyword`, `mbti`, `weather` 읽기
-- API 호출 시 해당 파라미터 전달
-- 활성 필터 표시 (선택적): 페이지 상단에 "🌍 한국" 또는 "MBTI: ENTJ 추천순" 같은 필터 뱃지 표시
-- 필터 제거 버튼 (X) → 해당 파라미터 제거하고 재검색
+**방법 A: 프론트엔드에서 직접 API 호출 (추천)**
+- 홈 페이지에서 `getMovies({ country: "대한민국", sort_by: "popularity", size: 20 })` 호출
+- 기존 MovieRow 컴포넌트로 렌더링
+- 백엔드 수정 불필요 (country 필터가 이미 구현됨)
 
----
+**방법 B: 백엔드 recommendations API에 섹션 추가**
+- `GET /api/v1/recommendations` 응답에 `korean_popular` 섹션 추가
+- DB 쿼리: `WHERE production_countries_ko ILIKE '%대한민국%' ORDER BY popularity DESC`
 
-### Part 4: 프론트엔드 — 상세 페이지 링크화
+→ 방법 A가 빠르고 간단하므로 A로 구현. 이미 country 필터가 동작하니 백엔드 수정 없이 프론트만 추가.
 
-**`frontend/app/movies/[id]/page.tsx` (MovieSidebar 영역)**:
+### 구현 내용
 
-**제작 국가** (현재 40-45줄):
-- `<p>` 텍스트 → 각 국가를 `<Link href="/movies?country=브라질">브라질</Link>`로 변환
-- 쉼표 구분 텍스트를 split → 개별 링크로
+1. **홈 페이지 (`frontend/app/page.tsx`)**:
+   - 기존 섹션들(인기, 높은평점, 날씨, 기분, MBTI, 맞춤) 사이 적절한 위치에 "🇰🇷 한국 인기 영화" 섹션 추가
+   - `getMovies({ country: "대한민국", sort_by: "popularity", size: 20 })` 호출
+   - 기존 MovieRow 컴포넌트 재사용
+   - 섹션 타이틀: "한국 인기 영화" 또는 "🇰🇷 지금 한국에서 인기있는 영화"
+   - 서브타이틀 추가 (기존 큐레이션 패턴 참고)
 
-**키워드** (현재 48-62줄):
-- `<span>` 태그 → `<Link href="/movies?keyword=도시실종">도시실종</Link>`로 변환
-- 기존 태그 스타일 유지하면서 클릭 가능하게
+2. **위치**: 인기 영화 바로 다음, 또는 높은 평점 다음 (기존 섹션 순서 확인 후 자연스러운 위치)
 
-**MBTI 점수** (현재 76-96줄):
-- 각 MBTI 유형명을 클릭하면 → `<Link href="/movies?mbti=ENTJ">ENTJ</Link>`
-- 퍼센트와 바 그래프는 그대로, 유형명만 링크화
-- hover 시 "ENTJ 추천 영화 보기" 같은 tooltip 또는 커서 포인터
+3. **데이터 로딩**: 기존 섹션들과 동일한 패턴으로 로딩 (useEffect 또는 서버 fetch)
 
-**날씨 점수** (현재 99-120줄):
-- 각 날씨를 클릭하면 → `<Link href="/movies?weather=cloudy">☁️ 흐린 날</Link>`
-- 날씨 한글 라벨 → API 영문 키 매핑: 흐린 날→cloudy, 비 오는 날→rainy, 맑은 날→sunny, 눈 오는 날→snowy
+4. **새로고침 버튼**: 기존 섹션에 🔄 버튼이 있다면 동일하게 추가
 
-**스타일 가이드:**
-- 링크는 기존 텍스트 색상 유지, hover 시 underline 또는 색상 변화
-- 커서를 pointer로 변경
-- 태그 형태의 요소(키워드)는 hover 시 배경색 변화로 클릭 가능함을 표시
-- 지나치게 링크처럼 보이지 않되, 인터랙티브함이 느껴지도록
+### 주의사항
+- 기존 홈 페이지 로딩 성능에 영향 최소화 (별도 fetch, 기존 recommendations API 무관)
+- 한국 영화가 1,097편이므로 충분한 풀에서 셔플/페이지네이션 가능
+- 비로그인 사용자에게도 표시
 
 ---
 
 ## 완료 조건
 
-- [ ] `GET /api/v1/movies?country=한국` → 한국 제작 영화 목록 반환
-- [ ] `GET /api/v1/movies?keyword=복수` → 해당 키워드 영화 목록 반환
-- [ ] `GET /api/v1/movies?mbti=ENTJ` → ENTJ 점수 높은 순 정렬
-- [ ] `GET /api/v1/movies?weather=rainy` → 비 오는 날 점수 높은 순 정렬
-- [ ] 기존 필터(genre, age_rating)와 조합 가능
-- [ ] 상세 페이지에서 국가/키워드/MBTI/날씨 클릭 → 검색 페이지 이동
-- [ ] 검색 페이지에서 활성 필터가 표시됨
-- [ ] 모바일에서도 정상 동작
+### 트레일러
+- [ ] 영화 상세 페이지에서 인라인 YouTube iframe 제거됨
+- [ ] "시청하기" 버튼 클릭 → YouTube 새 탭 열림
+- [ ] trailer_key 없는 영화 → 버튼 비활성화 또는 숨김
+- [ ] 모바일 정상 동작
+
+### 한국 인기 영화
+- [ ] 홈 페이지에 "한국 인기 영화" 섹션 표시됨
+- [ ] 한국 제작 영화가 인기순으로 정렬되어 표시
+- [ ] MovieRow 가로 스크롤 정상 동작
+- [ ] 비로그인 사용자에게도 표시
 
 ---
 
-## 결과 저장
+## 커밋 + 푸시 + 배포
 
-작업 완료 후 결과를 `claude_results.md`에 저장해줘. 아래 형식으로:
+```bash
+git add -A
+git commit -m "feat: 트레일러 새 탭 열기 + 홈 한국 인기 영화 섹션
 
-```markdown
-# 영화 검색 필터 구현 결과
+- 영화 상세: 인라인 YouTube iframe 제거
+- 시청하기 버튼 → window.open YouTube 새 탭
+- trailer_key 없는 영화 버튼 비활성화
+- 홈 페이지: 한국 인기 영화 섹션 추가 (country=대한민국 필터 활용)
+- MovieRow 재사용, 인기순 정렬"
 
-> 작업일: YYYY-MM-DD
-
-## 변경 파일 목록
-| 파일 | 변경 내용 |
-|------|-----------|
-| ... | ... |
-
-## 백엔드 변경 사항
-- 추가된 파라미터, 쿼리 방식, 주의점
-
-## 프론트엔드 변경 사항
-- API 클라이언트, 검색 페이지, 상세 페이지 각각 정리
-
-## 테스트 결과
-- 각 필터별 동작 확인 결과
-
-## 완료 조건 체크
-- [x] 또는 [ ] 로 표시
-
-## 미해결 이슈 (있다면)
-- ...
+git push origin main
 ```
+
+배포 후 검증:
+- 프로덕션 영화 상세 → 시청하기 클릭 → YouTube 새 탭 확인
+- trailer_key 없는 영화 → 버튼 상태 확인
+- 프로덕션 홈 → 한국 인기 영화 섹션 표시 + 영화 목록 확인
+- CI에서 deploy-frontend (Vercel) 자동 배포 동작 확인
+
+결과를 `claude_results.md`에 저장해줘.

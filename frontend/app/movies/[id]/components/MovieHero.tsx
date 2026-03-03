@@ -10,6 +10,7 @@ import {
   Calendar,
   ArrowLeft,
   Play,
+  ExternalLink,
 } from "lucide-react";
 import { getImageUrl, formatRuntime, formatDate, getGenreName } from "@/lib/utils";
 import type { MovieDetail } from "@/types";
@@ -20,6 +21,7 @@ interface MovieHeroProps {
   catchphrase: string | null;
   catchphraseLoading: boolean;
   isFavorited: boolean;
+  trailerKey: string | null | undefined;
   onBack: () => void;
   onFavoriteClick: () => void;
 }
@@ -30,6 +32,7 @@ export default function MovieHero({
   catchphrase,
   catchphraseLoading,
   isFavorited,
+  trailerKey,
   onBack,
   onFavoriteClick,
 }: MovieHeroProps) {
@@ -183,10 +186,16 @@ export default function MovieHero({
 
             {/* Action Buttons */}
             <div className="flex flex-wrap gap-2 md:gap-3">
-              <button className="flex items-center space-x-1.5 md:space-x-2 px-4 md:px-6 py-2.5 md:py-3 bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white font-medium rounded-lg transition text-sm md:text-base">
-                <Play className="w-4 h-4 md:w-5 md:h-5 fill-white" />
-                <span>시청하기</span>
-              </button>
+              {trailerKey && (
+                <button
+                  onClick={() => window.open(`https://www.youtube.com/watch?v=${trailerKey}`, '_blank')}
+                  className="flex items-center space-x-1.5 md:space-x-2 px-4 md:px-6 py-2.5 md:py-3 bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white font-medium rounded-lg transition text-sm md:text-base"
+                >
+                  <Play className="w-4 h-4 md:w-5 md:h-5 fill-white" />
+                  <span>시청하기</span>
+                  <ExternalLink className="w-3 h-3 md:w-4 md:h-4 opacity-60" />
+                </button>
+              )}
               <button
                 onClick={onFavoriteClick}
                 className={`flex items-center space-x-1.5 md:space-x-2 px-4 md:px-6 py-2.5 md:py-3 rounded-lg font-medium transition text-sm md:text-base ${

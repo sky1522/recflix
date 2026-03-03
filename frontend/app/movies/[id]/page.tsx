@@ -12,7 +12,6 @@ import { useAuthStore } from "@/stores/authStore";
 import type { MovieDetail, Movie } from "@/types";
 import MovieHero from "./components/MovieHero";
 import MovieSidebar from "./components/MovieSidebar";
-import MovieTrailer from "./components/MovieTrailer";
 import SimilarMovies from "./components/SimilarMovies";
 import MovieDetailSkeleton from "./components/MovieDetailSkeleton";
 
@@ -194,6 +193,7 @@ export default function MovieDetailPage() {
         catchphrase={catchphrase}
         catchphraseLoading={catchphraseLoading}
         isFavorited={isFavorited}
+        trailerKey={movie.trailer_key}
         onBack={() => router.back()}
         onFavoriteClick={handleFavoriteClick}
       />
@@ -280,9 +280,6 @@ export default function MovieDetailPage() {
                 </div>
               </motion.section>
             )}
-
-            {/* Trailer */}
-            <MovieTrailer trailerKey={movie.trailer_key} />
 
             {/* Similar Movies */}
             <SimilarMovies similar={similar} />

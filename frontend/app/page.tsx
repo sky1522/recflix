@@ -5,7 +5,7 @@ import MovieRow from "@/components/movie/MovieRow";
 import HybridMovieRow from "@/components/movie/HybridMovieRow";
 import FeaturedBanner from "@/components/movie/FeaturedBanner";
 import { MovieRowSkeleton, FeaturedBannerSkeleton } from "@/components/ui/Skeleton";
-import { getHomeRecommendations } from "@/lib/api";
+import { getHomeRecommendations, getMovies } from "@/lib/api";
 import { useWeather } from "@/hooks/useWeather";
 import { useAuthStore } from "@/stores/authStore";
 import type { HomeRecommendations, WeatherType, Movie, Weather, MoodType } from "@/types";
@@ -46,6 +46,8 @@ export default function HomePage() {
   const [mood, setMood] = useState<MoodType | null>(cachedMood);
   const [subtitleIdx, setSubtitleIdx] = useState(0);
   const [userContext, setUserContext] = useState<UserContext | null>(null);
+
+  const [koreanMovies, setKoreanMovies] = useState<Movie[]>([]);
 
   const { isAuthenticated, user } = useAuthStore();
   const prevAuthRef = useRef(isAuthenticated);
@@ -109,6 +111,13 @@ export default function HomePage() {
     const condition = weather?.condition ?? 'sunny';
     setUserContext(buildUserContext(temp, condition));
   }, [weather]);
+
+  // Fetch Korean popular movies (independent, one-time)
+  useEffect(() => {
+    getMovies({ country: "대한민국", sort_by: "popularity", page_size: 20 })
+      .then((res) => setKoreanMovies(res.items))
+      .catch((err) => console.error("Failed to fetch Korean movies:", err));
+  }, []);
 
   // Fetch recommendations when weather, mood, auth state, or interaction changes
   useEffect(() => {
@@ -306,6 +315,16 @@ export default function HomePage() {
             requestId={recommendations.request_id}
           />
         ))}
+
+        {/* Korean Popular Movies */}
+        {koreanMovies.length > 0 && (
+          <MovieRow
+            title="한국 인기 영화"
+            subtitle="지금 한국에서 사랑받는 영화들"
+            movies={koreanMovies}
+            section="korean_popular"
+          />
+        )}
       </div>
     </div>
   );
