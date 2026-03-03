@@ -22,8 +22,8 @@ from app.api.v1.recommendation_constants import (
 from app.api.v1.semantic_search import is_semantic_search_available, search_similar
 from app.core.deps import get_db
 from app.core.rate_limit import limiter
-from app.models import Country, Genre, Keyword, Movie, Person
-from app.models.movie import movie_cast, movie_countries, movie_keywords, similar_movies
+from app.models import Genre, Keyword, Movie, Person
+from app.models.movie import movie_cast, movie_keywords, similar_movies
 from app.schemas import GenreResponse, MovieDetail, MovieListItem, PaginatedMovies
 from app.services.embedding import get_query_embedding
 from app.services.llm import get_redis_client
@@ -190,16 +190,9 @@ def get_movies(
             or_(Movie.certification.in_(allowed), Movie.certification.is_(None))
         )
 
-    # Filter by country (M:M JOIN)
+    # Filter by country (production_countries_ko LIKE)
     if country:
-        country_movie_ids = (
-            db.query(Movie.id)
-            .join(Movie.countries)
-            .filter(Country.name == country)
-            .distinct()
-            .subquery()
-        )
-        q = q.filter(Movie.id.in_(select(country_movie_ids)))
+        q = q.filter(Movie.production_countries_ko.ilike(f"%{country}%"))
 
     # Filter by keyword (M:M JOIN)
     if keyword:
@@ -215,13 +208,11 @@ def get_movies(
     # Get total count
     total = q.count()
 
-    # Sort — MBTI/weather override sort_by
+    # Sort — MBTI/weather override sort_by (validated by pattern)
     if mbti:
-        score_expr = text(f"(movies.mbti_scores->>'{mbti}')::float")
-        q = q.order_by(score_expr.desc().nulls_last())
+        q = q.order_by(text(f"(movies.mbti_scores->>'{mbti}')::float DESC NULLS LAST"))
     elif weather:
-        score_expr = text(f"(movies.weather_scores->>'{weather}')::float")
-        q = q.order_by(score_expr.desc().nulls_last())
+        q = q.order_by(text(f"(movies.weather_scores->>'{weather}')::float DESC NULLS LAST"))
     else:
         sort_column = getattr(Movie, sort_by)
         if sort_order == "desc":

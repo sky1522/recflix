@@ -38,17 +38,17 @@ export default function MovieSidebar({ movie }: MovieSidebarProps) {
         <h3 className="text-lg font-semibold text-white">영화 정보</h3>
 
         {/* Countries */}
-        {(movie.countries && movie.countries.length > 0) && (
+        {movie.production_countries_ko && (
           <div>
             <p className="text-white/50 text-sm mb-2">🌍 제작 국가</p>
             <div className="flex flex-wrap gap-1.5">
-              {movie.countries.map((c) => (
+              {movie.production_countries_ko.split(", ").map((c) => (
                 <Link
                   key={c}
-                  href={`/movies?country=${encodeURIComponent(c)}`}
+                  href={`/movies?country=${encodeURIComponent(c.trim())}`}
                   className="px-2 py-1 bg-dark-200 rounded text-xs text-white/70 hover:bg-white/20 hover:text-white transition cursor-pointer"
                 >
-                  {c}
+                  {c.trim()}
                 </Link>
               ))}
             </div>
