@@ -8,7 +8,8 @@ import { MovieRowSkeleton, FeaturedBannerSkeleton } from "@/components/ui/Skelet
 import { getHomeRecommendations, getMovies } from "@/lib/api";
 import { useWeather } from "@/hooks/useWeather";
 import { useAuthStore } from "@/stores/authStore";
-import type { HomeRecommendations, WeatherType, Movie, Weather, MoodType } from "@/types";
+import { useMoodStore } from "@/stores/useMoodStore";
+import type { HomeRecommendations, Movie } from "@/types";
 import {
   MOOD_SUBTITLES,
   MBTI_SUBTITLES,
@@ -37,19 +38,18 @@ function getSectionFromTitle(title: string): string {
 // Module-level cache: survives component remounts (back navigation)
 let cachedRecommendations: HomeRecommendations | null = null;
 let cachedKey = "";
-let cachedMood: MoodType | null = null;
 
 export default function HomePage() {
   const [recommendations, setRecommendations] = useState<HomeRecommendations | null>(cachedRecommendations);
   const [loading, setLoading] = useState(!cachedRecommendations);
   const [error, setError] = useState<string | null>(null);
-  const [mood, setMood] = useState<MoodType | null>(cachedMood);
   const [subtitleIdx, setSubtitleIdx] = useState(0);
   const [userContext, setUserContext] = useState<UserContext | null>(null);
 
   const [koreanMovies, setKoreanMovies] = useState<Movie[]>([]);
 
   const { isAuthenticated, user } = useAuthStore();
+  const { mood } = useMoodStore();
   const prevAuthRef = useRef(isAuthenticated);
 
   // Track interaction version to invalidate cache on rating/favorite changes
@@ -74,7 +74,6 @@ export default function HomePage() {
   // 로그아웃 감지 시 즉시 추천 데이터 초기화 (캐시 포함)
   useEffect(() => {
     if (prevAuthRef.current && !isAuthenticated) {
-      // 로그아웃됨: 이전에 인증됨 -> 현재 미인증
       cachedRecommendations = null;
       cachedKey = "";
       setRecommendations(null);
@@ -86,17 +85,12 @@ export default function HomePage() {
   const {
     weather,
     loading: weatherLoading,
-    isManual: isManualWeather,
-    setManualWeather,
-    resetToRealWeather,
   } = useWeather({ autoFetch: true });
 
   // Apply weather theme to body
   useEffect(() => {
     if (weather) {
-      // Remove all theme classes
       document.body.classList.remove(...WEATHER_THEME_CLASSES);
-      // Add current theme class
       document.body.classList.add(`theme-${weather.condition}`);
     }
 
@@ -144,7 +138,6 @@ export default function HomePage() {
         // Update module-level cache
         cachedRecommendations = data;
         cachedKey = key;
-        cachedMood = mood;
       } catch (err) {
         setError("Failed to load recommendations");
         console.error(err);
@@ -156,23 +149,17 @@ export default function HomePage() {
     fetchRecommendations();
   }, [weather, mood, isAuthenticated, user?.id, user?.mbti, interactionVersion]);
 
-  const handleWeatherChange = (condition: WeatherType) => {
-    setManualWeather(condition);
-  };
-
   // Featured movie 선택 로직:
   // 로그인 시 -> hybrid_row 첫 번째 영화 (맞춤 추천)
   // 비로그인 -> rows[0] 첫 번째 영화 (인기 영화)
   const featuredMovie: Movie | null = useMemo(() => {
     if (!recommendations) return null;
 
-    // 로그인 상태이고 맞춤 추천 영화가 있으면 첫 번째 영화 사용
     const hybridMovies = recommendations.hybrid_row?.movies;
     if (isAuthenticated && hybridMovies && hybridMovies.length > 0) {
       return hybridMovies[0];
     }
 
-    // 비로그인: rows의 첫 번째 섹션(인기 영화)의 첫 번째 영화
     const firstRow = recommendations.rows?.[0];
     if (firstRow?.movies?.length > 0) {
       return firstRow.movies[0];
@@ -196,14 +183,12 @@ export default function HomePage() {
   const getRowSubtitle = (title: string): string => {
     if (title.includes("인기 영화")) return getSubtitle(FIXED_SUBTITLES.popular, subtitleIdx);
     if (title.includes("높은 평점")) return getSubtitle(FIXED_SUBTITLES.topRated, subtitleIdx);
-    // MBTI - 타이틀에서 MBTI 유형 직접 추출 (user?.mbti가 null일 수 있으므로)
     if (title.includes("성향 추천")) {
       const mbtiMatch = title.match(/([A-Z]{4})/);
       if (mbtiMatch && MBTI_SUBTITLES[mbtiMatch[1]]) {
         return getSubtitle(MBTI_SUBTITLES[mbtiMatch[1]], subtitleIdx);
       }
     }
-    // Weather → 계절 + 기온 교대
     if (
       title.includes("맑은") ||
       title.includes("비 오는") ||
@@ -215,7 +200,6 @@ export default function HomePage() {
       }
       return '';
     }
-    // Mood
     for (const key of Object.keys(MOOD_SUBTITLES)) {
       if (
         (key === "relaxed" && title.includes("편안한")) ||
@@ -256,22 +240,14 @@ export default function HomePage() {
 
   return (
     <div className="pb-24 md:pb-20">
-      {/* Featured Banner (includes compact weather bar) */}
+      {/* Featured Banner */}
       {loading ? (
         <div className="mt-2 md:mt-4">
           <FeaturedBannerSkeleton />
         </div>
       ) : featuredMovie ? (
         <div className="mt-2 md:mt-4">
-          <FeaturedBanner
-            movie={featuredMovie}
-            weather={weather}
-            onWeatherChange={handleWeatherChange}
-            isManualWeather={isManualWeather}
-            onResetWeather={resetToRealWeather}
-            mood={mood}
-            onMoodChange={setMood}
-          />
+          <FeaturedBanner movie={featuredMovie} />
         </div>
       ) : null}
 

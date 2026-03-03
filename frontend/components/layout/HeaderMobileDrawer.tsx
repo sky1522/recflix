@@ -3,8 +3,10 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Home, Film, Heart, Star, User, LogOut } from "lucide-react";
-import type { Weather, User as UserType } from "@/types";
+import { Home, Film, Heart, Star, LogOut, Sun, CloudRain, Cloud, CloudSnow, RotateCcw } from "lucide-react";
+import { useWeather } from "@/hooks/useWeather";
+import { useMoodStore } from "@/stores/useMoodStore";
+import type { Weather, User as UserType, WeatherType, MoodType } from "@/types";
 
 interface NavItem {
   href: string;
@@ -23,6 +25,31 @@ interface HeaderMobileDrawerProps {
   onLogout: () => void;
 }
 
+const WEATHER_OPTIONS: { type: WeatherType; icon: typeof Sun; label: string; color: string }[] = [
+  { type: "sunny", icon: Sun, label: "맑음", color: "text-yellow-400" },
+  { type: "rainy", icon: CloudRain, label: "비", color: "text-blue-400" },
+  { type: "cloudy", icon: Cloud, label: "흐림", color: "text-gray-400" },
+  { type: "snowy", icon: CloudSnow, label: "눈", color: "text-cyan-300" },
+];
+
+const MOOD_OPTIONS: { type: MoodType; emoji: string; label: string }[] = [
+  { type: "relaxed", emoji: "😌", label: "평온한" },
+  { type: "tense", emoji: "😰", label: "긴장된" },
+  { type: "excited", emoji: "😆", label: "활기찬" },
+  { type: "emotional", emoji: "💕", label: "몽글몽글한" },
+  { type: "imaginative", emoji: "🔮", label: "상상에 빠진" },
+  { type: "light", emoji: "😄", label: "유쾌한" },
+  { type: "gloomy", emoji: "😢", label: "울적한" },
+  { type: "stifled", emoji: "😤", label: "답답한" },
+];
+
+const WEATHER_EMOJIS: Record<WeatherType, string> = {
+  sunny: "☀️",
+  rainy: "🌧️",
+  cloudy: "☁️",
+  snowy: "❄️",
+};
+
 export default function HeaderMobileDrawer({
   weather,
   isAuthenticated,
@@ -34,6 +61,8 @@ export default function HeaderMobileDrawer({
   onLogout,
 }: HeaderMobileDrawerProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const { mood, setMood } = useMoodStore();
+  const { isManual, setManualWeather, resetToRealWeather } = useWeather({ autoFetch: false });
 
   useEffect(() => {
     const trigger = document.activeElement as HTMLElement | null;
@@ -98,27 +127,77 @@ export default function HeaderMobileDrawer({
         transition={{ type: "spring", damping: 25, stiffness: 300 }}
         className="fixed top-0 right-0 bottom-0 w-72 bg-dark-200 z-50 md:hidden shadow-2xl outline-none"
       >
-        <div className="flex flex-col h-full pt-16">
-          {/* Weather */}
+        <div className="flex flex-col h-full pt-16 overflow-y-auto">
+          {/* Weather Info + Selection */}
           {weather && (
             <div className="px-4 py-3 border-b border-white/10">
-              <div className="flex items-center space-x-3">
-                <span className="text-2xl">
-                  {weather.condition === "sunny" && "☀️"}
-                  {weather.condition === "rainy" && "🌧️"}
-                  {weather.condition === "cloudy" && "☁️"}
-                  {weather.condition === "snowy" && "❄️"}
-                </span>
+              <div className="flex items-center space-x-3 mb-3">
+                <span className="text-2xl">{WEATHER_EMOJIS[weather.condition]}</span>
                 <div>
                   <p className="text-white font-medium">{weather.temperature}°C</p>
                   <p className="text-white/60 text-sm">{weather.city}</p>
                 </div>
               </div>
+
+              <p className="text-xs text-white/50 mb-2">날씨 설정</p>
+              <div className="grid grid-cols-4 gap-1.5">
+                {WEATHER_OPTIONS.map((w) => {
+                  const Icon = w.icon;
+                  const isActive = weather.condition === w.type;
+                  return (
+                    <button
+                      key={w.type}
+                      onClick={() => setManualWeather(w.type)}
+                      className={`flex flex-col items-center gap-1 py-2 rounded-lg transition-all min-h-[44px] ${
+                        isActive
+                          ? "bg-white/20 ring-1 ring-white/30"
+                          : "hover:bg-white/10 active:bg-white/15"
+                      } ${w.color}`}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <span className="text-[10px] text-white/80">{w.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {isManual && (
+                <button
+                  onClick={() => resetToRealWeather()}
+                  className="flex items-center gap-1.5 w-full mt-2 px-2 py-1.5 rounded-lg text-xs text-white/50 hover:text-white hover:bg-white/10 transition"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>실시간 날씨로 돌아가기</span>
+                </button>
+              )}
             </div>
           )}
 
+          {/* Mood Selection */}
+          <div className="px-4 py-3 border-b border-white/10">
+            <p className="text-xs text-white/50 mb-2">기분 설정</p>
+            <div className="grid grid-cols-4 gap-1.5">
+              {MOOD_OPTIONS.map((m) => {
+                const isActive = mood === m.type;
+                return (
+                  <button
+                    key={m.type}
+                    onClick={() => setMood(mood === m.type ? null : m.type)}
+                    className={`flex flex-col items-center gap-0.5 py-2 rounded-lg transition-all min-h-[44px] ${
+                      isActive
+                        ? "bg-white/20 ring-1 ring-white/30 scale-105"
+                        : "hover:bg-white/10 active:bg-white/15"
+                    }`}
+                  >
+                    <span className="text-lg">{m.emoji}</span>
+                    <span className="text-[10px] text-white/80">{m.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Navigation */}
-          <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+          <nav className="flex-1 px-2 py-4 space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon;
               return (

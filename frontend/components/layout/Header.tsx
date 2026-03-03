@@ -1,16 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Search, Heart, Star, Film, Home } from "lucide-react";
+import { Menu, X, Search, Heart, Star, Film, Home, Sun, CloudRain, Cloud, CloudSnow, RotateCcw } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
-import { WeatherIndicator } from "@/components/weather/WeatherBanner";
+import { useMoodStore } from "@/stores/useMoodStore";
+import { useWeather } from "@/hooks/useWeather";
 import SearchAutocomplete from "@/components/search/SearchAutocomplete";
 import HeaderMobileDrawer from "@/components/layout/HeaderMobileDrawer";
-import { WEATHER_CACHE_KEY } from "@/lib/constants";
-import type { Weather } from "@/types";
+import type { WeatherType, MoodType } from "@/types";
 
 const NAV_ITEMS = [
   { href: "/", label: "홈", icon: Home },
@@ -22,13 +22,46 @@ const AUTH_NAV_ITEMS = [
   { href: "/ratings", label: "내 평점", icon: Star },
 ] as const;
 
+const WEATHER_OPTIONS: { type: WeatherType; icon: typeof Sun; label: string; color: string }[] = [
+  { type: "sunny", icon: Sun, label: "맑음", color: "text-yellow-400" },
+  { type: "rainy", icon: CloudRain, label: "비", color: "text-blue-400" },
+  { type: "cloudy", icon: Cloud, label: "흐림", color: "text-gray-400" },
+  { type: "snowy", icon: CloudSnow, label: "눈", color: "text-cyan-300" },
+];
+
+const MOOD_OPTIONS: { type: MoodType; emoji: string; label: string }[] = [
+  { type: "relaxed", emoji: "😌", label: "평온한" },
+  { type: "tense", emoji: "😰", label: "긴장된" },
+  { type: "excited", emoji: "😆", label: "활기찬" },
+  { type: "emotional", emoji: "💕", label: "몽글몽글한" },
+  { type: "imaginative", emoji: "🔮", label: "상상에 빠진" },
+  { type: "light", emoji: "😄", label: "유쾌한" },
+  { type: "gloomy", emoji: "😢", label: "울적한" },
+  { type: "stifled", emoji: "😤", label: "답답한" },
+];
+
+const WEATHER_EMOJIS: Record<WeatherType, string> = {
+  sunny: "☀️",
+  rainy: "🌧️",
+  cloudy: "☁️",
+  snowy: "❄️",
+};
+
+type DropdownType = "weather" | "mood" | null;
+
 export default function Header() {
   const pathname = usePathname();
   const { user, isAuthenticated, logout } = useAuthStore();
+  const { mood, setMood } = useMoodStore();
+  const { weather, isManual, setManualWeather, resetToRealWeather } = useWeather({ autoFetch: true });
+
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [weather, setWeather] = useState<Weather | null>(null);
+  const [openDropdown, setOpenDropdown] = useState<DropdownType>(null);
+
+  const weatherDropdownRef = useRef<HTMLDivElement>(null);
+  const moodDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -45,28 +78,62 @@ export default function Header() {
     return () => { document.body.style.overflow = ""; };
   }, [mobileMenuOpen]);
 
-  // Load cached weather from localStorage (storage event only, no polling)
-  const loadWeather = useCallback(() => {
-    try {
-      const cached = localStorage.getItem(WEATHER_CACHE_KEY);
-      if (cached) {
-        const { data } = JSON.parse(cached);
-        setWeather(data);
-      }
-    } catch {
-      // Ignore parse errors
-    }
-  }, []);
-
+  // Close dropdown on outside click or ESC
   useEffect(() => {
-    loadWeather();
-    window.addEventListener("storage", loadWeather);
-    return () => window.removeEventListener("storage", loadWeather);
-  }, [loadWeather]);
+    if (!openDropdown) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        weatherDropdownRef.current && !weatherDropdownRef.current.contains(target) &&
+        moodDropdownRef.current && !moodDropdownRef.current.contains(target)
+      ) {
+        setOpenDropdown(null);
+      }
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenDropdown(null);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEsc);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEsc);
+    };
+  }, [openDropdown]);
 
   const isActivePath = (path: string) => {
     if (path === "/") return pathname === "/";
     return pathname.startsWith(path);
+  };
+
+  const toggleDropdown = (type: DropdownType) => {
+    setOpenDropdown((prev) => (prev === type ? null : type));
+  };
+
+  const handleWeatherSelect = (condition: WeatherType) => {
+    setManualWeather(condition);
+    setOpenDropdown(null);
+  };
+
+  const handleResetWeather = async () => {
+    await resetToRealWeather();
+    setOpenDropdown(null);
+  };
+
+  const handleMoodSelect = (m: MoodType) => {
+    setMood(mood === m ? null : m);
+    if (mood !== m) setOpenDropdown(null);
+  };
+
+  const currentMoodOption = mood ? MOOD_OPTIONS.find((o) => o.type === mood) : null;
+
+  const dropdownAnimation = {
+    initial: { opacity: 0, scale: 0.95, y: -4 },
+    animate: { opacity: 1, scale: 1, y: 0 },
+    exit: { opacity: 0, scale: 0.95, y: -4 },
+    transition: { duration: 0.15 },
   };
 
   return (
@@ -130,11 +197,132 @@ export default function Header() {
             </nav>
 
             {/* Right Section */}
-            <div className="flex items-center space-x-2 md:space-x-4">
+            <div className="flex items-center space-x-1 md:space-x-3">
+              {/* Weather Dropdown (desktop) */}
               {weather && (
-                <div className="hidden lg:block">
-                  <WeatherIndicator weather={weather} />
+                <div ref={weatherDropdownRef} className="relative hidden md:block">
+                  <button
+                    onClick={() => toggleDropdown("weather")}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-sm ${
+                      openDropdown === "weather"
+                        ? "bg-white/20 ring-1 ring-white/30"
+                        : "bg-white/10 hover:bg-white/15"
+                    }`}
+                    aria-expanded={openDropdown === "weather"}
+                    aria-haspopup="true"
+                  >
+                    <span className="text-base">{WEATHER_EMOJIS[weather.condition]}</span>
+                    <span className="font-medium text-white">{weather.temperature}°C</span>
+                  </button>
+
+                  <AnimatePresence>
+                    {openDropdown === "weather" && (
+                      <motion.div
+                        {...dropdownAnimation}
+                        className="absolute right-0 top-full mt-2 w-56 bg-dark-100/95 backdrop-blur-md rounded-xl border border-white/15 shadow-2xl p-3 z-50"
+                        role="menu"
+                      >
+                        <p className="text-xs text-white/50 mb-2 px-1">날씨에 따른 영화추천</p>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {WEATHER_OPTIONS.map((w) => {
+                            const Icon = w.icon;
+                            const isActive = weather.condition === w.type;
+                            return (
+                              <button
+                                key={w.type}
+                                onClick={() => handleWeatherSelect(w.type)}
+                                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
+                                  isActive
+                                    ? "bg-white/20 ring-1 ring-white/30"
+                                    : "hover:bg-white/10"
+                                } ${w.color}`}
+                                role="menuitem"
+                              >
+                                <Icon className="w-4 h-4" />
+                                <span className="text-white/90">{w.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {isManual && (
+                          <button
+                            onClick={handleResetWeather}
+                            className="flex items-center gap-2 w-full mt-2 px-3 py-2 rounded-lg text-xs text-white/60 hover:text-white hover:bg-white/10 transition"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            <span>실시간 날씨로 돌아가기</span>
+                          </button>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
+              )}
+
+              {/* Mood Dropdown (desktop) */}
+              <div ref={moodDropdownRef} className="relative hidden md:block">
+                <button
+                  onClick={() => toggleDropdown("mood")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-sm ${
+                    openDropdown === "mood"
+                      ? "bg-white/20 ring-1 ring-white/30"
+                      : "bg-white/10 hover:bg-white/15"
+                  }`}
+                  aria-expanded={openDropdown === "mood"}
+                  aria-haspopup="true"
+                >
+                  <span className="text-base">{currentMoodOption?.emoji ?? "😊"}</span>
+                  <span className="text-white/80 text-xs">
+                    {currentMoodOption?.label ?? "기분"}
+                  </span>
+                </button>
+
+                <AnimatePresence>
+                  {openDropdown === "mood" && (
+                    <motion.div
+                      {...dropdownAnimation}
+                      className="absolute right-0 top-full mt-2 w-64 bg-dark-100/95 backdrop-blur-md rounded-xl border border-white/15 shadow-2xl p-3 z-50"
+                      role="menu"
+                    >
+                      <p className="text-xs text-white/50 mb-2 px-1">지금 기분이 어떠세요?</p>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {MOOD_OPTIONS.map((m) => {
+                          const isActive = mood === m.type;
+                          return (
+                            <button
+                              key={m.type}
+                              onClick={() => handleMoodSelect(m.type)}
+                              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
+                                isActive
+                                  ? "bg-white/20 ring-1 ring-white/30"
+                                  : "hover:bg-white/10"
+                              }`}
+                              role="menuitem"
+                            >
+                              <span className="text-base">{m.emoji}</span>
+                              <span className="text-white/90">{m.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* MBTI Badge (desktop) */}
+              {isAuthenticated && (
+                <Link
+                  href="/profile"
+                  className="hidden md:flex items-center px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/15 transition text-xs text-white/80 hover:text-white"
+                  title={user?.mbti ? `MBTI: ${user.mbti}` : "MBTI 설정하기"}
+                >
+                  {user?.mbti ? (
+                    <span className="font-semibold text-primary-400">{user.mbti}</span>
+                  ) : (
+                    <span className="text-white/50">MBTI 설정</span>
+                  )}
+                </Link>
               )}
 
               <button
