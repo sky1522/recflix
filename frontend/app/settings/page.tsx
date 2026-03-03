@@ -4,13 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
-  User as UserIcon,
-  Heart,
-  Star,
   Sun,
   Moon,
   Check,
-  ChevronRight,
   LogOut,
   Trash2,
   Pencil,
@@ -20,7 +16,6 @@ import { useThemeStore } from "@/stores/themeStore";
 import MBTIModal from "@/components/layout/MBTIModal";
 import { getMBTIColor } from "@/lib/utils";
 import * as api from "@/lib/api";
-import Link from "next/link";
 import type { MBTIType } from "@/types";
 
 const GENRE_OPTIONS = [
@@ -272,15 +267,6 @@ export default function SettingsPage() {
           </div>
         </Section>
 
-        {/* Quick Links */}
-        <Section title="바로가기">
-          <div className="space-y-1">
-            <QuickLink href="/favorites" icon={Heart} label="찜 목록" />
-            <QuickLink href="/ratings" icon={Star} label="내 평점" />
-            <QuickLink href="/profile" icon={UserIcon} label="프로필" />
-          </div>
-        </Section>
-
         {/* Account Section */}
         <Section title="계정 관리">
           <div className="space-y-2">
@@ -347,17 +333,3 @@ function Section({ title, subtitle, children }: { title: string; subtitle?: stri
   );
 }
 
-function QuickLink({ href, icon: Icon, label }: { href: string; icon: typeof Heart; label: string }) {
-  return (
-    <Link
-      href={href}
-      className="flex items-center justify-between px-4 py-3 text-sm text-fg/70 hover:bg-overlay/10 rounded-lg transition"
-    >
-      <div className="flex items-center gap-2.5">
-        <Icon className="w-4 h-4" />
-        <span>{label}</span>
-      </div>
-      <ChevronRight className="w-4 h-4 text-fg/30" />
-    </Link>
-  );
-}

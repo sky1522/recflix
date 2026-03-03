@@ -10,8 +10,8 @@ import { useMoodStore } from "@/stores/useMoodStore";
 import { useWeather } from "@/hooks/useWeather";
 import SearchAutocomplete from "@/components/search/SearchAutocomplete";
 import HeaderMobileDrawer from "@/components/layout/HeaderMobileDrawer";
-import MBTIModal from "@/components/layout/MBTIModal";
-import type { WeatherType, MoodType } from "@/types";
+import { getMBTIColor } from "@/lib/utils";
+import type { WeatherType, MoodType, MBTIType } from "@/types";
 
 const NAV_ITEMS = [
   { href: "/", label: "홈", icon: Home },
@@ -48,7 +48,14 @@ const WEATHER_EMOJIS: Record<WeatherType, string> = {
   snowy: "❄️",
 };
 
-type DropdownType = "weather" | "mood" | "profile" | null;
+const MBTI_TYPES: MBTIType[] = [
+  "INTJ", "INTP", "ENTJ", "ENTP",
+  "INFJ", "INFP", "ENFJ", "ENFP",
+  "ISTJ", "ISFJ", "ESTJ", "ESFJ",
+  "ISTP", "ISFP", "ESTP", "ESFP",
+];
+
+type DropdownType = "weather" | "mood" | "mbti" | "profile" | null;
 
 function useGuestMBTI() {
   const [guestMBTI, setGuestMBTI] = useState<string | null>(null);
@@ -62,27 +69,9 @@ function useGuestMBTI() {
   return { guestMBTI, setGuestMBTI: update };
 }
 
-function MBTIBadge({ user, isAuthenticated, onClick }: { user: { mbti?: string | null } | null; isAuthenticated: boolean; onClick: () => void }) {
-  const { guestMBTI } = useGuestMBTI();
-  const mbti = isAuthenticated ? user?.mbti : guestMBTI;
-  return (
-    <button
-      onClick={onClick}
-      className="hidden md:flex items-center px-2.5 py-1 rounded-full bg-overlay/10 hover:bg-overlay/15 transition text-xs text-fg/80 hover:text-fg"
-      title={mbti ? `MBTI: ${mbti}` : "MBTI 설정하기"}
-    >
-      {mbti ? (
-        <span className="font-semibold text-primary-400">{mbti}</span>
-      ) : (
-        <span className="text-fg/50">MBTI 설정</span>
-      )}
-    </button>
-  );
-}
-
 export default function Header() {
   const pathname = usePathname();
-  const { user, isAuthenticated, logout } = useAuthStore();
+  const { user, isAuthenticated, logout, updateMBTI } = useAuthStore();
   const { mood, setMood } = useMoodStore();
   const { weather, isManual, setManualWeather, resetToRealWeather } = useWeather({ autoFetch: true });
 
@@ -90,10 +79,11 @@ export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<DropdownType>(null);
-  const [mbtiModalOpen, setMbtiModalOpen] = useState(false);
+  const { guestMBTI, setGuestMBTI } = useGuestMBTI();
 
   const weatherDropdownRef = useRef<HTMLDivElement>(null);
   const moodDropdownRef = useRef<HTMLDivElement>(null);
+  const mbtiDropdownRef = useRef<HTMLDivElement>(null);
   const profileDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -117,7 +107,7 @@ export default function Header() {
 
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as Node;
-      const refs = [weatherDropdownRef, moodDropdownRef, profileDropdownRef];
+      const refs = [weatherDropdownRef, moodDropdownRef, mbtiDropdownRef, profileDropdownRef];
       const clickedInsideAny = refs.some((ref) => ref.current?.contains(target));
       if (!clickedInsideAny) {
         setOpenDropdown(null);
@@ -160,6 +150,20 @@ export default function Header() {
   };
 
   const currentMoodOption = mood ? MOOD_OPTIONS.find((o) => o.type === mood) : null;
+  const currentMBTI = isAuthenticated ? user?.mbti : guestMBTI;
+
+  const handleMBTISelect = async (mbti: MBTIType) => {
+    if (mbti === currentMBTI) {
+      setOpenDropdown(null);
+      return;
+    }
+    if (isAuthenticated) {
+      await updateMBTI(mbti);
+    } else {
+      setGuestMBTI(mbti);
+    }
+    setOpenDropdown(null);
+  };
 
   const dropdownAnimation = {
     initial: { opacity: 0, scale: 0.95, y: -4 },
@@ -342,12 +346,61 @@ export default function Header() {
                 </AnimatePresence>
               </div>
 
-              {/* MBTI Badge (desktop) — visible for all users */}
-              <MBTIBadge
-                user={user}
-                isAuthenticated={isAuthenticated}
-                onClick={() => setMbtiModalOpen(true)}
-              />
+              {/* MBTI Dropdown (desktop) */}
+              <div ref={mbtiDropdownRef} className="relative hidden md:block">
+                <button
+                  onClick={() => toggleDropdown("mbti")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-sm ${
+                    openDropdown === "mbti"
+                      ? "bg-overlay/20 ring-1 ring-divider/30"
+                      : "bg-overlay/10 hover:bg-overlay/15"
+                  }`}
+                  aria-expanded={openDropdown === "mbti"}
+                  aria-haspopup="true"
+                >
+                  {currentMBTI ? (
+                    <span className="font-semibold text-primary-400">{currentMBTI}</span>
+                  ) : (
+                    <span className="text-fg/80">MBTI</span>
+                  )}
+                </button>
+
+                <AnimatePresence>
+                  {openDropdown === "mbti" && (
+                    <motion.div
+                      {...dropdownAnimation}
+                      className="absolute right-0 top-full mt-2 w-64 bg-surface-card/95 backdrop-blur-md rounded-xl border border-divider/15 shadow-2xl p-3 z-50"
+                      role="menu"
+                    >
+                      <p className="text-xs text-fg/50 mb-2 px-1">MBTI 기반 영화추천</p>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {MBTI_TYPES.map((mbti) => {
+                          const isActive = currentMBTI === mbti;
+                          return (
+                            <button
+                              key={mbti}
+                              onClick={() => handleMBTISelect(mbti)}
+                              className={`px-2 py-2 rounded-lg text-xs font-semibold transition-all ${
+                                isActive
+                                  ? `${getMBTIColor(mbti)} text-white ring-1 ring-divider/30`
+                                  : "bg-overlay/10 text-fg/80 hover:bg-overlay/20"
+                              }`}
+                              role="menuitem"
+                            >
+                              {mbti}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {currentMBTI && (
+                        <p className="mt-2 text-[10px] text-fg/40 text-center">
+                          현재: <span className="text-fg/60 font-medium">{currentMBTI}</span>
+                        </p>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
 
               <button
                 onClick={() => setSearchOpen(!searchOpen)}
@@ -401,24 +454,6 @@ export default function Header() {
                           >
                             <Settings className="w-4 h-4" />
                             <span>사용자 설정</span>
-                          </Link>
-                          <Link
-                            href="/favorites"
-                            onClick={() => setOpenDropdown(null)}
-                            className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-fg/80 hover:bg-overlay/10 transition"
-                            role="menuitem"
-                          >
-                            <Heart className="w-4 h-4" />
-                            <span>찜 목록</span>
-                          </Link>
-                          <Link
-                            href="/ratings"
-                            onClick={() => setOpenDropdown(null)}
-                            className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-fg/80 hover:bg-overlay/10 transition"
-                            role="menuitem"
-                          >
-                            <Star className="w-4 h-4" />
-                            <span>내 평점</span>
                           </Link>
                         </div>
 
@@ -494,8 +529,6 @@ export default function Header() {
         )}
       </AnimatePresence>
 
-      {/* MBTI Modal */}
-      {mbtiModalOpen && <MBTIModal onClose={() => setMbtiModalOpen(false)} />}
     </>
   );
 }

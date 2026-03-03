@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Home, Film, Heart, Star, LogOut, Settings, Sun, CloudRain, Cloud, CloudSnow, RotateCcw } from "lucide-react";
 import { useWeather } from "@/hooks/useWeather";
+import { useAuthStore } from "@/stores/authStore";
 import { useMoodStore } from "@/stores/useMoodStore";
-import type { Weather, User as UserType, WeatherType, MoodType } from "@/types";
+import { getMBTIColor } from "@/lib/utils";
+import type { Weather, User as UserType, WeatherType, MoodType, MBTIType } from "@/types";
 
 interface NavItem {
   href: string;
@@ -50,6 +52,13 @@ const WEATHER_EMOJIS: Record<WeatherType, string> = {
   snowy: "❄️",
 };
 
+const MBTI_TYPES: MBTIType[] = [
+  "INTJ", "INTP", "ENTJ", "ENTP",
+  "INFJ", "INFP", "ENFJ", "ENFP",
+  "ISTJ", "ISFJ", "ESTJ", "ESFJ",
+  "ISTP", "ISFP", "ESTP", "ESFP",
+];
+
 export default function HeaderMobileDrawer({
   weather,
   isAuthenticated,
@@ -63,6 +72,24 @@ export default function HeaderMobileDrawer({
   const panelRef = useRef<HTMLDivElement>(null);
   const { mood, setMood } = useMoodStore();
   const { isManual, setManualWeather, resetToRealWeather } = useWeather({ autoFetch: false });
+  const { updateMBTI } = useAuthStore();
+
+  // Guest MBTI state
+  const [guestMBTI, setGuestMBTIState] = useState<string | null>(null);
+  useEffect(() => {
+    setGuestMBTIState(localStorage.getItem("guest_mbti"));
+  }, []);
+  const currentMBTI = isAuthenticated ? user?.mbti : guestMBTI;
+
+  const handleMBTISelect = async (mbti: MBTIType) => {
+    if (mbti === currentMBTI) return;
+    if (isAuthenticated) {
+      await updateMBTI(mbti);
+    } else {
+      localStorage.setItem("guest_mbti", mbti);
+      setGuestMBTIState(mbti);
+    }
+  };
 
   useEffect(() => {
     const trigger = document.activeElement as HTMLElement | null;
@@ -190,6 +217,29 @@ export default function HeaderMobileDrawer({
                   >
                     <span className="text-lg">{m.emoji}</span>
                     <span className="text-[10px] text-fg/80">{m.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* MBTI Selection */}
+          <div className="px-4 py-3 border-b border-divider/10">
+            <p className="text-xs text-fg/50 mb-2">MBTI 설정</p>
+            <div className="grid grid-cols-4 gap-1.5">
+              {MBTI_TYPES.map((mbti) => {
+                const isActive = currentMBTI === mbti;
+                return (
+                  <button
+                    key={mbti}
+                    onClick={() => handleMBTISelect(mbti)}
+                    className={`flex items-center justify-center py-2 rounded-lg transition-all min-h-[44px] text-xs font-semibold ${
+                      isActive
+                        ? `${getMBTIColor(mbti)} text-white ring-1 ring-divider/30`
+                        : "bg-overlay/10 text-fg/80 hover:bg-overlay/15 active:bg-overlay/20"
+                    }`}
+                  >
+                    {mbti}
                   </button>
                 );
               })}
