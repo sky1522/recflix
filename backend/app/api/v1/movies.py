@@ -11,7 +11,7 @@ import time
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from redis.exceptions import RedisError
-from sqlalchemy import distinct, extract, func, or_, select, text
+from sqlalchemy import Float, cast, distinct, extract, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.v1.recommendation_constants import (
@@ -190,7 +190,7 @@ def get_movies(
             or_(Movie.certification.in_(allowed), Movie.certification.is_(None))
         )
 
-    # Filter by country (production_countries_ko LIKE)
+    # Filter by country (production_countries_ko ILIKE — 한글 국가명)
     if country:
         q = q.filter(Movie.production_countries_ko.ilike(f"%{country}%"))
 
@@ -210,9 +210,11 @@ def get_movies(
 
     # Sort — MBTI/weather override sort_by (validated by pattern)
     if mbti:
-        q = q.order_by(text(f"(movies.mbti_scores->>'{mbti}')::float DESC NULLS LAST"))
+        score_col = cast(Movie.mbti_scores[mbti].astext, Float)
+        q = q.order_by(score_col.desc().nulls_last())
     elif weather:
-        q = q.order_by(text(f"(movies.weather_scores->>'{weather}')::float DESC NULLS LAST"))
+        score_col = cast(Movie.weather_scores[weather].astext, Float)
+        q = q.order_by(score_col.desc().nulls_last())
     else:
         sort_column = getattr(Movie, sort_by)
         if sort_order == "desc":
