@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -10,9 +11,9 @@ import {
   Calendar,
   ArrowLeft,
   Play,
-  ExternalLink,
 } from "lucide-react";
 import { getImageUrl, formatRuntime, formatDate, getGenreName } from "@/lib/utils";
+import TrailerModal from "@/components/movie/TrailerModal";
 import type { MovieDetail } from "@/types";
 
 interface MovieHeroProps {
@@ -36,7 +37,10 @@ export default function MovieHero({
   onBack,
   onFavoriteClick,
 }: MovieHeroProps) {
+  const [isTrailerOpen, setIsTrailerOpen] = useState(false);
+
   return (
+    <>
     <div className="relative h-[60vh] md:h-[70vh]">
       {/* Backdrop Image */}
       <div className="absolute inset-0">
@@ -188,12 +192,11 @@ export default function MovieHero({
             <div className="flex flex-wrap gap-2 md:gap-3">
               {trailerKey && (
                 <button
-                  onClick={() => window.open(`https://www.youtube.com/watch?v=${trailerKey}`, '_blank')}
+                  onClick={() => setIsTrailerOpen(true)}
                   className="flex items-center space-x-1.5 md:space-x-2 px-4 md:px-6 py-2.5 md:py-3 bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white font-medium rounded-lg transition text-sm md:text-base"
                 >
                   <Play className="w-4 h-4 md:w-5 md:h-5 fill-white" />
                   <span>시청하기</span>
-                  <ExternalLink className="w-3 h-3 md:w-4 md:h-4 opacity-60" />
                 </button>
               )}
               <button
@@ -212,5 +215,11 @@ export default function MovieHero({
         </div>
       </div>
     </div>
+
+    {/* Trailer Modal */}
+    {isTrailerOpen && trailerKey && (
+      <TrailerModal trailerKey={trailerKey} onClose={() => setIsTrailerOpen(false)} />
+    )}
+    </>
   );
 }
