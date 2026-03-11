@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useRef } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import MovieRow from "@/components/movie/MovieRow";
 import HybridMovieRow from "@/components/movie/HybridMovieRow";
 import FeaturedBanner from "@/components/movie/FeaturedBanner";
@@ -293,27 +293,26 @@ export default function HomePage() {
           </>
         )}
 
-        {/* Regular Recommendation Rows */}
+        {/* Regular Recommendation Rows (한국인기영화는 첫 번째 row 뒤에 삽입) */}
         {recommendations?.rows.map((row, index) => (
-          <MovieRow
-            key={`${row.title}-${index}`}
-            title={row.title}
-            subtitle={getRowSubtitle(row.title)}
-            movies={row.movies}
-            section={getSectionFromTitle(row.title)}
-            requestId={recommendations.request_id}
-          />
+          <React.Fragment key={`${row.title}-${index}`}>
+            <MovieRow
+              title={row.title}
+              subtitle={getRowSubtitle(row.title)}
+              movies={row.movies}
+              section={getSectionFromTitle(row.title)}
+              requestId={recommendations.request_id}
+            />
+            {index === 0 && koreanMovies.length > 0 && (
+              <MovieRow
+                title="🇰🇷 한국 인기 영화"
+                subtitle="지금 한국에서 사랑받는 영화들"
+                movies={koreanMovies}
+                section="korean_popular"
+              />
+            )}
+          </React.Fragment>
         ))}
-
-        {/* Korean Popular Movies */}
-        {koreanMovies.length > 0 && (
-          <MovieRow
-            title="🇰🇷 한국 인기 영화"
-            subtitle="지금 한국에서 사랑받는 영화들"
-            movies={koreanMovies}
-            section="korean_popular"
-          />
-        )}
       </div>
     </div>
   );

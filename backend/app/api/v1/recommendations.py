@@ -351,24 +351,25 @@ def get_home_recommendations(
     ]
 
     # --- 섹션 순서 결정 ---
+    # 헤더 드롭다운 순서(날씨 · 기분 · MBTI)와 일치
     if current_user:
-        if mbti_row:
-            rows.append(mbti_row)
         if weather_row:
             rows.append(weather_row)
         if mood_row:
             rows.append(mood_row)
+        if mbti_row:
+            rows.append(mbti_row)
         rows.append(popular_row)
         rows.append(top_rated_row)
     else:
         rows.append(popular_row)
         rows.append(top_rated_row)
-        if mbti_row:
-            rows.append(mbti_row)
         if weather_row:
             rows.append(weather_row)
         if mood_row:
             rows.append(mood_row)
+        if mbti_row:
+            rows.append(mbti_row)
 
     featured = popular[0] if popular else None
 
