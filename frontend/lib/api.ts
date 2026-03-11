@@ -180,10 +180,11 @@ export async function getGenres(): Promise<Genre[]> {
 }
 
 // Recommendation APIs
-export async function getHomeRecommendations(weather?: string, mood?: string | null): Promise<HomeRecommendations> {
+export async function getHomeRecommendations(weather?: string, mood?: string | null, mbti?: string | null): Promise<HomeRecommendations> {
   const searchParams = new URLSearchParams();
   if (weather) searchParams.set("weather", weather);
   if (mood) searchParams.set("mood", mood);
+  if (mbti) searchParams.set("mbti", mbti);
   const query = searchParams.toString();
   return fetchAPI<HomeRecommendations>(`/recommendations${query ? `?${query}` : ""}`);
 }

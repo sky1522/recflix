@@ -65,6 +65,7 @@ function useGuestMBTI() {
   const update = (mbti: string) => {
     localStorage.setItem("guest_mbti", mbti);
     setGuestMBTI(mbti);
+    window.dispatchEvent(new CustomEvent("guest_mbti_change", { detail: mbti }));
   };
   return { guestMBTI, setGuestMBTI: update };
 }

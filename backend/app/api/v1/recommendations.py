@@ -102,6 +102,7 @@ def get_home_recommendations(
     background_tasks: BackgroundTasks,
     weather: str | None = Query(None, regex="^(sunny|rainy|cloudy|snowy)$"),
     mood: str | None = Query(None, regex="^(relaxed|tense|excited|emotional|imaginative|light|gloomy|stifled)$"),
+    mbti: str | None = Query(None, regex="^[EI][NS][TF][JP]$"),
     age_rating: str | None = Query(None, regex="^(all|family|teen|adult)$"),
     current_user: User | None = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
@@ -117,7 +118,8 @@ def get_home_recommendations(
     algorithm_version = get_algorithm_version(experiment_group)
 
     rows = []
-    mbti = current_user.mbti if current_user else None
+    # MBTI: 로그인 사용자는 user.mbti 우선, 비로그인은 쿼리 파라미터 사용
+    mbti = current_user.mbti if current_user else mbti
     hybrid_row = None
     impression_sections: dict[str, list[tuple[int, int, float | None]]] = {}
 
@@ -361,6 +363,8 @@ def get_home_recommendations(
     else:
         rows.append(popular_row)
         rows.append(top_rated_row)
+        if mbti_row:
+            rows.append(mbti_row)
         if weather_row:
             rows.append(weather_row)
         if mood_row:

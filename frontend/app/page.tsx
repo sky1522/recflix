@@ -52,6 +52,17 @@ export default function HomePage() {
   const { mood } = useMoodStore();
   const prevAuthRef = useRef(isAuthenticated);
 
+  // Guest MBTI: localStorage에서 읽고, 헤더 변경 시 즉시 반영
+  const [guestMBTI, setGuestMBTI] = useState<string | null>(null);
+  useEffect(() => {
+    setGuestMBTI(localStorage.getItem("guest_mbti"));
+    const handleGuestMBTIChange = (e: Event) => {
+      setGuestMBTI((e as CustomEvent).detail);
+    };
+    window.addEventListener("guest_mbti_change", handleGuestMBTIChange);
+    return () => window.removeEventListener("guest_mbti_change", handleGuestMBTIChange);
+  }, []);
+
   // Track interaction version to invalidate cache on rating/favorite changes
   const [interactionVersion, setInteractionVersion] = useState(0);
   useEffect(() => {
@@ -121,7 +132,8 @@ export default function HomePage() {
       const iv = typeof window !== "undefined"
         ? localStorage.getItem("interaction_version") || "0"
         : "0";
-      const key = `${weather.condition}-${mood}-${user?.id || 'anon'}-${user?.mbti || 'none'}-iv${iv}`;
+      const effectiveMBTI = isAuthenticated ? user?.mbti : guestMBTI;
+      const key = `${weather.condition}-${mood}-${user?.id || 'anon'}-${effectiveMBTI || 'none'}-iv${iv}`;
 
       // Use cache if params haven't changed (e.g. back navigation)
       if (cachedRecommendations && cachedKey === key) {
@@ -132,7 +144,8 @@ export default function HomePage() {
 
       setLoading(true);
       try {
-        const data = await getHomeRecommendations(weather.condition, mood);
+        const mbtiParam = isAuthenticated ? undefined : guestMBTI;
+        const data = await getHomeRecommendations(weather.condition, mood, mbtiParam);
         setRecommendations(data);
         setError(null);
         // Update module-level cache
@@ -147,7 +160,7 @@ export default function HomePage() {
     };
 
     fetchRecommendations();
-  }, [weather, mood, isAuthenticated, user?.id, user?.mbti, interactionVersion]);
+  }, [weather, mood, isAuthenticated, user?.id, user?.mbti, guestMBTI, interactionVersion]);
 
   // Featured movie 선택 로직:
   // 로그인 시 -> hybrid_row 첫 번째 영화 (맞춤 추천)
