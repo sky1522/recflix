@@ -249,7 +249,9 @@ export default function Header() {
                     aria-haspopup="true"
                   >
                     <span className="text-base">{WEATHER_EMOJIS[weather.condition]}</span>
-                    <span className="font-medium text-fg">{weather.temperature}°C</span>
+                    <span className="font-medium text-fg">
+                      {weather.city ? `${weather.city} · ${weather.description_ko} ${weather.temperature}°C` : `${weather.temperature}°C`}
+                    </span>
                   </button>
 
                   <AnimatePresence>

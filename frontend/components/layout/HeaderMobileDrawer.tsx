@@ -162,8 +162,10 @@ export default function HeaderMobileDrawer({
               <div className="flex items-center space-x-3 mb-3">
                 <span className="text-2xl">{WEATHER_EMOJIS[weather.condition]}</span>
                 <div>
-                  <p className="text-fg font-medium">{weather.temperature}°C</p>
-                  <p className="text-fg/60 text-sm">{weather.city}</p>
+                  <p className="text-fg font-medium">
+                    {weather.city ? `${weather.city} ${weather.temperature}°C` : `${weather.temperature}°C`}
+                  </p>
+                  <p className="text-fg/60 text-sm">{weather.description_ko}</p>
                 </div>
               </div>
 
