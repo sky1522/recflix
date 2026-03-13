@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import MovieRow from "@/components/movie/MovieRow";
 import HybridMovieRow from "@/components/movie/HybridMovieRow";
 import FeaturedBanner from "@/components/movie/FeaturedBanner";
 import { MovieRowSkeleton, FeaturedBannerSkeleton } from "@/components/ui/Skeleton";
-import { getHomeRecommendations, getMovies } from "@/lib/api";
+import { getHomeRecommendations } from "@/lib/api";
 import { useWeather } from "@/hooks/useWeather";
 import { useAuthStore } from "@/stores/authStore";
 import { useMoodStore } from "@/stores/useMoodStore";
@@ -23,6 +23,7 @@ import { SUBTITLE_COUNT, WEATHER_THEME_CLASSES } from "@/lib/constants";
 
 /** 추천 Row 타이틀에서 섹션 이름 추출 (이벤트 트래킹용) */
 function getSectionFromTitle(title: string): string {
+  if (title.includes("한국 인기")) return "korean_popular";
   if (title.includes("인기 영화")) return "popular";
   if (title.includes("높은 평점")) return "top_rated";
   if (title.includes("성향 추천")) return "mbti";
@@ -45,8 +46,6 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [subtitleIdx, setSubtitleIdx] = useState(0);
   const [userContext, setUserContext] = useState<UserContext | null>(null);
-
-  const [koreanMovies, setKoreanMovies] = useState<Movie[]>([]);
 
   const { isAuthenticated, user } = useAuthStore();
   const { mood } = useMoodStore();
@@ -116,13 +115,6 @@ export default function HomePage() {
     const condition = weather?.condition ?? 'sunny';
     setUserContext(buildUserContext(temp, condition));
   }, [weather]);
-
-  // Fetch Korean popular movies (independent, one-time)
-  useEffect(() => {
-    getMovies({ country: "대한민국", sort_by: "popularity", page_size: 40 })
-      .then((res) => setKoreanMovies(res.items))
-      .catch((err) => console.error("Failed to fetch Korean movies:", err));
-  }, []);
 
   // Fetch recommendations when weather, mood, auth state, or interaction changes
   useEffect(() => {
@@ -293,25 +285,16 @@ export default function HomePage() {
           </>
         )}
 
-        {/* Regular Recommendation Rows (한국인기영화는 첫 번째 row 뒤에 삽입) */}
+        {/* Regular Recommendation Rows */}
         {recommendations?.rows.map((row, index) => (
-          <React.Fragment key={`${row.title}-${index}`}>
-            <MovieRow
-              title={row.title}
-              subtitle={getRowSubtitle(row.title)}
-              movies={row.movies}
-              section={getSectionFromTitle(row.title)}
-              requestId={recommendations.request_id}
-            />
-            {index === 0 && koreanMovies.length > 0 && (
-              <MovieRow
-                title="🇰🇷 한국 인기 영화"
-                subtitle="지금 한국에서 사랑받는 영화들"
-                movies={koreanMovies}
-                section="korean_popular"
-              />
-            )}
-          </React.Fragment>
+          <MovieRow
+            key={`${row.title}-${index}`}
+            title={row.title}
+            subtitle={getRowSubtitle(row.title)}
+            movies={row.movies}
+            section={getSectionFromTitle(row.title)}
+            requestId={recommendations.request_id}
+          />
         ))}
       </div>
     </div>

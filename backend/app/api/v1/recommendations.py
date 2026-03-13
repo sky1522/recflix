@@ -280,6 +280,28 @@ def get_home_recommendations(
         (m.id, rank, None) for rank, m in enumerate(popular)
     ]
 
+    # Korean popular movies (shuffle from top 100)
+    korean_q = db.query(Movie).options(selectinload(Movie.genres)).filter(
+        Movie.weighted_score >= 6.0,
+        Movie.production_countries_ko.ilike("%대한민국%"),
+    )
+    korean_q = apply_age_rating_filter(korean_q, age_rating)
+    korean_pool = korean_q.order_by(Movie.popularity.desc(), Movie.weighted_score.desc()).limit(100).all()
+    if DIVERSITY_ENABLED:
+        korean_pool = deduplicate_section(korean_pool, seen_ids)
+    korean_popular = random.sample(korean_pool, min(50, len(korean_pool))) if korean_pool else []
+    random.shuffle(korean_popular)
+    for m in korean_popular:
+        seen_ids.add(m.id)
+    korean_popular_row = RecommendationRow(
+        title="🇰🇷 한국 인기 영화",
+        description="지금 한국에서 사랑받는 영화들",
+        movies=[MovieListItem.from_orm_with_genres(m) for m in korean_popular]
+    )
+    impression_sections["korean_popular"] = [
+        (m.id, rank, None) for rank, m in enumerate(korean_popular)
+    ]
+
     # Top rated (shuffle from top 100)
     top_rated_q = db.query(Movie).options(selectinload(Movie.genres)).filter(Movie.weighted_score >= 6.0, Movie.vote_count >= 100)
     top_rated_q = apply_age_rating_filter(top_rated_q, age_rating)
@@ -307,9 +329,11 @@ def get_home_recommendations(
         if mbti_row:
             rows.append(mbti_row)
         rows.append(popular_row)
+        rows.append(korean_popular_row)
         rows.append(top_rated_row)
     else:
         rows.append(popular_row)
+        rows.append(korean_popular_row)
         rows.append(top_rated_row)
         if weather_row:
             rows.append(weather_row)
