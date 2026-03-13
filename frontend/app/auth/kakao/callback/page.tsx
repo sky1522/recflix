@@ -29,8 +29,9 @@ function KakaoCallbackContent() {
     api
       .kakaoLogin(code, state)
       .then((response) => {
-        const isNew = socialLogin(response);
-        router.replace(isNew ? "/onboarding" : "/");
+        socialLogin(response);
+        const user = useAuthStore.getState().user;
+        router.replace(!user?.onboarding_completed ? "/onboarding" : "/");
       })
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : "token_exchange_failed";
