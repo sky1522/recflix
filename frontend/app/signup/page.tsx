@@ -52,7 +52,9 @@ export default function SignupPage() {
         nickname: formData.nickname,
         mbti: formData.mbti || undefined,
       });
-      router.push("/");
+      // signup() calls login() internally, so user is now in authStore
+      const user = useAuthStore.getState().user;
+      router.push(user?.onboarding_completed ? "/" : "/onboarding");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "회원가입에 실패했습니다.";
       setError(message);
