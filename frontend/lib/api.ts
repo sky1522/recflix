@@ -85,7 +85,15 @@ async function fetchAPI<T>(
 
     if (!response.ok) {
       const body = await response.json().catch(() => ({ detail: "Request failed" }));
-      throw new ApiError(response.status, body.detail || "Request failed");
+      throw new ApiError(
+        response.status,
+        body.message || body.error || body.detail || "Request failed"
+      );
+    }
+
+    // 204 No Content — no body to parse
+    if (response.status === 204) {
+      return undefined as T;
     }
 
     return response.json();
