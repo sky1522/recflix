@@ -1,4 +1,55 @@
-﻿# 2026-03-13: 맞춤 추천 % 표시 원인 조사 + 추천 품질 전반 검토
+﻿# 2026-03-13: 추천 UI 표현 개선 + Mood 기본값 제거
+
+---
+
+## 이슈 1: hybrid_score % 상대 정규화 ✅
+
+### 변경 파일
+- `frontend/components/movie/HybridMovieCard.tsx` — `rowMinScore`/`rowMaxScore` prop 추가, 상대 정규화 로직
+- `frontend/components/movie/HybridMovieRow.tsx` — displayedMovies에서 min/max 계산 후 Card에 전달
+
+### 핵심 변경
+- Row 내 영화들의 hybrid_score를 **65-99%** 범위로 상대 정규화
+- 공식: `65 + (score - min) / (max - min) * 34`
+- 모든 점수 동일 시: **80%** 고정
+- cold start 사용자의 4-6% 같은 오해 유발 수치 완전 제거
+
+### 커밋
+- `eb341a6` fix: normalize hybrid score display to 65-99% range
+
+---
+
+## 이슈 2: 기분 미선택 시 mood 섹션 숨김 ✅
+
+### 변경 파일
+- `backend/app/api/v1/recommendations.py` — mood 기본값 "relaxed" 제거
+
+### 핵심 변경
+- `mood` 파라미터가 null일 때 mood_row를 생성하지 않음
+- 프론트엔드 `useMoodStore` 초기값은 이미 `null` → API에 mood 파라미터 미전송
+- 사용자가 명시적으로 기분을 선택한 경우에만 기분 섹션 표시
+
+### 커밋
+- `fb10029` fix: hide mood section when no mood explicitly selected
+
+---
+
+## 이슈 3: OAuth 콜백 온보딩 분기 ✅ (이전 작업에서 완료)
+
+### 상태
+- `kakao/callback/page.tsx`, `google/callback/page.tsx` 모두 `onboarding_completed` 기반 라우팅 확인
+- 이전 커밋 `34310cd`에서 이미 수정 완료
+
+---
+
+## 검증
+- Frontend build: ✅ 성공 (에러 없음)
+- Push: ✅ `fb10029` → main
+
+---
+---
+
+# 2026-03-13: 맞춤 추천 % 표시 원인 조사 + 추천 품질 전반 검토
 
 ---
 
