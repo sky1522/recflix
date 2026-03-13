@@ -1,3 +1,33 @@
+# 2026-03-13: 시연 품질 개선 2건
+
+## 이슈 1: 헤더 날씨 버튼에 도시명 표시
+
+### 변경 파일
+- `frontend/components/layout/Header.tsx` — 날씨 버튼: 이모지+온도 → "도시명 · 설명 온도" 형태
+- `frontend/components/layout/HeaderMobileDrawer.tsx` — 모바일: "도시명 온도" 축약형 + description_ko 별도 표시
+
+### 핵심 변경사항
+- 데스크톱: `☁️ 수원시 · 흐림 14°C` (city가 없으면 기존 온도만 표시로 fallback)
+- 모바일: `☁️ 수원시 14°C` + 아래 줄에 `흐림` 표시
+- 위치 허용/거부 모두 대응, 수동 날씨 변경 시에도 가상 도시명 표시
+
+## 이슈 2: MovieModal 장르 태그 클릭 → 검색 이동
+
+### 변경 파일
+- `frontend/components/movie/MovieModal.tsx` — 장르 span → button, 클릭 시 모달 닫고 /movies?genre= 이동
+
+### 핵심 변경사항
+- 기존: `<span>` 단순 텍스트 칩
+- 수정: `<button onClick={() => { onClose(); router.push(/movies?genre=...) }}>` 클릭 가능 태그
+- MovieHero.tsx의 장르 Link 패턴과 동일한 URL 형식 사용
+- hover 효과 추가 (bg-overlay/10 → bg-overlay/20)
+
+## 검증
+- Frontend 빌드 성공
+- 2건 커밋 분리 후 push 완료
+
+---
+
 # 2026-03-13: 시연 차단 버그 3건 일괄 수정
 
 ## 이슈 1: 날씨 드롭다운 — 모바일 드로어 동기화
