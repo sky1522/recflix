@@ -282,11 +282,10 @@ def get_home_recommendations(
 
     # Korean popular movies (shuffle from top 100)
     korean_q = db.query(Movie).options(selectinload(Movie.genres)).filter(
-        Movie.weighted_score >= 6.0,
         Movie.production_countries_ko.ilike("%대한민국%"),
     )
     korean_q = apply_age_rating_filter(korean_q, age_rating)
-    korean_pool = korean_q.order_by(Movie.popularity.desc(), Movie.weighted_score.desc()).limit(100).all()
+    korean_pool = korean_q.order_by(Movie.popularity.desc(), Movie.vote_average.desc()).limit(100).all()
     if DIVERSITY_ENABLED:
         korean_pool = deduplicate_section(korean_pool, seen_ids)
     korean_popular = random.sample(korean_pool, min(50, len(korean_pool))) if korean_pool else []
