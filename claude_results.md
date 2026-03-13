@@ -1,3 +1,41 @@
+# 2026-03-13: 시연 차단 버그 3건 일괄 수정
+
+## 이슈 1: 날씨 드롭다운 — 모바일 드로어 동기화
+
+### 변경 파일
+- `frontend/components/layout/HeaderMobileDrawer.tsx` — guest_mbti_change 이벤트 dispatch 추가
+
+### 핵심 변경사항
+- 모바일 드로어에서 MBTI 변경 시 `guest_mbti_change` CustomEvent를 dispatch하지 않아 홈 페이지에 반영 안 되던 버그 수정
+- 날씨 동기화는 이전 커밋(useWeather.ts의 manual_weather_change/weather_reset)으로 이미 해결됨 — 모바일 드로어도 동일한 useWeather 훅을 사용하므로 자동 동기화
+
+## 이슈 2: 이메일 회원가입 후 온보딩 미진입
+
+### 변경 파일
+- `frontend/app/signup/page.tsx` — signup 후 onboarding_completed 확인하여 라우팅 분기
+
+### 핵심 변경사항
+- 기존: `signup()` → `router.push("/")` (온보딩 건너뜀)
+- 수정: `signup()` → `authStore.user.onboarding_completed` 확인 → false이면 `/onboarding`, true이면 `/`
+- 카카오/Google OAuth 콜백의 `isNew ? "/onboarding" : "/"` 패턴과 동일한 분기
+
+## 이슈 3: 온보딩 저장 실패 시 무시하고 홈 이동
+
+### 변경 파일
+- `frontend/app/onboarding/page.tsx` — 에러 핸들링 + 롤백 + 에러 메시지 표시
+
+### 핵심 변경사항
+1. **handleRate()**: API 실패 시 ratings 상태를 이전값으로 롤백 + "평점 저장에 실패했습니다" 에러 표시
+2. **handleComplete()**: API 실패 시 홈 이동 차단 + "온보딩 완료에 실패했습니다" 에러 표시
+3. **handleSkip()**: `completeOnboarding([])` API 호출하여 플래그 업데이트 (실패해도 홈 이동은 허용)
+
+## 검증
+- Frontend 빌드 성공
+- 3건 커밋 분리 후 push 완료
+- Vercel 자동 배포 예정
+
+---
+
 # 2026-03-13: 날씨 드롭다운 변경 시 추천 섹션 즉시 갱신 안 되는 버그 수정
 
 ## 변경 파일
