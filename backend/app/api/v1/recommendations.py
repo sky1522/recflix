@@ -293,26 +293,26 @@ def get_home_recommendations(
                 (m.id, rank, None) for rank, m in enumerate(weather_movies)
             ]
 
-    # 기분별 추천 (동적) - 미선택 시 기본값 relaxed
-    current_mood = mood if mood else "relaxed"
-    mood_emotion_keys = MOOD_EMOTION_MAPPING.get(current_mood, ["healing"])
-    primary_emotion = mood_emotion_keys[0]
-    mood_movies = get_movies_by_score(db, "emotion_tags", primary_emotion, limit=50, pool_size=120, age_rating=age_rating)
-    if DIVERSITY_ENABLED:
-        mood_movies = deduplicate_section(mood_movies, seen_ids)
+    # 기분별 추천 (동적) - 사용자가 명시적으로 선택한 경우에만 표시
     mood_row = None
-    if mood_movies:
-        for m in mood_movies:
-            seen_ids.add(m.id)
-        mood_config = MOOD_SECTION_CONFIG.get(current_mood, {"title": "😌 편안한 기분일 때", "desc": "마음이 따뜻해지는 영화"})
-        mood_row = RecommendationRow(
-            title=mood_config["title"],
-            description=mood_config["desc"],
-            movies=[MovieListItem.from_orm_with_genres(m) for m in mood_movies]
-        )
-        impression_sections["mood_picks"] = [
-            (m.id, rank, None) for rank, m in enumerate(mood_movies)
-        ]
+    if mood:
+        mood_emotion_keys = MOOD_EMOTION_MAPPING.get(mood, ["healing"])
+        primary_emotion = mood_emotion_keys[0]
+        mood_movies = get_movies_by_score(db, "emotion_tags", primary_emotion, limit=50, pool_size=120, age_rating=age_rating)
+        if DIVERSITY_ENABLED:
+            mood_movies = deduplicate_section(mood_movies, seen_ids)
+        if mood_movies:
+            for m in mood_movies:
+                seen_ids.add(m.id)
+            mood_config = MOOD_SECTION_CONFIG.get(mood, {"title": "😌 편안한 기분일 때", "desc": "마음이 따뜻해지는 영화"})
+            mood_row = RecommendationRow(
+                title=mood_config["title"],
+                description=mood_config["desc"],
+                movies=[MovieListItem.from_orm_with_genres(m) for m in mood_movies]
+            )
+            impression_sections["mood_picks"] = [
+                (m.id, rank, None) for rank, m in enumerate(mood_movies)
+            ]
 
     # Popular movies (shuffle from top 100)
     popular_q = db.query(Movie).options(selectinload(Movie.genres)).filter(Movie.weighted_score >= 6.0)
