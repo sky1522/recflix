@@ -1,4 +1,151 @@
-﻿# 2026-03-13: 추천 UI 표현 개선 + Mood 기본값 제거
+﻿# 2026-03-13: 맞춤 추천(하이브리드) 섹션 품질 및 갱신 문제 원인 분석
+
+---
+
+## 증상 1: 드롭다운 변경 시 hybrid_row 미갱신
+
+### 근본 원인: **가설 A, B, C, D 모두 해당하지 않음 — 코드는 정상 동작**
+
+라이브 API 검증 결과, **hybrid_row는 파라미터 변경에 정확하게 반응합니다.**
+
+| 조건 | Top 10 영화 ID |
+|------|----------------|
+| `weather=sunny&mood=relaxed` | 552524, 83533, 1184918, 569094, 519182, 1084242, 1022787, 939243, 1087192, 840464 |
+| `weather=rainy&mood=tense` | 1368166, 812583, 574475, 1078605, 950396, 1408208, 425274, 1288072, 1419406, 604079 |
+| 파라미터 없음 (MBTI만) | 1368166, 950396, 701387, 812583, 933260, 574475, 425274, 1354700, 1408208, 1272837 |
+
+- sunny+relaxed vs rainy+tense: **겹침 0편** (완전히 다른 결과)
+- rainy+tense vs 파라미터 없음: **겹침 6편** (mood/weather 추가 시 결과 변화)
+
+### 상세 검증 결과
+
+| 가설 | 결과 | 근거 |
+|------|------|------|
+| **A: hybrid_row가 쿼리 파라미터 무시** | ❌ 해당 안함 | `recommendations.py:200-204` — weather, mood, mbti 모두 `calculate_hybrid_scores()`에 전달 |
+| **B: CF/Personal이 결과 지배** | ⚠️ **그룹별 다름** | control: 컨텍스트 60% / test_b: 컨텍스트 25% (아래 상세) |
+| **C: 프론트 캐시가 변경 미반영** | ❌ 해당 안함 | `page.tsx:136` 캐시 키에 `weather.condition`, `mood`, `effectiveMBTI` 포함. 의존성 배열도 완전함 |
+| **D: Redis 서버 캐시** | ❌ 해당 안함 | hybrid_row에 Redis 캐싱 없음. 매 요청마다 계산 |
+
+### 파라미터 전달 경로 확인
+
+```
+Frontend Header 드롭다운 변경
+  → useMoodStore.setMood() / useWeather.setManualWeather() / updateMBTI()
+  → page.tsx useEffect 의존성 트리거 [weather, mood, user?.mbti, guestMBTI]
+  → 캐시 키 변경 → getHomeRecommendations(weather.condition, mood, mbtiParam)
+  → Backend GET /recommendations?weather=X&mood=Y
+  → calculate_hybrid_scores(db, movies, mbti, weather, ..., mood, experiment_group)
+  → 5축 가중합산 → hybrid_row 반환
+```
+
+모든 단계에서 파라미터가 정상 전달됩니다.
+
+### 유일한 잠재 이슈: test_b 그룹의 CF 지배 효과
+
+**test_b 그룹** (사용자의 1/3)에서는 CF 가중치가 70%로, 날씨/기분/MBTI를 변경해도 결과 변화가 **미미**합니다:
+
+| 그룹 | 컨텍스트 비중 (mbti+weather+mood) | CF+Personal 비중 | 드롭다운 변경 시 체감 |
+|------|----------------------------------|-------------------|---------------------|
+| **control** | 60% (with mood) / 45% (no mood) | 40% / 55% | **크게 변함** |
+| **test_a** | 37% / 30% | 63% / 70% | 중간 변화 |
+| **test_b** | 25% / 18% | 75% / 82% | **거의 안 변함** |
+
+**만약 보고자가 test_b 그룹에 배정된 사용자라면, "영화가 안 바뀐다"는 체감이 맞습니다.**
+
+---
+
+## 증상 2: hybrid_row 영화 품질 낮음
+
+### 근본 원인: 복합적
+
+#### 1. Cold-start 사용자의 축 공백
+평점/찜 이력이 없으면:
+- `personal_score = 0` (장르 매칭, 유사 영화 보너스 모두 0)
+- `cf_score ≈ 0.3~0.5` (SVD가 기본값 근처 예측)
+
+→ 5축 중 2축(personal, CF)이 약하므로, **점수 차이가 좁아져서** 상위 결과의 차별성이 낮아짐
+
+#### 2. 개별 섹션과의 차이
+
+| 섹션 | 스코어링 방식 | 특화도 |
+|------|--------------|--------|
+| 날씨 섹션 | `weather_scores[condition]` 단일 축 정렬 | ✅ 해당 날씨에 최적화된 영화만 |
+| 기분 섹션 | `emotion_tags[emotion]` 단일 축 정렬 | ✅ 해당 감정에 최적화된 영화만 |
+| MBTI 섹션 | `mbti_scores[type]` 단일 축 정렬 | ✅ 해당 MBTI에 최적화된 영화만 |
+| **hybrid_row** | 5축 가중합산 | ⚠️ **모든 축에서 "중간" 점수인 영화가 상위에** |
+
+단일 축 섹션은 해당 축에서 0.9+ 점수인 영화를 선별.
+hybrid_row는 여러 축의 합산이므로, **각 축에서는 0.6~0.7이지만 합산이 높은 영화**가 선정됨.
+→ "날씨엔 괜찮고, MBTI에도 괜찮지만, 둘 다 딱히 최적은 아닌" 영화가 나올 수 있음.
+
+#### 3. 점수 분해 예시 (하우스메이드, rainy+tense+INTJ, control 그룹)
+
+```
+가중치:  mbti=0.20  weather=0.15  mood=0.25  personal=0.15  cf=0.25
+점수:    ≈0.70      ≈0.70         ≈0.70      0.00           ≈0.50
+
+기여:    0.14       0.105         0.175      0.00           0.125
+합산:    0.545
+× quality_factor(≈1.0): 0.548 ✓
+```
+
+personal=0 (cold start), cf=0.5 (약한 신호) → 전체 점수의 40%가 약한 축에서 나옴.
+→ **활발한 사용자일수록 hybrid_row 품질이 향상되는 구조**
+
+---
+
+## A/B 그룹 배정 현황
+
+```
+user_id= 1: control    user_id= 7: test_a     user_id=13: test_b
+user_id= 2: control    user_id= 8: control    user_id=14: test_a
+user_id= 3: test_b     user_id= 9: test_b     user_id=15: control
+user_id= 4: control    user_id=10: control    user_id=16: test_b
+user_id= 5: test_b     user_id=11: test_a     user_id=17: test_a
+user_id= 6: control    user_id=12: control    user_id=18: test_b
+```
+
+확인 필요: **시연 계정의 user_id → experiment_group 확인**
+
+---
+
+## 수정 제안 (우선순위 순)
+
+### 1. [가장 임팩트 큰] 시연용 A/B 그룹 고정
+- 시연 계정이 test_b(CF 70%)에 배정되어 있다면, 드롭다운 변경이 거의 무의미
+- **시연 시 control 그룹 사용** 권장 (컨텍스트 60% 반영)
+- 또는 시연 계정의 `experiment_group`을 DB에서 직접 `control`로 설정
+
+### 2. [차선] 활성 사용자에서 테스트
+- cold-start(평점 0편) 사용자는 personal=0, CF=약함 → hybrid_row 차별성 낮음
+- **최소 10편 이상 평점 부여한 계정**에서 시연해야 hybrid_row 효과 극대화
+
+### 3. [장기 개선] 가중치 최적화
+- test_b의 CF 70%는 너무 공격적 — 컨텍스트 변경 체감이 사라짐
+- 제안: test_b의 CF를 50%로 하향 (mbti=0.12, weather=0.10, mood=0.15, personal=0.13, cf=0.50)
+- 또는 "컨텍스트 변경 감지 시" 가중치를 동적으로 조정하는 로직 추가
+
+### 4. [장기 개선] hybrid_row에 컨텍스트 부스팅 적용
+- 현재: 순수 가중합산만 사용
+- 개선: 사용자가 방금 변경한 축(날씨/기분)에 일시적 부스트(+0.10~0.15) 적용
+- 이렇게 하면 드롭다운 변경 시 즉각적인 결과 변화를 체감할 수 있음
+
+---
+
+## 프로덕션 상태 확인
+
+| 항목 | 상태 |
+|------|------|
+| CF(SVD) 모델 | ✅ loaded |
+| Two-Tower | ✅ loaded |
+| Reranker(LGBM) | ✅ loaded |
+| Redis | ✅ connected |
+| DB | ✅ connected |
+
+---
+---
+
+# 2026-03-13: 추천 UI 표현 개선 + Mood 기본값 제거
 
 ---
 
