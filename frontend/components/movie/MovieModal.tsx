@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Heart, Star, X } from "lucide-react";
 import { getImageUrl, formatRuntime, formatDate, getGenreName } from "@/lib/utils";
@@ -20,6 +21,7 @@ interface MovieModalProps {
 }
 
 export default function MovieModal({ movie, onClose, requestId }: MovieModalProps) {
+  const router = useRouter();
   const [detail, setDetail] = useState<MovieDetail | null>(null);
   const [similar, setSimilar] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
@@ -235,12 +237,16 @@ export default function MovieModal({ movie, onClose, requestId }: MovieModalProp
               {movie.genres.map((genre, index) => {
                 const genreName = getGenreName(genre);
                 return (
-                  <span
+                  <button
                     key={genreName || index}
-                    className="px-3 py-1 bg-overlay/10 rounded-full text-sm text-fg/80"
+                    onClick={() => {
+                      onClose();
+                      router.push(`/movies?genre=${encodeURIComponent(genreName)}`);
+                    }}
+                    className="px-3 py-1 bg-overlay/10 hover:bg-overlay/20 rounded-full text-sm text-fg/80 cursor-pointer transition"
                   >
                     {genreName}
-                  </span>
+                  </button>
                 );
               })}
             </div>
