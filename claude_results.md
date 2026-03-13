@@ -1,4 +1,60 @@
-﻿# 2026-03-13: 맞춤 추천(하이브리드) 섹션 품질 및 갱신 문제 원인 분석
+﻿# 2026-03-13: hybrid_row 품질 긴급 수정 — control 로직 강제 + mood 매핑 + MBTI override
+
+---
+
+## 변경 파일
+| 파일 | 변경 내용 |
+|------|-----------|
+| `backend/app/api/v1/recommendations.py` | hybrid_row를 항상 control 경로로 강제 (Two-Tower/LGBM 비활성화), MBTI 쿼리 override 허용 |
+| `backend/app/services/reranker.py` | 프론트엔드 mood → reranker mood vocabulary 매핑 추가 (8종→6종) |
+| `frontend/app/page.tsx` | 로그인 시에도 user.mbti를 쿼리 파라미터로 전달 |
+
+## 핵심 변경
+
+### 수정 1: hybrid_row control 경로 강제
+- Two-Tower/LGBM 경로는 후보 200편이 weather/mood 무관하게 고정 → 컨텍스트 변경에 둔감
+- 모든 A/B 그룹에서 hybrid_row는 control 로직 사용: DB 스캔 → 5축 가중합산
+- 가중치: MBTI 20% + Weather 15% + Mood 25% + Personal 15% + CF 25%
+- experiment_group 자체는 유지 (추천 로그 분석용)
+
+### 수정 2: Reranker mood 매핑
+```
+relaxed→calm, tense→excited, excited→excited, emotional→emotional
+imaginative→happy, light→happy, gloomy→sad, stifled→tired
+```
+나중에 test_a 복원 시 mood feature가 정상 인식됨.
+
+### 수정 3: MBTI 쿼리 override
+- 기존: 로그인 시 무조건 `current_user.mbti` 사용 (쿼리 무시)
+- 수정: 쿼리 파라미터 우선, 없으면 user.mbti fallback
+- 프론트엔드도 로그인 시 `user.mbti`를 쿼리 파라미터로 전달
+
+## 검증 결과 (test_b 그룹 사용자, 배포 후)
+
+| 시나리오 | Top 10 Overlap | 결과 |
+|----------|---------------|------|
+| 날씨 변경 (sunny→rainy) | 3/10 | **크게 변함** (기존 test_b: 9/10) |
+| 기분 변경 (relaxed→tense) | 4/10 | **크게 변함** |
+| MBTI 변경 (INTJ→ENFP) | 4/10 | **크게 변함** |
+| 비로그인 | hybrid_row: None | 정상 |
+
+### 대표 결과 비교
+
+**ENFP + sunny + relaxed** (밝고 모험적):
+- 주토피아2 (0.493), 스폰지밥 (0.492), 인사이드아웃2 (0.486), 아바타 (0.477), 모아나2 (0.471)
+
+**INTJ + rainy + tense** (스릴러/미스터리):
+- 하우스메이드 (0.548), 나이브스아웃 (0.496), 파이널데스티네이션 (0.496), 웨폰 (0.493)
+
+→ 컨텍스트에 따라 영화 장르/분위기가 확연히 달라짐
+
+## 커밋
+- `5826f48` fix: force control algorithm for hybrid_row to ensure context responsiveness
+
+---
+---
+
+# 2026-03-13: 맞춤 추천(하이브리드) 섹션 품질 및 갱신 문제 원인 분석
 
 ---
 

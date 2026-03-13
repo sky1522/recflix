@@ -1,134 +1,99 @@
-# 맞춤 추천(하이브리드) 섹션 품질 및 갱신 문제 조사
+# 맞춤 추천(hybrid_row) 품질 긴급 수정 — 시연 전 조치
 
-## 보고된 증상
-1. 맞춤 추천 섹션의 영화가 체감상 마음에 들지 않음 (날씨/기분/MBTI 개별 섹션은 양호)
-2. 헤더에서 날씨/기분/MBTI를 변경해도 맞춤 추천 섹션의 영화가 바뀌지 않고 그대로 유지됨
+## 배경
+Codex 조사 결과, hybrid_row 품질 문제는 test_a/test_b A/B 그룹에서 발생합니다.
+- control: 날씨/기분/MBTI 변경 시 top10 overlap 1/10 (정상 반응)
+- test_a: top10 overlap 9/10 (거의 변화 없음)
+- test_b: top10 overlap 9/10 (거의 변화 없음)
 
-이 두 증상은 연결되어 있을 가능성이 높습니다.
-수정은 하지 말고 원인을 정확히 파악해주세요.
+원인:
+1. Two-Tower 후보 추출이 weather/mood를 사용하지 않아 후보 200편이 고정
+2. LightGBM reranker의 mood vocabulary가 프론트와 불일치
+   (reranker: happy/sad/excited/calm/tired/emotional)
+   (프론트: relaxed/tense/excited/emotional/imaginative/light/gloomy/stifled)
+   → 8개 중 2개만 인식, 나머지 6개는 전부 0 처리
+3. test_b는 CF 70%로 다른 축의 영향이 극히 미미
 
----
+## 수정 1: hybrid_row를 control 로직으로 강제 (최우선)
 
-## 조사 1: 맞춤 추천 섹션이 드롭다운 변경에 반응하지 않는 문제
+### 파일: backend/app/api/v1/recommendations.py
 
-### 1-1. 백엔드: hybrid_row 생성 시 파라미터 반영 여부
-backend/app/api/v1/recommendations.py에서:
-- GET /recommendations 엔드포인트가 weather, mood, mbti 쿼리 파라미터를 받을 때
-- hybrid_row를 생성하는 로직이 이 파라미터를 실제로 사용하는지 확인
-- 아니면 hybrid_row는 user DB 정보(user.mbti, user.preferred_genres)만 사용하고
-  쿼리 파라미터(헤더 드롭다운 값)는 개별 섹션(weather_row, mood_row, mbti_row)에만 적용되는지
+hybrid_row 생성 부분에서 A/B 그룹 분기를 무시하고 control 로직만 사용하도록 수정.
 
-라이브 검증:
-- GET /api/v1/recommendations (로그인 토큰 포함, 파라미터 없음) → hybrid_row 영화 목록 기록
-- GET /api/v1/recommendations?weather=rainy&mood=tense&mbti=ENFP (동일 토큰) → hybrid_row 영화 목록 기록
-- 두 결과의 hybrid_row가 동일한지 다른지 비교
+현재 흐름:
+- experiment_group 판정 → control/test_a/test_b 분기 → 각각 다른 hybrid 계산
 
-### 1-2. 백엔드: recommendation_engine.py 하이브리드 스코어링 입력값 추적
-- get_hybrid_recommendations() 또는 유사 함수의 시그니처 확인
-- 이 함수에 weather/mood/mbti가 인자로 전달되는지
-- 아니면 user 객체의 고정 속성만 사용하는지
-- 특히 mood 파라미터가 hybrid 계산에 들어가는지 vs mood_row 생성에만 쓰이는지
+수정 방향:
+- hybrid_row 계산 시 experiment_group에 관계없이 항상 control 경로 사용
+- 즉, DB 전체 스캔 → 5축 가중합산(MBTI 20% + Weather 15% + Mood 25% + Personal 15% + CF 25%) → Top 20
+- Two-Tower/LightGBM 경로를 hybrid_row에서 비활성화
+- 개별 섹션(weather_row, mood_row, mbti_row)은 기존 로직 유지
 
-### 1-3. 프론트엔드: hybrid_row 캐싱/갱신 로직
-frontend/app/page.tsx에서:
-- 홈 추천 API 호출 시 weather/mood/mbti 파라미터가 모두 포함되는지
-- API 응답의 hybrid_row를 캐싱하고 있는지 (useSWR, react-query, 자체 캐시 등)
-- 캐시 키에 weather/mood/mbti가 포함되어 있는지
-- 드롭다운 변경 시 캐시 키가 바뀌어 re-fetch가 트리거되는지
+구체적으로:
+- hybrid_row를 계산하는 함수 호출 부분을 찾아서
+- test_a/test_b 분기를 주석 처리하거나
+- force_control=True 같은 플래그로 항상 control 경로를 타도록
 
-### 1-4. 프론트엔드: hybrid_row 렌더링 조건
-- hybrid_row가 null이면 섹션 자체를 숨기는지
-- API 재호출 시 hybrid_row가 새 데이터로 교체되는지
-- 아니면 이전 데이터가 stale 상태로 남아있는지
+### 주의사항
+- A/B 테스트 인프라 자체는 건드리지 않음 (나중에 복원 가능)
+- 개별 추천 섹션(weather_row, mood_row 등)은 이미 control 로직이므로 영향 없음
+- 추천 로그에 기록되는 experiment_group은 그대로 유지 (분석용)
 
----
+## 수정 2: mood vocabulary 매핑 추가 (시간 되면)
 
-## 조사 2: 맞춤 추천 영화 품질 문제
+### 파일: backend/app/services/reranker.py:36-37
 
-### 2-1. hybrid_row와 개별 섹션의 영화 소스 비교
-라이브 호출 (로그인 상태):
-- GET /api/v1/recommendations?weather=rainy&mood=tense&mbti=INTJ
-- 응답에서 아래 섹션별 영화 10편씩 제목 나열:
-  - weather_row (날씨 섹션)
-  - mood_row (기분 섹션)  
-  - mbti_row (MBTI 섹션)
-  - hybrid_row (맞춤 추천 섹션)
+현재 MOOD_TO_IDX:
+```python
+MOOD_TO_IDX = {"happy": 0, "sad": 1, "excited": 2, "calm": 3, "tired": 4, "emotional": 5}
+```
 
-비교 기준:
-- hybrid_row가 날씨+기분+MBTI를 종합한 결과인지
-- 아니면 개별 섹션과 무관한 별도 로직(CF/Personal 위주)인지
-- hybrid_row에 날씨/기분/MBTI 조건과 어울리지 않는 영화가 있는지
+프론트 mood enum과의 매핑 추가:
+```python
+MOOD_MAPPING = {
+    "relaxed": "calm",
+    "tense": "excited",     # 가장 가까운 매칭
+    "excited": "excited",
+    "emotional": "emotional",
+    "imaginative": "happy",
+    "light": "happy",
+    "gloomy": "sad",
+    "stifled": "tired",
+}
+```
 
-### 2-2. A/B 그룹별 hybrid_row 생성 경로
-각 그룹의 hybrid_row 생성 로직을 코드에서 추적:
+reranker.py에서 mood feature 생성 전에 이 매핑을 적용.
+이 수정은 수정 1과 독립적이므로, 나중에 test_a를 다시 활성화할 때를 위해 함께 수정.
 
-control 그룹:
-- DB 전체 스캔 → 5축 가중합산 → Top 20
-- weather/mood/mbti 파라미터가 점수 계산에 반영되는지
+## 수정 3: 로그인 사용자 MBTI 쿼리 override 허용 (선택)
 
-test_a 그룹:
-- Two-Tower(200편) → LightGBM(50편) → 5축 블렌딩 → Top 20
-- Two-Tower 후보 추출 시 weather/mood/mbti가 반영되는지
-- LightGBM 피처에 현재 날씨/기분이 포함되는지
+### 파일: backend/app/api/v1/recommendations.py:121-123
 
-test_b 그룹:
-- Two-Tower(200편) → 5축 블렌딩(CF 70%) → Top 20
-- CF가 70%이면 날씨/기분/MBTI 영향이 30%뿐 → 조건 변경해도 결과 변화 미미
+현재:
+```python
+mbti = current_user.mbti if current_user else mbti
+```
 
-### 2-3. 현재 로그인 사용자의 A/B 그룹 확인
-- 테스트에 사용하는 계정의 experiment_group 확인
-- 해당 그룹의 hybrid_row 로직이 어떤 경로인지 확인
-- test_b(CF 70%)에 배정되어 있다면 조건 변경 영향이 극히 미미
+수정 (헤더 MBTI 드롭다운 변경이 로그인 상태에서도 hybrid_row에 반영되도록):
+```python
+mbti = mbti or (current_user.mbti if current_user else None)
+```
 
-### 2-4. hybrid 점수에서 각 축의 기여도 분석
-로그인 상태에서 hybrid_row 영화 1편을 예시로:
-- MBTI 축 기여: x점 × 가중치
-- Weather 축 기여: x점 × 가중치
-- Mood 축 기여: x점 × 가중치
-- Personal 축 기여: x점 × 가중치
-- CF 축 기여: x점 × 가중치
-- 어느 축이 점수를 지배하는지 확인
-- CF나 인기도가 지배적이면 조건 변경이 결과에 영향을 거의 못 미침
+쿼리 파라미터가 있으면 우선, 없으면 user DB 값 사용.
 
----
+## 검증
 
-## 조사 3: 근본 원인 가설 검증
+수정 후 아래 시나리오 확인:
+1. 로그인 상태에서 날씨 맑음→비 변경 → hybrid_row 영화 목록 변경 확인
+2. 기분 편안한→긴장감 변경 → hybrid_row 영화 목록 변경 확인
+3. MBTI INTJ→ENFP 변경 → hybrid_row 영화 목록 변경 확인
+4. hybrid_row 영화가 조건과 어울리는지 체감 확인
+   (비+긴장감+INTJ → 다크나이트, 기생충 등 기대)
+5. 비로그인 상태에서는 hybrid_row가 표시되지 않는지 확인
+6. % 표시가 65~99% 범위인지 확인
 
-### 가설 A: hybrid_row가 쿼리 파라미터를 무시하고 user DB 값만 사용
-검증: recommendations.py에서 hybrid 계산 함수 호출 시 전달하는 인자 목록 확인
-
-### 가설 B: CF/Personal 축이 결과를 지배하여 나머지 축 변경이 무의미
-검증: 가중치 합산에서 CF+Personal 비중 확인 (control 40%, test_a 63%, test_b 75%)
-
-### 가설 C: 프론트 캐시가 드롭다운 변경을 반영하지 않음
-검증: page.tsx의 캐시 키에 weather/mood/mbti가 포함되는지, API가 실제로 재호출되는지
-
-### 가설 D: 백엔드에서 hybrid_row를 서버 캐시(Redis)하고 있어서 파라미터 변경이 무효
-검증: recommendations.py에서 Redis 캐시 키에 weather/mood/mbti가 포함되는지
-
----
-
-## 리포트 형식
-맞춤 추천 섹션 문제 원인 분석
-증상 1: 드롭다운 변경 시 hybrid_row 미갱신
-
-근본 원인: [가설 A/B/C/D 중 확인된 것]
-코드 위치: [파일:라인]
-상세 설명:
-영향 범위: [모든 사용자 / 특정 A/B 그룹 / 특정 상태]
-
-증상 2: hybrid_row 영화 품질 낮음
-
-근본 원인:
-개별 섹션(날씨/기분/MBTI)과의 차이:
-어느 축이 결과를 지배하는지:
-실제 점수 분해 예시 (영화 1편):
-
-수정 제안 (우선순위 순)
-
-[가장 임팩트 큰 수정]
-[차선 수정]
-[장기 개선]
-
-
-결과를 claude_results.md에 기록해주세요.
+## 완료 후
+- 커밋: "fix: force control algorithm for hybrid_row to ensure context responsiveness"
+- push 및 배포 확인
+- 시연 시나리오 전체 재점검
+- 결과를 claude_results.md에 기록
