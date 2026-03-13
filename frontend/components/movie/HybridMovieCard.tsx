@@ -16,6 +16,8 @@ interface HybridMovieCardProps {
   showQuickView?: boolean;
   section?: string;
   requestId?: string;
+  rowMinScore?: number;
+  rowMaxScore?: number;
 }
 
 // Tag color mapping
@@ -39,12 +41,20 @@ function RecommendationTagBadge({ tag }: { tag: RecommendationTag }) {
   );
 }
 
-export default function HybridMovieCard({ movie, index = 0, showQuickView = true, section, requestId }: HybridMovieCardProps) {
+export default function HybridMovieCard({ movie, index = 0, showQuickView = true, section, requestId, rowMinScore, rowMaxScore }: HybridMovieCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [imageError, setImageError] = useState(false);
 
   const displayTitle = movie.title_ko || movie.title;
   const year = movie.release_date?.split("-")[0];
+
+  // Relative normalization: map row's score range to 65-99%
+  const normalizedPercent = (() => {
+    if (movie.hybrid_score <= 0) return null;
+    if (rowMinScore == null || rowMaxScore == null) return Math.round(movie.hybrid_score * 100);
+    if (rowMaxScore === rowMinScore) return 80;
+    return Math.round(65 + ((movie.hybrid_score - rowMinScore) / (rowMaxScore - rowMinScore)) * 34);
+  })();
 
   // Show top 2 tags
   const displayTags = movie.recommendation_tags.slice(0, 2);
@@ -137,9 +147,9 @@ export default function HybridMovieCard({ movie, index = 0, showQuickView = true
             )}
 
             {/* Hybrid Score Badge */}
-            {movie.hybrid_score > 0 && (
+            {normalizedPercent != null && (
               <div className="absolute top-2 right-2 bg-primary-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                {Math.round(movie.hybrid_score * 100)}%
+                {normalizedPercent}%
               </div>
             )}
           </div>

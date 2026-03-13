@@ -58,6 +58,13 @@ export default function HybridMovieRow({
     return shuffled.slice(0, displayCount);
   }, [movies, displayCount, shuffleKey]);
 
+  // Compute min/max hybrid_score for relative normalization (65-99%)
+  const { rowMinScore, rowMaxScore } = useMemo(() => {
+    const scores = displayedMovies.map((m) => m.hybrid_score).filter((s) => s > 0);
+    if (scores.length === 0) return { rowMinScore: 0, rowMaxScore: 0 };
+    return { rowMinScore: Math.min(...scores), rowMaxScore: Math.max(...scores) };
+  }, [displayedMovies]);
+
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
     if (scrollRef.current) {
@@ -152,7 +159,7 @@ export default function HybridMovieRow({
           className="flex space-x-3 overflow-x-auto hide-scrollbar pb-4"
         >
           {displayedMovies.map((movie, index) => (
-            <HybridMovieCard key={movie.id} movie={movie} index={index} section={section} requestId={requestId} />
+            <HybridMovieCard key={movie.id} movie={movie} index={index} section={section} requestId={requestId} rowMinScore={rowMinScore} rowMaxScore={rowMaxScore} />
           ))}
         </div>
       </div>
