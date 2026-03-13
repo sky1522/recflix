@@ -1,6 +1,6 @@
 # RecFlix 개발 진행 상황
 
-**최종 업데이트**: 2026-03-03 (v2.0.0 + UI 개선)
+**최종 업데이트**: 2026-03-13 (v2.0.0 + 시연 품질 개선)
 
 ---
 
@@ -654,6 +654,25 @@
 | 프로필 드롭다운 중복 제거 | ✅ | 찜/평점 제거 (헤더 메뉴와 중복) |
 | 설정 바로가기 제거 | ✅ | 중복 바로가기 섹션 삭제 |
 | 모바일 드로어 MBTI 그리드 | ✅ | 날씨/기분과 동일한 그리드 패턴 |
+
+### Phase 55: 시연 품질 개선 + 추천 알고리즘 조정 (2026-03-13)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 날씨 드롭다운 교차 동기화 | ✅ | CustomEvent("manual_weather_change") 패턴 |
+| 온보딩 에러 처리 + 롤백 | ✅ | 평점 실패 시 UI 롤백, 에러 메시지 표시 |
+| 204 No Content 응답 처리 | ✅ | fetchAPI에서 204 시 undefined 반환 (삭제 API 정상화) |
+| 에러 메시지 파싱 개선 | ✅ | body.message/error/detail 순서 파싱 |
+| MovieModal 장르 태그 클릭 | ✅ | 장르 클릭 시 /movies?genre= 이동 |
+| 날씨 도시명 표시 | ✅ | Header에 "서울 · 맑음 15°C" 형식 |
+| OAuth onboarding 분기 수정 | ✅ | isNew → onboarding_completed 기반 라우팅 |
+| 계정 삭제 에러 피드백 | ✅ | alert()로 실패 알림 |
+| hybrid_score % 정규화 | ✅ | Row 내 상대 정규화 65-99% (cold-start 4-6% 방지) |
+| 기분 미선택 시 섹션 숨김 | ✅ | 기본값 "relaxed" 제거, mood=null이면 mood_row 미생성 |
+| hybrid_row control 강제 | ✅ | Two-Tower/LGBM 비활성화, 항상 5축 가중합산 사용 |
+| Reranker mood 매핑 | ✅ | 프론트 8종 → reranker 6종 vocabulary 변환 |
+| MBTI 쿼리 override | ✅ | 쿼리 파라미터 우선, 없으면 user.mbti fallback |
+| 한국 인기 영화 백엔드 이동 | ✅ | Top 100 → sample 50 + shuffle + dedup, weighted_score 필터 제거 |
 
 ---
 

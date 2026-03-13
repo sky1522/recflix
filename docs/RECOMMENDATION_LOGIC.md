@@ -288,11 +288,46 @@ if mood_score > 0.5:
     tags.append("#긴장감")
 ```
 
+> **기분 미선택 시**: mood 파라미터가 null이면 mood_row를 생성하지 않음 (기본값 없음).
+> 사용자가 명시적으로 기분을 선택한 경우에만 기분 섹션이 표시됩니다.
+
+### 6.4 Reranker Mood Vocabulary 매핑
+
+LightGBM 재랭커는 6종 mood만 인식합니다. 프론트엔드 8종 mood를 재랭커 vocabulary로 변환:
+
+| 프론트엔드 mood | Reranker mood | 매핑 근거 |
+|----------------|---------------|----------|
+| relaxed | calm | 평온 ≈ 차분 |
+| tense | excited | 긴장 ≈ 흥분 (arousal 축) |
+| excited | excited | 직접 매핑 |
+| emotional | emotional | 직접 매핑 |
+| imaginative | happy | 상상 ≈ 즐거움 |
+| light | happy | 유쾌 ≈ 즐거움 |
+| gloomy | sad | 울적 ≈ 슬픔 |
+| stifled | tired | 답답 ≈ 피곤 |
+
+```python
+# backend/app/services/reranker.py
+FRONTEND_MOOD_MAPPING = {
+    "relaxed": "calm", "tense": "excited", "excited": "excited",
+    "emotional": "emotional", "imaginative": "happy", "light": "happy",
+    "gloomy": "sad", "stifled": "tired",
+}
+```
+
 ---
 
 ## 7. Hybrid (종합) 추천 로직
 
 ### 7.1 가중치 구성 (v3, CF 통합, 2026-02-19~)
+
+> **hybrid_row는 항상 control 알고리즘 사용** (2026-03-13~):
+> A/B 그룹(test_a/test_b)의 Two-Tower/LGBM 경로는 후보 200편이 weather/mood 무관하게 고정되어
+> 컨텍스트 변경에 둔감합니다. hybrid_row는 experiment_group에 관계없이 항상 control 경로
+> (DB 전체 스캔 → 5축 가중합산)를 사용합니다.
+>
+> **MBTI 쿼리 override**: 쿼리 파라미터의 mbti가 우선, 없으면 user.mbti fallback.
+> 이를 통해 헤더 드롭다운 MBTI 변경이 로그인 상태에서도 즉시 반영됩니다.
 
 **CF 모델 활성화 + Mood 있을 때:**
 ```
@@ -357,6 +392,20 @@ hybrid_score *= quality_factor
 > **변경 이유**: 기존 binary bonus(+0.1/+0.2)는 7.0/8.0 기준으로 점수가 급변했지만,
 > 연속 보정은 6.0~9.0 구간에서 0.85~1.0으로 부드럽게 품질을 반영합니다.
 
+### 7.4 점수 표시 정규화 (Frontend, 2026-03-13~)
+
+프론트엔드에서 hybrid_score를 **Row 내 상대 정규화**하여 65-99% 범위로 표시합니다:
+
+```typescript
+// frontend/components/movie/HybridMovieCard.tsx
+// Row 내 최고 점수 = 99%, 최저 점수 = 65%
+normalizedPercent = 65 + (score - rowMinScore) / (rowMaxScore - rowMinScore) * 34
+// 모든 점수 동일 시: 80% 고정
+```
+
+> **이유**: Cold-start 사용자(평점 3편 미만)는 Personal=0, CF≈0으로 hybrid_score가 4-6% 수준.
+> 이를 "추천 정확도 4%"로 오해할 수 있어 상대 정규화를 적용합니다.
+
 ---
 
 ## 8. 연령등급 필터링 (Age Rating Filter)
@@ -415,19 +464,21 @@ AGE_RATING_MAP = {
 | 순서 | 섹션 | 데이터 소스 |
 |:---:|------|-------------|
 | 0 | 🎯 맞춤 추천 (hybrid_row) | Hybrid Score 상위 60개 → 40개 풀 → 20개 표시 |
-| 1 | 💜 MBTI 추천 | mbti_scores 상위 50개 → 20개 표시 |
-| 2 | 날씨별 추천 | weather_scores 상위 50개 → 20개 표시 |
-| 3 | 기분별 추천 | emotion_tags 상위 50개 → 20개 표시 |
-| 4 | 🔥 인기 영화 | popularity 순 100개 → 50개 풀 → 20개 표시 |
-| 5 | ⭐ 높은 평점 | vote_average 순 100개 → 50개 풀 → 20개 표시 |
+| 1 | 날씨별 추천 | weather_scores 상위 50개 → 20개 표시 |
+| 2 | 기분별 추천 | emotion_tags 상위 50개 (명시적 선택 시만) |
+| 3 | 💜 MBTI 추천 | mbti_scores 상위 50개 → 20개 표시 |
+| 4 | 🔥 인기 영화 | popularity 순 100개 → 50개 랜덤 추출 + 셔플 |
+| 5 | 🇰🇷 한국 인기 영화 | 대한민국 영화 100개 → 50개 랜덤 추출 + 셔플 |
+| 6 | ⭐ 높은 평점 | weighted_score 순 100개 → 50개 랜덤 추출 + 셔플 |
 
 **비로그인 시:** 범용 → 개인화
 | 순서 | 섹션 | 데이터 소스 |
 |:---:|------|-------------|
-| 1 | 🔥 인기 영화 | popularity 순 100개 → 50개 풀 → 20개 표시 |
-| 2 | ⭐ 높은 평점 | vote_average 순 100개 → 50개 풀 → 20개 표시 |
-| 3 | 날씨별 추천 | weather_scores 상위 50개 → 20개 표시 |
-| 4 | 기분별 추천 | emotion_tags 상위 50개 → 20개 표시 |
+| 1 | 🔥 인기 영화 | popularity 순 100개 → 50개 랜덤 추출 + 셔플 |
+| 2 | 🇰🇷 한국 인기 영화 | 대한민국 영화 100개 → 50개 랜덤 추출 + 셔플 |
+| 3 | ⭐ 높은 평점 | weighted_score 순 100개 → 50개 랜덤 추출 + 셔플 |
+| 4 | 날씨별 추천 | weather_scores 상위 50개 → 20개 표시 |
+| 5 | 기분별 추천 | emotion_tags 상위 50개 (명시적 선택 시만) |
 
 ### 9.2 🔄 새로고침 버튼
 
@@ -450,7 +501,7 @@ const displayedMovies = useMemo(() => {
 
 | 엔드포인트 | 메서드 | 파라미터 | 설명 |
 |-----------|--------|----------|------|
-| `/recommendations` | GET | weather, mood, age_rating | 홈 화면 전체 추천 |
+| `/recommendations` | GET | weather, mood, mbti, age_rating | 홈 화면 전체 추천 |
 | `/recommendations/hybrid` | GET | weather, limit, age_rating | 로그인 필수, 종합 추천 |
 | `/recommendations/mbti` | GET | mbti, limit, age_rating | MBTI별 추천 |
 | `/recommendations/weather` | GET | weather, limit, age_rating | 날씨별 추천 |

@@ -234,6 +234,8 @@ cd frontend && npm run dev
 - 프론트엔드 CSR 페이지: WebFetch로 동적 콘텐츠 확인 불가 → API 직접 호출로 검증
 - Railway LFS 업로드 제한: `.railwayignore`로 모델 파일 제외 (Dockerfile에서 GitHub LFS로 다운로드)
 - numpy 2.x pickle 호환: SVD 모델이 numpy 2.x로 생성됨 → `numpy>=2.0.0` 필수
+- 한국 영화 weighted_score: 대부분 0.0 → 한국 인기 영화 필터에서 weighted_score 조건 제외
+- hybrid_row: 항상 control 알고리즘 사용 (Two-Tower/LGBM 경로는 컨텍스트 변경에 둔감)
 
 ## 스킬
 
