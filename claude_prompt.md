@@ -1,25 +1,55 @@
-# 인기/높은평점 고정 섹션 다양성 조사 및 개선
+# 한국 인기 영화 섹션 — 백엔드 랜덤 추출 방식으로 변경
 
-## 현재 증상
-한국 인기 영화, 인기 영화, 높은 평점 섹션이 새로고침해도 항상 동일한 영화 동일한 순서
+## 문제
+한국 인기 영화만 popularity DESC 고정 정렬이라 새로고침해도 항상 동일한 영화 동일한 순서.
+인기 영화/높은 평점 섹션은 이미 Top 100 → random.sample(50) + shuffle 방식으로 구현되어 있음.
+한국 인기 영화도 동일한 방식으로 통일.
 
-## 조사
+## 수정
 
-### 1. 백엔드 로직 확인
-- GET /api/v1/recommendations/popular 엔드포인트
-- GET /api/v1/recommendations/top-rated 엔드포인트
-- 정렬 기준이 무엇인지 (popularity DESC? vote_average DESC?)
-- 결과에 랜덤 요소가 전혀 없는지
-- Redis 캐시가 있어서 항상 같은 결과를 반환하는지
+### 1. 백엔드: 한국 인기 영화를 recommendations.py에서 처리
 
-### 2. 개선 방안 검토 (수정은 하지 말 것)
-아래 중 구현이 간단한 방법을 제안해주세요:
+현재 한국 인기 영화는 프론트에서 `getMovies({ country: "대한민국", sort_by: "popularity" })`로
+movies.py의 범용 검색 엔드포인트를 직접 호출하고 있음.
 
-a) 시간대별 시드 셔플: 같은 시간대 내에서는 동일하되, 시간대가 바뀌면 순서 변경
-b) 상위 30편에서 랜덤 20편 선택: 새로고침마다 약간씩 다른 구성
-c) 인기도 + 약간의 랜덤 가산점: 순위가 매번 미세하게 변동
-d) 현재 유지 (인기 순위는 고정이 자연스러움)
+이것을 인기/높은평점과 동일하게 recommendations.py에서 전용 로직으로 처리:
 
-어떤 방법이 가장 적은 코드 변경으로 시연 임팩트를 높일 수 있는지 판단해주세요.
+1. recommendations.py에 한국 인기 영화 row 생성 로직 추가:
+   - DB에서 한국 영화 중 weighted_score >= 6.0 필터
+   - popularity DESC 정렬로 Top 100 풀 구성
+   - random.sample(pool, min(50, len(pool))) 랜덤 추출
+   - random.shuffle() 순서 셔플
+   - korean_popular_row로 반환
 
-결과를 claude_results.md에 기록해주세요.
+2. 기존 인기 영화 row 생성 로직 (recommendations.py:264-281) 참고하여 동일 패턴 적용.
+   차이점은 한국 영화 필터 조건(country = "대한민국" 또는 production_countries JSONB 포함) 추가.
+
+3. GET /recommendations 응답의 섹션 순서에 korean_popular_row를 기존 위치에 배치:
+   비로그인: 인기영화 → 한국인기영화 → 높은평점 → 날씨 → 기분 → MBTI
+
+### 2. 프론트엔드: page.tsx에서 한국 인기 영화 직접 호출 제거
+
+현재 page.tsx에서:
+- getMovies({ country: "대한민국", sort_by: "popularity", page_size: 40 }) 별도 호출
+
+수정:
+- 이 별도 호출을 제거
+- 대신 recommendations API 응답의 korean_popular_row를 사용
+- 다른 섹션(인기, 높은평점, 날씨, 기분, MBTI)과 동일한 방식으로 렌더링
+
+### 3. 중복 제거 적용
+
+기존 deduplicate_section 로직에 korean_popular_row도 포함:
+- 인기영화 → 한국인기영화 → 높은평점 순서로 seen_ids 누적
+- 한국인기영화에 인기영화와 같은 영화가 나오지 않도록
+
+## 검증
+- Ctrl+F5 새로고침 3회 → 한국 인기 영화 구성과 순서가 매번 다른지
+- 인기 영화 섹션과 한국 인기 영화 섹션 간 중복 없는지
+- 한국 인기 영화에 실제로 한국 영화만 나오는지
+- 다른 섹션(인기, 높은평점, 날씨, 기분, MBTI)은 기존대로 정상 작동
+
+## 완료 후
+- 커밋: "feat: move Korean popular movies to recommendations with random sampling"
+- push 및 배포 확인
+- 결과를 claude_results.md에 기록

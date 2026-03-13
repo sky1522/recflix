@@ -1,4 +1,33 @@
-﻿# 2026-03-13: 인기/높은평점 고정 섹션 다양성 조사
+﻿# 2026-03-13: 한국 인기 영화 섹션 백엔드 이동 + 랜덤 셔플
+
+---
+
+## 변경 파일
+| 파일 | 변경 |
+|------|------|
+| `backend/app/api/v1/recommendations.py` | korean_popular_row 추가 (Top 100 → sample 50 + shuffle + dedup) |
+| `frontend/app/page.tsx` | getMovies() 별도 호출 제거, rows에서 통합 렌더링 |
+
+## 핵심 변경
+- 한국 인기 영화를 `recommendations.py`에서 인기/높은평점과 동일한 랜덤 셔플 패턴으로 처리
+- `production_countries_ko ILIKE '%대한민국%'` 필터 (weighted_score 필터 제거 — 한국 영화는 미계산)
+- `popularity DESC, vote_average DESC` 정렬 → Top 100 풀 → `random.sample(50)` + `random.shuffle()`
+- `deduplicate_section`으로 인기 영화와 중복 제거
+- 프론트: 별도 API 호출 제거, `React.Fragment` wrapper 제거, `getSectionFromTitle`에 "korean_popular" 추가
+
+## 검증 결과
+- 3회 호출 시 한국 인기 영화 구성/순서 **매번 다름** ✅
+- 4개 섹션 간 중복: **0건** ✅ (인기 vs 한국 vs 높은평점 vs 날씨 모두 겹침 없음)
+- 한국 인기 영화 50편 정상 반환 ✅
+
+## 커밋
+- `9504363` feat: move Korean popular movies to recommendations with random sampling
+- `8f2b155` fix: remove weighted_score filter for Korean movies (not computed for KR)
+
+---
+---
+
+# 2026-03-13: 인기/높은평점 고정 섹션 다양성 조사
 
 ---
 
