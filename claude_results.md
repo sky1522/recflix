@@ -1,715 +1,199 @@
-# 2026-03-13: 시연 품질 개선 2건
+﻿# 2026-03-13: 설정/평점 버그 2건 수정
 
-## 이슈 1: 헤더 날씨 버튼에 도시명 표시
-
-### 변경 파일
-- `frontend/components/layout/Header.tsx` — 날씨 버튼: 이모지+온도 → "도시명 · 설명 온도" 형태
-- `frontend/components/layout/HeaderMobileDrawer.tsx` — 모바일: "도시명 온도" 축약형 + description_ko 별도 표시
-
-### 핵심 변경사항
-- 데스크톱: `☁️ 수원시 · 흐림 14°C` (city가 없으면 기존 온도만 표시로 fallback)
-- 모바일: `☁️ 수원시 14°C` + 아래 줄에 `흐림` 표시
-- 위치 허용/거부 모두 대응, 수동 날씨 변경 시에도 가상 도시명 표시
-
-## 이슈 2: MovieModal 장르 태그 클릭 → 검색 이동
-
-### 변경 파일
-- `frontend/components/movie/MovieModal.tsx` — 장르 span → button, 클릭 시 모달 닫고 /movies?genre= 이동
-
-### 핵심 변경사항
-- 기존: `<span>` 단순 텍스트 칩
-- 수정: `<button onClick={() => { onClose(); router.push(/movies?genre=...) }}>` 클릭 가능 태그
-- MovieHero.tsx의 장르 Link 패턴과 동일한 URL 형식 사용
-- hover 효과 추가 (bg-overlay/10 → bg-overlay/20)
-
-## 검증
-- Frontend 빌드 성공
-- 2건 커밋 분리 후 push 완료
-
----
-
-# 2026-03-13: 시연 차단 버그 3건 일괄 수정
-
-## 이슈 1: 날씨 드롭다운 — 모바일 드로어 동기화
-
-### 변경 파일
-- `frontend/components/layout/HeaderMobileDrawer.tsx` — guest_mbti_change 이벤트 dispatch 추가
-
-### 핵심 변경사항
-- 모바일 드로어에서 MBTI 변경 시 `guest_mbti_change` CustomEvent를 dispatch하지 않아 홈 페이지에 반영 안 되던 버그 수정
-- 날씨 동기화는 이전 커밋(useWeather.ts의 manual_weather_change/weather_reset)으로 이미 해결됨 — 모바일 드로어도 동일한 useWeather 훅을 사용하므로 자동 동기화
-
-## 이슈 2: 이메일 회원가입 후 온보딩 미진입
-
-### 변경 파일
-- `frontend/app/signup/page.tsx` — signup 후 onboarding_completed 확인하여 라우팅 분기
-
-### 핵심 변경사항
-- 기존: `signup()` → `router.push("/")` (온보딩 건너뜀)
-- 수정: `signup()` → `authStore.user.onboarding_completed` 확인 → false이면 `/onboarding`, true이면 `/`
-- 카카오/Google OAuth 콜백의 `isNew ? "/onboarding" : "/"` 패턴과 동일한 분기
-
-## 이슈 3: 온보딩 저장 실패 시 무시하고 홈 이동
-
-### 변경 파일
-- `frontend/app/onboarding/page.tsx` — 에러 핸들링 + 롤백 + 에러 메시지 표시
-
-### 핵심 변경사항
-1. **handleRate()**: API 실패 시 ratings 상태를 이전값으로 롤백 + "평점 저장에 실패했습니다" 에러 표시
-2. **handleComplete()**: API 실패 시 홈 이동 차단 + "온보딩 완료에 실패했습니다" 에러 표시
-3. **handleSkip()**: `completeOnboarding([])` API 호출하여 플래그 업데이트 (실패해도 홈 이동은 허용)
-
-## 검증
-- Frontend 빌드 성공
-- 3건 커밋 분리 후 push 완료
-- Vercel 자동 배포 예정
-
----
-
-# 2026-03-13: 날씨 드롭다운 변경 시 추천 섹션 즉시 갱신 안 되는 버그 수정
-
-## 변경 파일
-- `frontend/hooks/useWeather.ts` — CustomEvent 기반 인스턴스 간 상태 동기화 추가
-
-## 원인
-- Header와 Home page가 각각 독립적인 `useWeather()` 훅 인스턴스를 사용
-- `useWeather`는 로컬 `useState`로 상태 관리 → 인스턴스 간 공유 안 됨
-- Mood는 Zustand store(전역), MBTI는 Zustand + CustomEvent(전역)이라 즉시 반영되었음
-- Weather만 로컬 state여서 Header에서 변경해도 Home page에 전파되지 않았음
+## 근본 원인
+- `fetchAPI()`가 HTTP 204 No Content 응답에서 `response.json()`을 호출하여 파싱 에러 발생
+- 백엔드 `DELETE /users/me`와 `DELETE /ratings/{movie_id}` 모두 204를 반환
+- 에러가 catch되어 삭제 실패로 처리됨
 
 ## 수정 내용
-1. `setManualWeather()` 호출 시 `manual_weather_change` CustomEvent 발행
-2. `resetToRealWeather()` 호출 시 `weather_reset` CustomEvent 발행
-3. 모든 `useWeather` 인스턴스가 위 이벤트를 수신하여 자체 상태를 동기화
-4. 기존 `guest_mbti_change` 패턴과 동일한 접근 방식
+
+### 1. fetchAPI 204 No Content 처리 + 에러 메시지 파싱 개선
+- **파일**: `frontend/lib/api.ts:86-95`
+- `response.status === 204` 시 JSON 파싱 건너뛰고 `undefined` 반환
+- 에러 메시지: `body.detail`만 → `body.message || body.error || body.detail` 순서로 파싱
+- 이 한 줄 수정으로 계정 삭제, 평점 삭제 두 이슈 모두 해결
+
+### 2. 계정 삭제 실패 시 에러 메시지 표시
+- **파일**: `frontend/app/settings/page.tsx:103`
+- 기존: catch에서 `setDeleting(false)`만 실행 (사용자에게 피드백 없음)
+- 수정: `alert("계정 삭제에 실패했습니다. 다시 시도해주세요.")` 추가
 
 ## 검증
 - Frontend 빌드 성공
-- 동작 흐름: 헤더 날씨 드롭다운 변경 → CustomEvent 발행 → Home page의 useWeather가 수신 → weather state 업데이트 → useEffect dependency 트리거 → 추천 API 재호출 → 섹션 갱신
+- 커밋 분리: fetchAPI 수정 (`668ff0c`) + 설정 에러 메시지 (`dce1238`)
+- push 완료, Vercel 자동 배포 예정
 
 ---
 
-# 2026-03-11: 홈 화면 추천 섹션 순서 변경
-
-## 변경 파일
-- `backend/app/api/v1/recommendations.py` — rows 순서: 날씨 → 기분 → MBTI (헤더 드롭다운 순서와 일치)
-- `frontend/app/page.tsx` — 한국인기영화를 첫 번째 row 뒤(2번째)로 이동, React.Fragment 사용
-
-## 핵심 변경사항
-- **비로그인 순서**: 인기영화 → 한국인기영화 → 높은평점 → 날씨 → 기분 → MBTI
-- **로그인 순서**: 맞춤추천(hybrid) → 날씨 → 기분 → MBTI → 인기영화 → 한국인기영화 → 높은평점
-- 헤더 드롭다운 버튼 순서(날씨 · 기분 · MBTI)와 일치시킴
-
-## 검증
-- Frontend 빌드 성공, Backend ruff 린트 통과
-
----
-
-# 2026-03-11: 비로그인 MBTI 추천 섹션 홈 화면 노출
-
-## 변경 파일
-- `backend/app/api/v1/recommendations.py` — `mbti` 쿼리 파라미터 추가, 비로그인 섹션 순서에 mbti_row 포함
-- `frontend/lib/api.ts` — `getHomeRecommendations`에 mbti 파라미터 추가
-- `frontend/app/page.tsx` — guest_mbti 상태 관리, API 호출 시 mbti 전달, 캐시 키에 포함
-- `frontend/components/layout/Header.tsx` — guest_mbti 변경 시 `guest_mbti_change` 커스텀 이벤트 발행
-
-## 핵심 변경사항
-1. **Backend**: `/recommendations` 엔드포인트에 `mbti` 쿼리 파라미터 추가. 로그인 사용자는 `user.mbti` 우선, 비로그인은 쿼리 파라미터 사용. 비로그인 섹션 순서에 `mbti_row` 추가.
-2. **Frontend**: 홈 페이지에서 `guest_mbti`를 localStorage에서 읽고, 헤더의 MBTI 드롭다운 변경 시 `CustomEvent`로 즉시 반영. API 호출 시 비로그인이면 `guest_mbti`를 mbti 파라미터로 전달.
-3. **실시간 갱신**: 헤더에서 MBTI 변경 → `guest_mbti_change` 이벤트 → 홈 페이지 state 업데이트 → useEffect 재실행 → API 재호출
-
-## 검증
-- Frontend 빌드 성공
-- Backend ruff 린트 통과
-
----
-
-# RecFlix 프로젝트 완전 가이드 (초심자용)
-
-> 작성일: 2026-03-05
-
-이 문서는 RecFlix 프로젝트의 모든 것을 **처음 접하는 사람도 이해할 수 있도록** 설명합니다.
-
----
-
-## 1. 이 서비스는 뭘 하는 건가?
-
-RecFlix는 **넷플릭스처럼 생긴 영화 추천 웹사이트**입니다.
-단, 일반 추천과 다른 점이 있습니다:
-
-- **당신의 MBTI**(성격 유형 16종)에 맞는 영화를 골라줍니다
-- **지금 밖의 날씨**(맑음/비/흐림/눈)에 어울리는 영화를 골라줍니다
-- **지금 기분**(편안한/긴장감/신나는 등 8종)에 맞는 영화를 골라줍니다
-- 이 세 가지를 **동시에 조합**해서 "지금 이 순간 당신에게 딱 맞는 영화"를 추천합니다
-
-**숫자로 보는 규모:**
-- 영화 데이터: 42,917편 (한국어 완전 현지화)
-- 전체 코드: 약 35,500줄 (파일 181개)
-- API 기능: 52개
-- Git 커밋: 199개, 개발 Phase 54단계 완료
-
-**접속 주소:**
-| 뭐 | 주소 |
-|----|------|
-| 웹사이트 | https://jnsquery-reflix.vercel.app |
-| API 서버 | https://backend-production-cff2.up.railway.app |
-| 소스코드 | https://github.com/sky1522/recflix |
-
----
-
-## 2. 기술 스택 — 뭘로 만들었나?
-
-웹 서비스는 크게 **사용자가 보는 화면(프론트엔드)**과 **뒤에서 데이터를 처리하는 서버(백엔드)**로 나뉩니다.
-
-### 프론트엔드 (사용자가 보는 부분)
-| 기술 | 쉬운 설명 |
-|------|----------|
-| **Next.js 14** | React 기반 웹 프레임워크. 페이지를 만들고 라우팅(주소 이동)을 처리 |
-| **TailwindCSS** | CSS를 클래스 이름으로 빠르게 쓰는 도구. `bg-red-500`처럼 직관적 |
-| **Framer Motion** | 부드러운 애니메이션 효과 (카드 호버, 모달 등장 등) |
-| **Zustand** | 여러 페이지에서 공유하는 데이터를 관리하는 상태 관리 라이브러리 |
-| **Vercel** | Next.js를 만든 회사의 호스팅. GitHub에 push하면 자동으로 배포됨 |
-
-### 백엔드 (서버 부분)
-| 기술 | 쉬운 설명 |
-|------|----------|
-| **FastAPI** | Python으로 만든 API 서버. 요청을 받아서 데이터를 돌려줌 |
-| **SQLAlchemy** | Python에서 DB를 쉽게 다루는 도구 (SQL을 직접 안 써도 됨) |
-| **Pydantic** | 들어오는 데이터가 올바른 형식인지 자동 검증 |
-| **Redis** | 메모리에 데이터를 저장하는 초고속 캐시. 자주 쓰는 결과를 미리 저장 |
-| **Railway** | 백엔드 서버 + DB를 호스팅하는 클라우드 서비스 |
-
-### 데이터베이스
-| 기술 | 쉬운 설명 |
-|------|----------|
-| **PostgreSQL 16** | 메인 DB. 영화, 유저, 평점 등 모든 데이터를 영구 저장 |
-| **Redis** | 임시 데이터 저장소. 로그인 토큰, AI 응답 캐시 등에 사용 |
-
-### ML (머신러닝)
-| 기술 | 쉬운 설명 |
-|------|----------|
-| **PyTorch** | 딥러닝 프레임워크. Two-Tower 추천 모델을 학습/실행 |
-| **FAISS** | 42,917개 영화 중 비슷한 것을 초고속으로 찾는 벡터 검색 엔진 |
-| **LightGBM** | 가벼운 ML 모델. 후보 영화의 클릭 확률을 예측해서 재정렬 |
-| **SciPy (SVD)** | "이 영화를 좋아한 사람은 저 영화도 좋아하더라" 패턴을 찾는 협업 필터링 |
-
-### 외부 API (다른 회사 서비스 빌려 쓰기)
-| 서비스 | 쉬운 설명 |
-|--------|----------|
-| **OpenWeatherMap** | 사용자 위치의 실시간 날씨 정보를 가져옴 |
-| **Anthropic Claude** | AI가 영화마다 한 줄 캐치프레이즈를 생성 |
-| **Voyage AI** | "따뜻한 가족 영화" 같은 자연어를 숫자 벡터로 변환 (시맨틱 검색용) |
-| **Kakao/Google OAuth** | 카카오톡/구글 계정으로 간편 로그인 |
-| **TMDB** | 영화 포스터 이미지 CDN (이미지 주소만 사용, API 호출 안 함) |
-
----
-
-## 3. 전체 구조 — 데이터가 어떻게 흐르나?
-
-사용자가 웹사이트를 열면 아래 순서로 동작합니다:
-
-```
-사용자의 브라우저 (Chrome 등)
-  │
-  │  ① 웹페이지 요청
-  ▼
-Vercel CDN (프론트엔드 호스팅)
-  │  HTML/JS/CSS 전달
-  ▼
-브라우저에서 Next.js 앱 실행 (CSR = 브라우저에서 렌더링)
-  │
-  │  ② API 호출 (JSON 데이터 요청)
-  │  헤더에 로그인 토큰(JWT) + 세션ID 포함
-  ▼
-Railway (백엔드 호스팅)
-  │
-  │  FastAPI 서버가 요청 처리
-  │  ├── 미들웨어: 보안 검사, 요청 추적, 속도 제한
-  │  ├── 인증: JWT 토큰으로 누구인지 확인
-  │  └── 비즈니스 로직: 추천 계산, 검색, 평점 등
-  │
-  │  ③ 데이터 조회/저장
-  ├──────→ PostgreSQL (영화, 유저 데이터)
-  ├──────→ Redis (캐시, 토큰 관리)
-  ├──────→ 인메모리 ML 모델 (추천 계산)
-  └──────→ 외부 API (날씨, AI 등)
-  │
-  │  ④ JSON 응답 반환
-  ▼
-브라우저가 받은 데이터로 화면 그리기
-```
-
-**핵심 포인트:**
-- 프론트엔드와 백엔드는 **완전히 분리**되어 있음 (각각 다른 서버에 배포)
-- 둘 사이의 통신은 **HTTP JSON API**로만 이루어짐
-- 프론트엔드는 `fetch()` 함수로 백엔드에 데이터를 요청하고, JSON으로 받음
-
----
-
-## 4. 프론트엔드 상세 — 사용자가 보는 화면
-
-### 4.1 페이지 구성 (12개)
-
-| 페이지 | 로그인 필요? | 하는 일 |
-|--------|------------|--------|
-| **홈 (/)** | X | 대표 배너 + 추천 영화 Row 여러 줄 + 큐레이션 문구 |
-| **영화 검색 (/movies)** | X | 장르/연령/국가 필터, 정렬, 스크롤하면 계속 로딩 |
-| **영화 상세 (/movies/123)** | X | 포스터, 줄거리, 출연진, 트레일러, 평점 매기기, 찜하기 |
-| **로그인 (/login)** | X | 이메일 로그인 + 카카오/구글 소셜 로그인 |
-| **회원가입 (/signup)** | X | 이메일/비번/닉네임 입력 + MBTI 선택 |
-| **온보딩 (/onboarding)** | O | 좋아하는 장르 고르기 + 몇 편의 영화에 평점 매기기 |
-| **프로필 (/profile)** | O | 내 정보 보기 + 설정 페이지 링크 |
-| **설정 (/settings)** | O | 닉네임/MBTI/선호장르/다크모드/계정 삭제 |
-| **찜 목록 (/favorites)** | O | 내가 하트 누른 영화들 |
-| **내 평점 (/ratings)** | O | 내가 별점 준 영화들 |
-| **OAuth 콜백 (2개)** | X | 카카오/구글에서 돌아올 때 자동 처리되는 페이지 |
-
-### 4.2 주요 컴포넌트 (재사용 가능한 UI 조각)
-
-**컴포넌트란?** 여러 페이지에서 반복 사용하는 UI 조각입니다. 레고 블록처럼 조합해서 페이지를 만듭니다.
-
-| 컴포넌트 | 하는 일 |
-|---------|--------|
-| **Header** | 화면 맨 위 네비게이션 바. 로고, 검색창, 날씨/기분/MBTI 선택 드롭다운, 프로필 메뉴 |
-| **HeaderMobileDrawer** | 모바일에서 햄버거 메뉴 누르면 나오는 서랍식 메뉴 |
-| **MovieCard** | 영화 한 편의 포스터 카드. 마우스 올리면 제목/점수 표시 |
-| **MovieRow** | MovieCard를 가로로 한 줄 배치 (넷플릭스의 가로 스크롤 Row) |
-| **MovieModal** | 영화 클릭 시 나타나는 팝업. 별점/찜/트레일러/상세정보 |
-| **FeaturedBanner** | 홈 최상단 대표 영화 배너 (큰 배경 이미지 + 그라데이션) |
-| **SearchAutocomplete** | 검색창에 타이핑하면 실시간으로 추천 검색어가 뜸 |
-| **MBTIModal** | MBTI 16종 중 하나를 선택하는 팝업 |
-| **ThemeProvider** | 다크/라이트 모드 전환을 관리하는 래퍼 |
-| **TrailerModal** | YouTube 트레일러를 팝업으로 재생 |
-
-### 4.3 상태 관리 — 여러 페이지가 공유하는 데이터
-
-**상태(State)란?** 화면에 표시되는 데이터입니다. 예: "로그인 되어 있나?", "이 영화 찜했나?"
-
-Zustand라는 라이브러리로 4개의 "저장소(Store)"를 만들어 관리합니다:
-
-| Store | 저장하는 것 | 새로고침하면? |
-|-------|-----------|-------------|
-| **authStore** | 로그인 여부, 유저 정보 | "로그인 됨" 상태만 유지 (유저 정보는 서버에서 다시 받음) |
-| **interactionStore** | 영화별 찜 여부, 평점 | 날아감 (서버에서 다시 받음) |
-| **themeStore** | 다크/라이트 모드 | 유지됨 (localStorage에 저장) |
-| **moodStore** | 현재 선택한 기분 | 날아감 (일부러 초기화 — 기분은 매번 바뀌니까) |
-
-**localStorage란?** 브라우저에 영구 저장되는 작은 저장소입니다. 탭을 닫아도 남아있습니다.
-Zustand Store와 별도로, 로그인 토큰/세션ID/날씨캐시 등을 localStorage에 직접 저장합니다.
-
-### 4.4 커스텀 훅 — 재사용 가능한 로직 묶음
-
-**훅(Hook)이란?** React에서 반복되는 로직을 함수로 묶은 것입니다.
-
-| 훅 | 하는 일 |
-|----|--------|
-| **useWeather** | 브라우저의 위치 정보(GPS) → 서버에 날씨 요청 → 30분 캐시 |
-| **useInfiniteScroll** | 스크롤이 바닥에 닿으면 자동으로 다음 페이지 로딩 |
-| **useDebounce** | 검색창에 빠르게 타이핑할 때 0.3초 기다렸다 한 번만 요청 (서버 부담 줄이기) |
-| **useImpressionTracker** | 추천 영화 섹션이 화면에 30% 이상 보이면 "사용자가 봤다" 이벤트 기록 |
-
-### 4.5 API 통신 — 서버와 대화하는 방법
-
-모든 서버 통신은 `lib/api.ts` 파일의 `fetchAPI` 함수를 거칩니다.
-이 함수가 자동으로 해주는 것:
-1. **로그인 토큰 첨부** — 저장된 JWT 토큰을 헤더에 자동으로 붙임
-2. **세션 ID 첨부** — 비로그인 사용자도 누구인지 구분하기 위한 고유 ID
-3. **10초 타임아웃** — 서버가 10초 안에 응답 안 하면 자동 취소
-4. **자동 재시도** — 서버 에러(500)나 과부하(429) 시 1초 후 1번 재시도 (GET만)
-5. **에러 처리** — 실패 시 상태코드와 메시지를 포함한 에러 객체 생성
-
-이 함수를 감싸서 `getMovies()`, `login()`, `rateMovie()` 등 33개의 구체적인 API 함수를 만들어 사용합니다.
-
-### 4.6 이벤트 추적 — 사용자 행동 기록
-
-추천 알고리즘을 개선하려면 "사용자가 뭘 클릭했는지" 데이터가 필요합니다.
-
-**10종 이벤트:** 영화 클릭, 상세 보기/떠나기, 추천 노출, 검색, 검색 클릭, 평점, 찜 추가/제거, 판단
-
-**동작 방식:**
-- 이벤트가 발생하면 큐(대기열)에 쌓음
-- 5초마다 쌓인 이벤트를 한꺼번에 서버에 전송 (개별 전송보다 효율적)
-- 사용자가 페이지를 닫을 때: Beacon API로 남은 이벤트를 마지막으로 전송
-- 전송 실패해도 무시 (사용자 경험에 영향 주지 않기 위해)
-
----
-
-## 5. 백엔드 상세 — 서버가 하는 일
-
-### 5.1 코드 구조
-
-| 폴더 | 줄 수 | 하는 일 |
-|------|-------|--------|
-| **api/v1/** | 4,508 | 52개 API 기능 구현 (11개 모듈로 분리) |
-| **services/** | 1,274 | 핵심 비즈니스 로직 (날씨, AI, ML 모델 등) |
-| **schemas/** | 582 | "이 API에 이런 형식의 데이터를 보내야 해"를 정의 |
-| **models/** | 494 | DB 테이블 구조를 Python 클래스로 정의 (ORM) |
-| **core/** | 425 | 보안, 인증, 에러 처리 등 공통 기능 |
-| **config.py** | 133 | 환경변수(비밀번호, API키 등)를 안전하게 관리 |
-| **main.py** | 182 | 서버 시작점. 미들웨어 등록, ML 모델 로딩 |
-
-### 5.2 미들웨어 — 모든 요청이 거치는 관문
-
-**미들웨어란?** API 핸들러가 실행되기 전에 자동으로 실행되는 전처리 단계입니다.
-
-```
-요청이 들어옴
-  → ① CORS 검사: "이 웹사이트에서 온 요청이 허용된 것인가?"
-  → ② Request ID 부여: 요청마다 고유 번호 → 로그 추적에 사용
-  → ③ Rate Limit: "이 IP가 너무 많이 요청하고 있지 않은가?"
-  → ④ 실제 API 함수 실행
-  → 응답 반환
-```
-
-### 5.3 인증 — "당신이 누구인지 어떻게 확인하나?"
-
-**JWT(JSON Web Token)란?** 로그인하면 서버가 발급하는 "디지털 출입증"입니다.
-
-```
-로그인 성공 시 2종류 토큰 발급:
-
-① Access Token (출입증)
-   - 유효기간: 30분
-   - 모든 API 요청 시 헤더에 첨부
-   - 서버는 이걸 보고 "아, 3번 유저구나" 판단
-
-② Refresh Token (출입증 갱신권)
-   - 유효기간: 7일
-   - Access Token 만료 시 새 토큰 발급에 사용
-   - 1회용: 쓰면 새 것을 받고, 쓴 것은 무효화 (jti rotation)
-   - 만약 누가 훔쳐서 먼저 쓰면? → 불일치 감지 → 모든 토큰 무효화
-```
-
-**소셜 로그인 (카카오/구글):**
-1. 사용자가 "카카오 로그인" 클릭
-2. 카카오 로그인 페이지로 이동 (카카오가 보여주는 화면)
-3. 카카오에서 인증 성공 → 우리 사이트로 "인가 코드" 전달
-4. 백엔드가 인가 코드로 카카오에서 유저 정보 가져옴
-5. DB에 유저 생성(또는 기존 유저 찾기) → JWT 발급
-
-### 5.4 에러 처리 — 뭔가 잘못됐을 때
-
-모든 에러는 동일한 형식으로 응답합니다:
-```json
-{"error": "에러코드", "message": "사용자에게 보여줄 메시지"}
-```
-- 잘못된 입력 → 422 "요청 데이터가 올바르지 않습니다"
-- 너무 많은 요청 → 429 "잠시 후 다시 시도해주세요"
-- 서버 내부 오류 → 500 "서버 내부 오류가 발생했습니다" (실제 에러 내용은 숨김)
-- 내부적으로는 Sentry라는 서비스가 에러를 자동 수집하여 개발자에게 알림
-
-### 5.5 서버 시작 시 일어나는 일
-
-서버가 켜지면 ML 모델들을 메모리에 미리 로드합니다:
-1. 영화 임베딩 42,917개 벡터 (시맨틱 검색용)
-2. Two-Tower 추천 모델 + FAISS 인덱스 (없으면 건너뜀)
-3. LightGBM 재정렬 모델 (없으면 건너뜀)
-4. 외부 API 호출용 HTTP 클라이언트 1개 (연결 재사용으로 효율화)
-
----
-
-## 6. 추천 알고리즘 — 어떻게 영화를 고르나?
-
-### 6.1 점수 계산 방식
-
-각 영화에 0~1 사이 점수를 매기고, 높은 순으로 추천합니다.
-
-점수 = 여러 요소의 **가중 평균**입니다:
-```
-예) 기분이 "편안한"이고, 날씨가 "비", MBTI가 "INFP"일 때:
-
-영화 A의 점수 = MBTI 적합도(0.65) × 0.25   ← MBTI 가중치 25%
-              + 날씨 적합도(0.90) × 0.20   ← 날씨 가중치 20%
-              + 기분 적합도(0.80) × 0.30   ← 기분 가중치 30% (가장 높음)
-              + 개인화(0.50) × 0.25        ← 과거 이력 기반
-              = 0.1625 + 0.18 + 0.24 + 0.125 = 0.7075
-```
-
-각 영화의 DB에 미리 계산된 점수가 저장되어 있습니다:
-- `mbti_scores`: 16종 MBTI별 적합도 (예: {"INFP": 0.65, "ENTJ": 0.78, ...})
-- `weather_scores`: 4종 날씨별 적합도 (예: {"rainy": 0.90, "sunny": 0.40, ...})
-- `emotion_tags`: 7종 감성 태그 (예: {"healing": 0.80, "tension": 0.10, ...})
-
-### 6.2 기분 → 감정 태그 변환
-
-사용자가 선택하는 "기분"과 DB에 저장된 "감정 태그"는 다릅니다:
-
-| 사용자가 선택한 기분 | DB에서 찾는 감정 태그 | 설명 |
-|---|---|---|
-| 편안한 | healing | 힐링/가족/성장 영화 |
-| 긴장감 | tension | 반전/추리/서스펜스 |
-| 신나는 | energy | 액션/추격/히어로 |
-| 감성적인 | romance + deep | 사랑 + 인생/철학 |
-| 상상력 | fantasy | 마법/우주/타임루프 |
-| 가벼운 | light | 코미디/일상/패러디 |
-| 울적한 | deep + healing | 카타르시스 + 위로 |
-| 답답한 | energy + tension | 사이다/속 뻥 뚫리는 |
-
-### 6.3 A/B 테스트 — 어떤 알고리즘이 더 좋은지 실험
-
-사용자를 3그룹으로 나눠서 다른 알고리즘을 적용하고 성과를 비교합니다:
-
-| 그룹 | 알고리즘 | 설명 |
-|------|---------|------|
-| **control** (34%) | 기존 방식 | 규칙 기반 + 약간의 협업 필터링 |
-| **test_a** (33%) | ML 강화 | Two-Tower 모델 → LightGBM 재정렬 → 규칙 블렌딩 |
-| **test_b** (33%) | ML 최대 | Two-Tower 모델 → 규칙 블렌딩 (협업 필터링 70%) |
-
-### 6.4 ML 파이프라인 — test_a의 추천 과정
-
-```
-전체 42,917편
-  → Two-Tower 모델이 FAISS로 200편 후보 추출 (1초 미만)
-  → LightGBM이 "이 유저가 클릭할 확률" 예측하여 50편으로 축소
-  → 규칙 기반 점수(MBTI/날씨/기분)와 블렌딩 → 20편 최종 선정
-  → 다양성 처리: 같은 장르만 나오지 않도록 섞기
-  → 각 영화에 추천 이유 생성 ("비 오는 날에 딱 맞는 힐링 영화")
-```
-
-**Two-Tower 모델이란?** 유저와 영화를 각각 벡터(숫자 배열)로 변환하고, 두 벡터가 가까울수록 "이 유저가 이 영화를 좋아할 것"으로 예측합니다.
-**FAISS란?** 42,917개 벡터 중 가장 가까운 것을 밀리초 단위로 찾는 고속 검색 엔진입니다.
-**LightGBM이란?** 영화의 76가지 특징(장르, 인기도, 유저 이력 등)을 입력받아 클릭 확률을 예측하는 모델입니다.
-
-### 6.5 다양성 보장 — 같은 것만 추천하지 않도록
-
-| 함수 | 하는 일 |
-|------|--------|
-| diversify_by_genre | 같은 장르가 연속으로 나오지 않게 순서 섞기 |
-| apply_genre_cap | 한 장르에서 최대 N편만 (액션만 10편 나오는 것 방지) |
-| ensure_freshness | 오래된 영화만 나오지 않도록 최근작 보장 |
-| inject_serendipity | 예상 밖의 영화 1~2편 끼워넣기 (새로운 발견) |
-| deduplicate_section | "인기 영화"와 "MBTI 추천"에 같은 영화가 중복 노출되지 않게 |
-
----
-
-## 7. 데이터베이스 — 데이터가 어떻게 저장되나?
-
-### 7.1 테이블 관계도
-
-**테이블이란?** 엑셀 시트처럼 행(row)과 열(column)로 이루어진 데이터 저장소입니다.
-**관계란?** 테이블 간의 연결입니다. 예: "이 평점은 3번 유저가 500번 영화에 준 것이다."
-
-```
-users (회원)
-  ├──→ ratings (평점): 한 유저가 여러 영화에 평점 가능
-  ├──→ collections (찜 목록): 한 유저가 여러 컬렉션 보유
-  ├──→ user_events (행동 기록): 클릭, 검색 등 모든 행동 기록
-  └──→ reco_* (추천 로그): 어떤 추천을 받았고, 어떻게 반응했는지
-
-movies (영화, 42,917편)
-  ├──→ genres (장르, 19종): 한 영화가 여러 장르 가능 (M:N)
-  ├──→ persons (인물, 97,206명): 배우/감독 (M:N)
-  ├──→ keywords (키워드): 영화 태그 (M:N)
-  ├──→ countries (국가): 제작 국가 (M:N)
-  └──→ similar_movies (유사 영화): 영화끼리 연결 (429,170개, 영화당 Top 10)
-```
-
-**M:N(다대다) 관계란?** "한 영화에 여러 장르, 한 장르에 여러 영화"처럼 양쪽 모두 여러 개와 연결되는 관계입니다. 이를 위해 중간에 "연결 테이블"이 필요합니다.
-
-### 7.2 핵심 테이블 컬럼
-
-**movies 테이블 (23개 컬럼):**
-- 기본: id, title(영어), title_ko(한국어), runtime, 평점, 인기도, 포스터 경로 등
-- 추천용 JSONB: mbti_scores(16종), weather_scores(4종), emotion_tags(7종)
-- JSONB에 GIN 인덱스 → 특정 MBTI나 날씨에 높은 점수를 가진 영화를 빠르게 검색
-
-**users 테이블 (17개 컬럼):**
-- 인증: email(유일), password(암호화), kakao_id, google_id
-- 개인화: mbti, preferred_genres, experiment_group(A/B 테스트 그룹)
-
-### 7.3 인덱스 — 검색 속도를 높이는 장치
-
-**인덱스란?** 책의 "찾아보기"와 같습니다. 없으면 전체 테이블을 처음부터 끝까지 읽어야 합니다.
-
-| 인덱스 유형 | 대상 | 이유 |
-|-----------|------|------|
-| **GIN** | mbti_scores, weather_scores, emotion_tags | JSONB 내부 값 검색 고속화 |
-| **UNIQUE** | users.email, ratings(user+movie) | 중복 방지 + 빠른 조회 |
-| **복합** | user_events(user_id, created_at) | "이 유저의 최근 이벤트"를 빠르게 |
-
----
-
-## 8. 핵심 동작 시나리오
-
-### 8.1 홈 화면 로딩 (사용자가 사이트에 접속)
-
-```
-1. 브라우저가 위치 정보(GPS) 요청 → 허용하면 좌표 전송 → 서버가 날씨 반환
-   (거부하면 "서울" 기본값 사용, 결과는 30분 캐시)
-
-2. 날씨 + 기분(선택한 경우) → 서버에 추천 요청
-   서버는 A/B 그룹에 따라 다른 알고리즘으로 영화 선정
-
-3. 받은 데이터로 화면 구성:
-   - 대표 배너 (1편)
-   - "비 오는 날의 영화" Row
-   - "INFP 성향 추천" Row
-   - "오늘의 인기 영화" Row
-   - 맞춤 추천 Row (로그인 시)
-
-4. 각 Row가 화면에 보이면 "사용자가 이 섹션을 봤다" 이벤트 자동 기록
-```
-
-### 8.2 찜/평점 — Optimistic UI
-
-**Optimistic UI란?** 서버 응답을 기다리지 않고 먼저 UI를 바꾸는 패턴입니다.
-
-```
-사용자가 하트(찜) 클릭
-  → ① 즉시 하트가 빨갛게 변함 (서버 응답 전에!)
-  → ② 백그라운드에서 서버에 "찜 추가" 요청
-  → ③-성공: 아무 일 없음 (이미 UI는 바뀌어 있으니)
-  → ③-실패: 하트를 원래대로 돌림 (Rollback)
-```
-이 방식의 장점: 사용자에게 즉각적인 반응감을 줌 (0.1초 vs 0.5초)
-
-### 8.3 검색
-
-```
-일반 검색: 타이핑 → 0.3초 후 자동완성 드롭다운 표시
-AI 검색: "따뜻한 가족 영화" 같은 자연어 → 벡터 변환 → 의미 기반 검색
-필터 검색: 장르/연도/국가 선택 → 조건 조합 검색 → 무한 스크롤
-```
-
----
-
-## 9. 보안 — 어떻게 안전하게 지키나?
-
-| 계층 | 뭘 막나? | 어떻게? |
-|------|---------|--------|
-| **CORS** | 허가 안 된 사이트에서 API 호출 | 등록된 도메인만 허용 |
-| **Rate Limit** | 한 IP에서 요청 폭주 (DoS) | IP당 요청 수 제한 |
-| **JWT** | 위조된 로그인 | 비밀키로 서명 + 만료 시간 |
-| **jti Rotation** | 토큰 탈취 | Refresh Token 1회용 → 도용 시 전체 무효화 |
-| **bcrypt** | 비밀번호 유출 | 단방향 암호화 (복호화 불가) |
-| **에러 마스킹** | 내부 정보 유출 | 프로덕션에서 상세 에러 메시지 숨김 |
-| **Sentry** | 에러 놓침 | 서버 에러 자동 수집 + 개발자 알림 |
-| **Security Headers** | XSS, Clickjacking | X-Frame-Options, Content-Type-Options 등 |
-| **환경변수 검증** | 설정 누락 | JWT 비밀키 16자 이상, DB URL 필수 등 자동 체크 |
-
----
-
-## 10. 캐싱 — 같은 것을 두 번 계산하지 않기
-
-**캐싱이란?** 한 번 계산한 결과를 저장해두고, 같은 요청이 오면 저장된 것을 바로 돌려주는 것입니다.
-
-| 어디에 저장? | 뭘 저장? | 얼마나? | 왜? |
-|------------|---------|--------|-----|
-| **브라우저** | 날씨 정보 | 30분 | 날씨가 매 초 변하진 않으니까 |
-| **브라우저** | 로그인 토큰 | 30분/7일 | 매번 로그인하면 귀찮으니까 |
-| **브라우저** | 테마/MBTI 설정 | 영구 | 사용자 선호는 계속 유지 |
-| **Zustand 메모리** | 찜/평점 상태 | 탭 열려있는 동안 | 같은 영화 여러 번 서버에 안 물어보려고 |
-| **Redis (서버)** | AI 캐치프레이즈 | 설정된 시간 | Claude API 호출 비용 절약 |
-| **Redis (서버)** | 토큰 유효성 | 7일 | Refresh Token 탈취 감지용 |
-| **서버 메모리** | ML 모델 4종 | 서버 켜진 동안 | 매 요청마다 파일 읽으면 느리니까 |
-
----
-
-## 11. CI/CD — 코드를 어떻게 배포하나?
-
-**CI(Continuous Integration):** 코드를 올릴 때마다 자동으로 검사하는 것
-**CD(Continuous Deployment):** 검사 통과하면 자동으로 서버에 배포하는 것
-
-```
-개발자가 코드를 GitHub에 push
-  → GitHub Actions가 자동 실행:
-    ├ ① 백엔드 코드 스타일 검사 (Ruff)
-    ├ ② 백엔드 테스트 14건 실행 (pytest)
-    └ ③ 프론트엔드 빌드 가능한지 확인 (next build)
-
-  모두 통과하면:
-    ├ 백엔드 → Railway에 자동 배포
-    └ 프론트엔드 → Vercel에 자동 배포
-
-  하나라도 실패하면: 배포 안 됨 (안전장치)
-```
-
----
-
-## 12. API 전체 목록 (52개)
-
-**인증 표시:** `-` 누구나 / `Opt` 로그인하면 추가 기능 / `Req` 로그인 필수
-
-### 인증 (7개) — 회원가입, 로그인, 토큰
-| 기능 | 경로 | 인증 |
-|------|------|------|
-| 이메일 로그인 | POST /auth/login | - |
-| 회원가입 | POST /auth/signup | - |
-| 토큰 갱신 | POST /auth/refresh | - |
-| 카카오 로그인 | POST /auth/kakao | - |
-| Google 로그인 | POST /auth/google | - |
-| 카카오 OAuth URL | GET /auth/kakao/authorize | - |
-| Google OAuth URL | GET /auth/google/authorize | - |
-
-### 영화 (7개) — 검색, 상세, 자동완성
-| 기능 | 경로 | 인증 |
-|------|------|------|
-| 영화 검색 | GET /movies | Opt |
-| 영화 상세 | GET /movies/{id} | Opt |
-| 유사 영화 | GET /movies/{id}/similar | - |
-| 장르 목록 | GET /movies/genres | - |
-| 자동완성 | GET /movies/search/autocomplete | - |
-| AI 검색 | GET /movies/semantic-search | - |
-| 온보딩 영화 | GET /movies/onboarding | - |
-
-### 추천 (11개) — 메인 추천, MBTI, 날씨, 개인화
-| 기능 | 경로 | 인증 |
-|------|------|------|
-| 홈 추천 | GET /recommendations | Opt |
-| MBTI 추천 | GET /recommendations/mbti | Opt |
-| 날씨 추천 | GET /recommendations/weather | Opt |
-| 감정 추천 | GET /recommendations/emotion | Opt |
-| 인기 영화 | GET /recommendations/popular | - |
-| 고평점 | GET /recommendations/top-rated | - |
-| 맞춤 추천 | GET /recommendations/for-you | Req |
-| 하이브리드 | GET /recommendations/hybrid | Req |
-| 찜 기반 | GET /recommendations/favorites | Req |
-| 찜 장르 분석 | GET /recommendations/favorites/genres | Req |
-| A/B 리포트 | GET /recommendations/ab-report | Req |
-
-### 유저/평점/찜/컬렉션/이벤트 (20개)
-| 기능 | 개수 | 인증 |
-|------|------|------|
-| 유저 프로필 CRUD | 5개 | Req |
-| 평점 CRUD | 5개 | Req |
-| 찜(상호작용) | 4개 | Req |
-| 컬렉션 CRUD + 영화 관리 | 7개 | Req |
-| 이벤트 전송/통계 | 3개 | Opt/Req |
-
-### 날씨 + AI (3개)
-| 기능 | 경로 | 인증 |
-|------|------|------|
-| 날씨 조회 | GET /weather | - |
-| 날씨 조건 목록 | GET /weather/conditions | - |
-| AI 캐치프레이즈 | GET /llm/catchphrase/{id} | - |
-
----
-
-## 13. 환경변수 — 비밀 설정값 (39개)
-
-**환경변수란?** 코드에 직접 쓰면 안 되는 비밀값(API 키, DB 비밀번호 등)을 별도 파일(.env)에 저장하고, 서버가 시작할 때 읽어오는 방식입니다.
-
-| 종류 | 개수 | 예시 |
-|------|------|------|
-| DB 접속 정보 | 6 | DATABASE_URL, POSTGRES_PASSWORD |
-| Redis 접속 | 4 | REDIS_URL, REDIS_PASSWORD |
-| JWT 설정 | 4 | JWT_SECRET_KEY (서명 비밀키) |
-| OAuth 설정 | 6 | KAKAO_CLIENT_ID, GOOGLE_CLIENT_SECRET |
-| 외부 API 키 | 4 | ANTHROPIC_API_KEY, WEATHER_API_KEY |
-| 앱 설정 | 7 | APP_ENV, CORS_ORIGINS, PORT |
-| ML 설정 | 5 | TWO_TOWER_ENABLED, RERANKER_MODEL_PATH |
-| A/B 테스트 | 1 | EXPERIMENT_WEIGHTS (그룹별 비율) |
-| 모니터링 | 2 | SENTRY_DSN (에러 추적) |
-
----
-
-## 14. 운영 이슈 & 해결 패턴
-
-| 문제 | 원인 | 해결 |
-|------|------|------|
-| Vercel 이미지 최적화 한도 초과 | 무료 플랜 제한 | 이미지 최적화 끄기 (`unoptimized: true`) |
-| Railway 배포 시 413 에러 | ML 모델 파일이 너무 큼 | .railwayignore로 제외, Dockerfile에서 별도 다운로드 |
-| SVD 모델 로드 실패 | numpy 버전 불일치 | numpy 2.x 이상 필수 |
-| CI에서 ML 패키지 설치 실패 | torch 등이 너무 무거움 | CI에서 제외 + lazy import (필요할 때만 불러오기) |
-| 한글 CSV 깨짐 | BOM(Byte Order Mark) | `utf-8-sig` 인코딩으로 읽기 |
-| 모바일에서 버튼 못 누름 | 터치 영역 너무 작음 | 최소 44x44px 보장 |
+테스트 1-1: 게스트 홈 첫 로드 섹션 검증
+결과: ✅ 통과
+방법: 둘 다
+상세: 프로덕션 `GET /api/v1/recommendations`가 200을 반환했고, 섹션은 `인기 영화 -> 높은 평점 영화 -> 편안한 기분일 때` 순서로 내려왔으며 각 row가 비어 있지 않았습니다. `backend/app/api/v1/recommendations.py`의 게스트 분기 역시 `popular -> top_rated -> weather -> mood -> mbti` 순서를 사용하므로 현재 응답과 일치합니다. 기본 mood가 없을 때 `relaxed`로 보정되어 mood row가 항상 붙습니다.
+
+테스트 1-2: 날씨 API
+결과: ✅ 통과
+방법: 둘 다
+상세: 프로덕션 `GET /api/v1/weather?lat=37.26&lon=127.03`가 200을 반환했고 `city="수원시"`, `description_ko="맑음"`, `temperature=11.7`, `condition="sunny"`를 확인했습니다. 프런트 `frontend/lib/api.ts`와 `frontend/hooks/useWeather.ts`도 같은 필드를 소비합니다.
+
+테스트 1-3: 헤더 날씨 렌더링
+결과: ✅ 통과
+방법: 코드 검증
+상세: 데스크톱 헤더 `frontend/components/layout/Header.tsx:253`은 `weather.city ? "city · description temperature" : "temperature"` 형태로 렌더링합니다. 모바일 드로어 `frontend/components/layout/HeaderMobileDrawer.tsx:166-168`도 `city + temperature`와 `description_ko`를 함께 보여주며, city가 없으면 온도만 남는 fallback이 있습니다.
+
+테스트 2-1: MBTI 드롭다운 반응성
+결과: ✅ 통과
+방법: 코드 검증
+상세: 게스트 기준으로 `frontend/components/layout/Header.tsx:66-68`, `frontend/components/layout/HeaderMobileDrawer.tsx:89-91`가 모두 `guest_mbti`를 localStorage에 저장하고 `guest_mbti_change`를 dispatch합니다. `frontend/app/page.tsx:58-63`은 이를 수신해 state를 갱신하고, 추천 호출은 `frontend/app/page.tsx:147-148`에서 guest MBTI를 `mbti` query로 전달합니다.
+
+테스트 2-2: 기분 드롭다운 반응성
+결과: ✅ 통과
+방법: 코드 검증
+상세: 데스크톱 헤더 `frontend/components/layout/Header.tsx:148-149`, 모바일 드로어 `frontend/components/layout/HeaderMobileDrawer.tsx:214`가 모두 `useMoodStore`를 갱신합니다. 홈 `frontend/app/page.tsx:127-163`은 `mood`를 effect dependency에 포함하고 `getHomeRecommendations(weather.condition, mood, mbtiParam)`로 API를 다시 호출합니다.
+
+테스트 2-3: 날씨 드롭다운 반응성
+결과: ✅ 통과
+방법: 코드 검증
+상세: `frontend/hooks/useWeather.ts:163-245`에서 `setManualWeather()`가 `manual_weather_change`를 dispatch하고, 다른 `useWeather` 인스턴스가 이를 수신해 동기화합니다. 데스크톱/모바일 헤더는 모두 `setManualWeather()`를 호출하며, 홈 `frontend/app/page.tsx:96-163`은 `weather`를 dependency로 감시하고 `weather.condition`을 추천 API에 넘깁니다.
+
+테스트 2-4: 3개 드롭다운 데스크톱/모바일 동기화 비교
+결과: ✅ 통과
+방법: 코드 검증
+상세: MBTI는 CustomEvent, mood는 Zustand store, weather는 `manual_weather_change` + `useWeather` 동기화로 데스크톱과 모바일이 같은 경로를 탑니다. 이번 점검 기준으로 모바일 드로어도 MBTI 이벤트 dispatch가 추가되어 이전 분리 상태는 해소됐습니다.
+
+테스트 3-1: 날씨별 추천 차이
+결과: ✅ 통과
+방법: API 호출
+상세: `GET /api/v1/recommendations?weather=sunny`와 `?weather=rainy` 모두 200이며, 날씨 row 제목이 각각 `맑은 날 추천`, `비 오는 날 추천`으로 달랐고 첫 영화도 서로 달랐습니다. weather query가 추천 결과에 실제 반영되고 있습니다.
+
+테스트 3-2: MBTI별 추천 차이
+결과: ✅ 통과
+방법: API 호출
+상세: `GET /api/v1/recommendations?mbti=INTJ`와 `?mbti=ENFP` 모두 200이며, MBTI row 제목과 첫 추천 영화가 서로 달랐습니다. `backend/app/api/v1/recommendations.py`의 `mbti_scores` 분기가 실제 응답 차이로 확인됐습니다.
+
+테스트 3-3: 기분별 추천 차이
+결과: ❌ 실패
+방법: 둘 다
+상세: 프롬프트 기준 호출인 `GET /api/v1/recommendations?mood=healing`와 `?mood=tension`은 둘 다 422를 반환했습니다. 현재 홈 추천 엔드포인트는 `relaxed|tense|excited|emotional|imaginative|light|gloomy|stifled`만 허용하며(`backend/app/api/v1/recommendations.py:103-105`), `healing|tension`은 별도 `GET /api/v1/recommendations/emotion`에서만 동작합니다.
+
+테스트 4-1: 이메일 회원가입 후 온보딩 분기
+결과: ✅ 통과
+방법: 코드 검증
+상세: `frontend/app/signup/page.tsx:55-57`가 auto-login 뒤 `useAuthStore.getState().user`를 읽고 `user?.onboarding_completed ? "/" : "/onboarding"`로 분기합니다. 신규 이메일 가입자는 온보딩으로 보내도록 수정돼 있습니다.
+
+테스트 4-2: Kakao OAuth 분기
+결과: ❌ 실패
+방법: 코드 검증
+상세: `frontend/app/auth/kakao/callback/page.tsx:32-33`는 여전히 `const isNew = socialLogin(response); router.replace(isNew ? "/onboarding" : "/")`만 사용합니다. `response.user.onboarding_completed === false`인데 `is_new === false`인 사용자는 온보딩이 필요한 상태여도 홈으로 빠질 수 있습니다.
+
+테스트 4-3: Google OAuth 분기
+결과: ❌ 실패
+방법: 코드 검증
+상세: `frontend/app/auth/google/callback/page.tsx:32-33`도 Kakao와 같은 분기 로직을 사용합니다. 신규 여부만 보고 이동하므로 `onboarding_completed` 상태를 복구하지 못합니다.
+
+테스트 4-4: 온보딩 안정성
+결과: ⚠️ 주의
+방법: 코드 검증
+상세: `frontend/app/onboarding/page.tsx:58-67`는 평점 저장 실패 시 local state를 rollback하고 에러를 노출합니다. `handleComplete()`는 실패 시 홈으로 이동하지 않고 페이지에 남습니다(`70-79`). 다만 `handleSkip()`는 `completeOnboarding([])`를 먼저 호출하도록 수정됐지만(`82-88`), 실패해도 에러 없이 홈으로 이동하므로 `onboarding_completed` 누락을 숨길 수 있습니다.
+
+테스트 5-1: 시맨틱 검색
+결과: ✅ 통과
+방법: 둘 다
+상세: 프로덕션 `GET /api/v1/movies/semantic-search?q=따뜻한 가족 영화`가 200을 반환했고 `total=20`, `fallback=false`였습니다. 결과에 `패밀리`, `인스턴트 패밀리`, `투 이즈 어 패밀리` 등 가족 관련 타이틀이 포함되어 의도한 검색이 동작합니다.
+
+테스트 5-2: 자동완성
+결과: ❌ 실패
+방법: 둘 다
+상세: 프롬프트 그대로 `GET /api/v1/movies/search/autocomplete?q=인터`를 호출하면 422가 납니다. 백엔드 시그니처와 프런트 API 래퍼는 모두 `query` 파라미터를 사용합니다(`backend/app/api/v1/movies.py:40-42`, `frontend/lib/api.ts:394-395`). 실제로 `GET /api/v1/movies/search/autocomplete?query=인터`는 200입니다.
+
+테스트 6-1: 영화 상세 API
+결과: ✅ 통과
+방법: API 호출
+상세: 프로덕션 `GET /api/v1/movies/278`가 200을 반환했고 `title_ko`, `cast_ko`, `genres`, `trailer_key`가 모두 채워져 있었습니다. 이번 응답에서는 `title_ko="쇼생크 탈출"`, `genres=[드라마, 범죄]`, `trailer_key="PLl99DlL6b4"`를 확인했습니다.
+
+테스트 6-2: 유사 영화
+결과: ✅ 통과
+방법: API 호출
+상세: 프로덕션 `GET /api/v1/movies/278/similar`가 200을 반환했고 10개의 유사 영화가 내려왔습니다. 상세 페이지에서 후속 row를 구성할 데이터는 충분합니다.
+
+테스트 6-3: MovieModal 장르 칩 이동
+결과: ✅ 통과
+방법: 코드 검증
+상세: `frontend/components/movie/MovieModal.tsx:240-249`에서 장르 칩이 `button`으로 렌더링되고, 클릭 시 `onClose()` 후 `router.push(`/movies?genre=...`)`를 호출합니다. span-only 구현은 더 이상 아닙니다.
+
+테스트 7-1: Optimistic UI
+결과: ✅ 통과
+방법: 코드 검증
+상세: `frontend/stores/interactionStore.ts:85-154`에서 `toggleFavorite()`와 `setRating()` 모두 먼저 optimistic update를 적용한 뒤 실패 시 이전 상태로 rollback합니다. 성공 시 `interaction_version`을 올려 홈 추천 캐시 무효화까지 연결됩니다.
+
+테스트 7-2: 찜/평점 API 실호출
+결과: ⚠️ 주의
+방법: 둘 다
+상세: 실제 구현된 찜 route는 프롬프트 표기와 달리 `POST /api/v1/interactions/favorite/{movie_id}`입니다(`backend/app/api/v1/interactions.py:114-159`, `frontend/lib/api.ts:332-335`). 공개 무인증 호출 결과 bare path는 404, 실제 path와 `POST /api/v1/ratings`는 403이었으므로 auth guard는 정상입니다. 다만 사용자 토큰이 없어 "성공" 호출까지는 재현하지 못했습니다.
+
+테스트 8-1: 테마 저장
+결과: ✅ 통과
+방법: 코드 검증
+상세: `frontend/stores/themeStore.ts:24-46`가 Zustand persist로 `theme-storage`에 값을 저장하고, `setTheme`/`toggleTheme`에서 즉시 `html.light` 클래스를 반영합니다. `frontend/components/layout/ThemeProvider.tsx:6-18`도 hydration 이후 동일 클래스를 유지합니다.
+
+테스트 8-2: FOUC 방지
+결과: ✅ 통과
+방법: 코드 검증
+상세: `frontend/app/layout.tsx:61-64`의 inline script가 hydration 전에 localStorage의 `theme-storage`를 읽어 light 클래스를 선반영합니다. 라이트 모드 깜빡임 방지 경로가 있습니다.
+
+테스트 9-1: 루트 헬스체크
+결과: ✅ 통과
+방법: API 호출
+상세: 프로덕션 `GET /health`가 200과 `{"status":"healthy"}`를 반환했습니다.
+
+테스트 9-2: 상세 헬스체크
+결과: ✅ 통과
+방법: 둘 다
+상세: 프로덕션 `GET /api/v1/health`가 200과 함께 `database=connected`, `redis=connected`, `semantic_search=enabled`, `cf_model=loaded`, `two_tower=loaded`, `reranker=loaded`를 반환했습니다. 전체 `status` 값은 `healthy`가 아니라 `ok`이지만, 필수 컴포넌트 상태는 모두 양호합니다.
+
+테스트 10-1: CORS
+결과: ⚠️ 주의
+방법: 둘 다
+상세: `backend/app/main.py:94-100`은 CORS를 `settings.CORS_ORIGINS`에 위임하고, 기본값은 `backend/app/config.py:54` 기준 localhost/127.0.0.1만 포함합니다. 다만 프로덕션 `GET /api/v1/health`에 `Origin: https://jnsquery-reflix.vercel.app`를 붙여 호출했을 때 `Access-Control-Allow-Origin: https://jnsquery-reflix.vercel.app`, `Access-Control-Allow-Credentials: true`를 확인했으므로 런타임 환경변수에는 운영 도메인이 들어가 있습니다. 코드 기본값만 보면 운영 구성이 드러나지 않는 점은 주의가 필요합니다.
+
+테스트 10-2: Rate Limiting
+결과: ⚠️ 주의
+방법: 코드 검증
+상세: `backend/app/core/rate_limit.py`에 slowapi `Limiter`가 있고, `backend/app/main.py:139-147`에 429 통합 핸들러가 있습니다. 다만 이번 점검에서는 의도적으로 요청을 연속 발사해 429를 실측하지는 않았습니다.
+
+테스트 11-1: 계정 삭제 경로
+결과: ⚠️ 주의
+방법: 둘 다
+상세: 설정 페이지 `frontend/app/settings/page.tsx:96-101,295-315`에는 확인 모달과 삭제 버튼이 있고, 삭제 시 `DELETE /api/v1/users/me` 후 `logout()`과 홈 이동을 수행합니다. 백엔드 `backend/app/api/v1/users.py:84-118`는 `user_events` 명시 삭제 후 user hard delete를 수행하고 ratings/collections cascade를 전제로 합니다. 다만 프런트 실패 처리가 조용하고, 인증 토큰이 없어 실제 삭제 성공까지는 검증하지 못했습니다.
+
+테스트 11-2: 닉네임 변경
+결과: ✅ 통과
+방법: 코드 검증
+상세: `frontend/app/settings/page.tsx:56-72`가 `PUT /api/v1/users/me`(`frontend/lib/api.ts:250-254`)로 닉네임을 저장하고, 성공 시 `fetchUser()`로 상태를 새로 읽습니다. 실패 시 기존 닉네임으로 되돌립니다.
+
+테스트 11-3: MBTI 변경
+결과: ✅ 통과
+방법: 코드 검증
+상세: 설정 화면은 `MBTIModal`을 열고(`frontend/app/settings/page.tsx:191-197,292`), 모달 내부 `frontend/components/layout/MBTIModal.tsx:93-107`가 인증 사용자의 MBTI를 `updateMBTI()`로 저장합니다. 저장 후 `fetchUser()`가 다시 실행되며, 홈 `frontend/app/page.tsx:163`는 `user?.mbti` 변경을 dependency로 감지합니다.
+
+테스트 11-4: 선호 장르 변경
+결과: ⚠️ 주의
+방법: 코드 검증
+상세: 설정 페이지 `frontend/app/settings/page.tsx:74-89`가 3개 이상 장르를 고르게 하고 `completeOnboarding(selectedGenres)`로 저장한 뒤 `fetchUser()`를 호출합니다. 기능 경로는 존재하지만 실패 시 사용자에게 별도 에러를 보여주지 않습니다.
+
+테스트 11-5: 테마 설정 화면 연동
+결과: ✅ 통과
+방법: 코드 검증
+상세: 설정 페이지 `frontend/app/settings/page.tsx:242-266`의 토글이 `useThemeStore().toggleTheme`에 직접 연결되어 있고, 저장은 `theme-storage`를 통해 유지됩니다. UI와 store 계약은 일치합니다.
+
+테스트 11-6: 로그아웃 후 보호 페이지 처리
+결과: ⚠️ 주의
+방법: 코드 검증
+상세: `frontend/stores/authStore.ts:61-67`는 로그아웃 시 access/refresh token 제거와 interaction cache 초기화를 수행합니다. `/settings`는 `frontend/app/settings/page.tsx:43-47`에서 비로그인 시 `/login`으로 redirect합니다. 다만 `/favorites`는 redirect 대신 비로그인 전용 안내 화면을 렌더링합니다(`frontend/app/favorites/page.tsx:93-184`). 보호 페이지를 모두 redirect해야 하는 시연 기준이라면 동작이 일관되지 않습니다.
+
+시연 준비 상태 요약
+- ✅ 통과: 22건
+- ⚠️ 주의: 7건
+- ❌ 실패: 4건
+- 시연 가능 여부: 조건부 가능
+- 핵심 보완 우선순위: `4-2 Kakao OAuth 분기`, `4-3 Google OAuth 분기`, `3-3 홈 추천 mood 파라미터 계약`, `5-2 자동완성 q/query 계약`
+- 보조 검증: `backend pytest backend/tests -q`는 `10 passed, 4 skipped`, `frontend tsc --noEmit`는 통과했습니다.

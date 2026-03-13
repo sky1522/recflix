@@ -1,79 +1,100 @@
-# 시연 품질 개선 2건 수정
+# 설정/평점 버그 2건 수정
 
-시연 발표 전 마지막 품질 개선입니다. 아래 2건을 수정해주세요.
+## 이슈 1: 계정 탈퇴 확인 눌러도 삭제 안 됨
+
+### 현재 증상
+설정 페이지(/settings)에서 계정 탈퇴 버튼 클릭 → 경고 확인창 표시 → 확인 눌러도 계정 삭제 안 됨
+
+### 조사 및 수정
+1. frontend/app/settings/page.tsx에서 탈퇴 버튼의 onClick 핸들러 확인
+2. 확인 후 호출되는 API 함수 확인 (lib/api.ts의 deleteAccount 또는 유사 함수)
+3. 아래 가능한 원인을 순서대로 점검:
+
+   a) API 호출 자체가 실행되지 않는 경우:
+      - confirm() 반환값 체크 로직이 잘못되었거나
+      - async/await 누락으로 API 호출이 fire-and-forget 되는지
+
+   b) API 호출은 되지만 실패하는 경우:
+      - DELETE /api/v1/users/me 엔드포인트가 존재하는지 확인
+      - 엔드포인트 경로가 프론트와 백엔드 간 불일치인지
+      - JWT 인증 토큰이 헤더에 포함되는지
+
+   c) API 성공하지만 후처리가 없는 경우:
+      - 성공 후 authStore.logout() 호출 확인
+      - localStorage 정리 확인
+      - 로그인 페이지로 리다이렉트 확인
+
+   d) 에러가 catch되어 무시되는 경우:
+      - try-catch에서 에러를 삼키고 있는지 확인
+      - 에러 메시지가 사용자에게 표시되는지
+
+4. 원인 파악 후 수정:
+   - API 호출이 정상 실행되도록 수정
+   - 성공 시: authStore 초기화 → localStorage 전체 정리 → router.push("/login")
+   - 실패 시: 사용자에게 에러 메시지 표시 ("계정 삭제에 실패했습니다. 다시 시도해주세요")
+
+### 검증
+- 설정 → 계정 탈퇴 → 확인 → 로그아웃 + 로그인 페이지 이동
+- 탈퇴 후 같은 이메일로 재로그인 시 실패 확인 (실제 삭제 확인)
+- 취소 버튼 시 아무 일 없음 확인
 
 ---
 
-## 이슈 1: 헤더 날씨 표시에 도시명 누락 (⚠️ 시연 영향)
+## 이슈 2: 내 평점 페이지에서 평점 삭제 실패
 
-### 현재 상태
-- 헤더 날씨 버튼: 이모지 + 온도만 표시 (예: "☁️ 14°C")
-- 기대 형태: "수원시 · 흐림 14°C"
-- WeatherIndicator 컴포넌트가 정의되어 있지만 헤더에서 사용되지 않음
-- 시연 시 "위치 정보가 작동하는지" 청중이 확인할 수 없음
+### 현재 증상
+내 평점(/ratings) 페이지에서 평점 삭제 시 "평점 지우기에 실패했습니다" 에러 메시지
 
-### 관련 파일
-- frontend/components/layout/Header.tsx:251-252 (현재 temperature만 렌더링)
-- frontend/components/weather/WeatherBanner.tsx:184 (WeatherIndicator 정의)
-- frontend/hooks/useWeather.ts (weather 객체에 city, description_ko 포함)
+### 조사 및 수정
+1. frontend/app/ratings/page.tsx에서 삭제 핸들러 확인
+2. 호출되는 API 함수 확인 (lib/api.ts의 deleteRating)
+3. 아래 원인을 순서대로 점검:
 
-### 수정 사항
-Header.tsx의 날씨 버튼 영역 수정:
-1. 현재: `{weather.icon} {weather.temperature}°C`
-2. 변경: `{weather.city} · {weather.description_ko} {weather.temperature}°C`
-3. 공간이 부족하면 축약: `{weather.city} {weather.temperature}°C` (도시명 + 온도)
-4. weather.city가 null/undefined인 경우 기존 표시(이모지+온도)로 fallback
+   a) 프론트-백엔드 파라미터 불일치:
+      - 프론트가 보내는 것: rating_id? movie_id? 
+      - 백엔드가 기대하는 것: DELETE /api/v1/ratings/{rating_id}? 또는 DELETE /api/v1/ratings?movie_id=?
+      - 두 경로가 일치하는지 확인
 
-### 모바일 대응
-- HeaderMobileDrawer.tsx에도 동일하게 적용
-- 모바일은 공간이 좁으므로 `{weather.city} {weather.temperature}°C` 축약형 사용
+   b) API 경로 불일치:
+      - lib/api.ts에 정의된 deleteRating URL과 backend/app/api/v1/ratings.py의 실제 경로 비교
+      - /api/v1 prefix 누락 여부
+
+   c) 인증 문제:
+      - DELETE 요청에 JWT 토큰이 포함되는지
+      - 해당 rating이 현재 로그인 유저의 것인지 백엔드에서 확인하는 로직
+
+   d) 에러 메시지 파싱:
+      - Codex 리뷰에서 지적된 fetchAPI의 에러 파싱 문제 (body.detail만 읽고 body.message를 안 읽음)
+      - 실제 백엔드 에러 응답 형식과 프론트 파싱 로직이 맞는지
+
+4. 원인 파악 후 수정:
+   - API 경로/파라미터 일치시키기
+   - 성공 시: 해당 영화의 평점을 목록에서 제거 + interactionStore 업데이트
+   - 실패 시: 구체적 에러 메시지 표시
 
 ### 검증
-- 위치 허용 시: "수원시 · 흐림 14°C" 형태로 표시
-- 위치 거부 시: 기존 이모지+온도 표시 유지 (또는 "서울" 기본값)
-- 날씨 드롭다운에서 수동 변경 시에도 도시명 유지
+- 내 평점 페이지 → 영화 평점 삭제 버튼 클릭 → 평점 제거 확인
+- 삭제 후 해당 영화 상세에서 평점이 초기화 상태인지 확인
+- 홈으로 돌아가서 해당 영화에 평점이 없는 상태인지 확인
 
 ---
 
-## 이슈 2: MovieModal에서 장르/키워드 태그 클릭 시 검색 이동 없음 (⚠️ 시연 영향)
+## 공통: fetchAPI 에러 파싱 개선 (관련 이슈)
 
-### 현재 상태
-- 영화 상세 페이지(/movies/[id]): 장르/키워드가 클릭 가능한 링크 → 검색 페이지 이동 ✅
-- MovieModal(홈에서 영화 클릭 시 팝업): 장르가 단순 텍스트 칩, 키워드 UI 없음 ❌
-- 시연 시나리오 ⑥에서 "장르 태그 클릭 → 검색 이동"을 보여줘야 하는데, 모달에서는 불가
+위 2건의 근본 원인이 에러 파싱 문제일 수 있으므로 함께 수정:
 
-### 관련 파일
-- frontend/components/movie/MovieModal.tsx:233, 240 (장르가 단순 span)
-- frontend/app/movies/[id]/components/MovieHero.tsx:180 (장르 링크 구현 — 참고 패턴)
-- frontend/app/movies/[id]/components/MovieSidebar.tsx:64 (키워드 링크 구현 — 참고 패턴)
-
-### 수정 사항
-
-1. MovieModal.tsx의 장르 표시 부분:
-   - 현재: `<span className="...">{genre.name}</span>` (단순 텍스트)
-   - 변경: 클릭 시 모달을 닫고 `/movies?genre={genre.id}` 로 이동
-   - MovieHero.tsx:180의 장르 링크 패턴을 참고하여 동일하게 구현
-   - 스타일: 기존 칩 스타일 유지하되 cursor-pointer + hover 효과 추가
-
-2. 키워드 표시 추가 (선택사항, 시간 되면):
-   - 영화 상세 데이터에 keywords가 포함되어 있다면 모달에도 표시
-   - MovieSidebar.tsx:64 패턴 참고
-   - 클릭 시 `/movies?keyword={keyword.id}` 로 이동
-
-3. 모달 닫기 처리:
-   - 태그 클릭 → 모달 닫기(onClose 호출) → router.push 실행
-   - 모달이 닫히지 않은 채 페이지가 이동하면 안 됨
-
-### 검증
-- 홈에서 영화 클릭 → 모달 열림 → 장르 "애니메이션" 클릭 → 모달 닫힘 → /movies?genre=16 이동
-- 상세 페이지의 장르 링크도 기존대로 작동 (회귀 테스트)
+frontend/lib/api.ts의 fetchAPI 에러 처리 부분:
+- 현재: body.detail만 읽음
+- 수정: body.message → body.error → body.detail 순으로 파싱
+- AbortError(timeout) 시: "서버 응답이 없습니다. 다시 시도해주세요" 메시지로 변환
 
 ---
 
 ## 완료 후
 - 커밋 분리:
-  1. "feat: display city name in weather header button"
-  2. "feat: add clickable genre tags to MovieModal"
-- push 및 Vercel 배포 확인
-- 시연 시나리오 전체 재점검
+  1. "fix: account deletion not executing after confirmation"
+  2. "fix: rating deletion failing on my ratings page"
+  3. "fix: improve fetchAPI error message parsing" (필요 시)
+- push 및 Vercel/Railway 배포 확인
+- 시연 시나리오 점검: 설정 탈퇴 + 평점 삭제 동작 확인
 - 결과를 claude_results.md에 기록
