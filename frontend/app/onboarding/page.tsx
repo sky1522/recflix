@@ -26,6 +26,8 @@ export default function OnboardingPage() {
   const [ratings, setRatings] = useState<Record<number, number>>({});
   const [loadingMovies, setLoadingMovies] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [rateError, setRateError] = useState<string | null>(null);
+  const [completeError, setCompleteError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -54,25 +56,35 @@ export default function OnboardingPage() {
   };
 
   const handleRate = async (movieId: number, score: number) => {
+    const prevRatings = { ...ratings };
     setRatings((prev) => ({ ...prev, [movieId]: score }));
+    setRateError(null);
     try {
       await api.rateMovie(movieId, score);
     } catch {
-      // silent fail - rating is visually shown
+      setRatings(prevRatings);
+      setRateError("평점 저장에 실패했습니다. 다시 시도해주세요.");
     }
   };
 
   const handleComplete = async () => {
     setSubmitting(true);
+    setCompleteError(null);
     try {
       await api.completeOnboarding(selectedGenres);
       router.replace("/");
     } catch {
-      router.replace("/");
+      setSubmitting(false);
+      setCompleteError("온보딩 완료에 실패했습니다. 다시 시도해주세요.");
     }
   };
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
+    try {
+      await api.completeOnboarding([]);
+    } catch {
+      // skip은 사용자 의도이므로 실패해도 홈으로 이동 허용
+    }
     router.replace("/");
   };
 
@@ -118,6 +130,8 @@ export default function OnboardingPage() {
               onComplete={handleComplete}
               onSkip={handleSkip}
               submitting={submitting}
+              rateError={rateError}
+              completeError={completeError}
             />
           )}
         </AnimatePresence>
@@ -212,6 +226,8 @@ function MovieStep({
   onComplete,
   onSkip,
   submitting,
+  rateError,
+  completeError,
 }: {
   movies: Movie[];
   ratings: Record<number, number>;
@@ -220,6 +236,8 @@ function MovieStep({
   onComplete: () => void;
   onSkip: () => void;
   submitting: boolean;
+  rateError: string | null;
+  completeError: string | null;
 }) {
   return (
     <motion.div
@@ -234,6 +252,9 @@ function MovieStep({
         <p className="text-fg/50">
           최소 {MIN_RATINGS}편을 평가하면 맞춤 추천이 시작됩니다
         </p>
+        {(rateError || completeError) && (
+          <p className="mt-2 text-sm text-red-400">{rateError || completeError}</p>
+        )}
       </div>
 
       {/* Progress bar */}
