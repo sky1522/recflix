@@ -1,4 +1,20 @@
-﻿# 2026-03-13: 설정/평점 버그 2건 수정
+﻿# 2026-03-13: OAuth 콜백 온보딩 분기 수정
+
+## 변경 파일
+- `frontend/app/auth/kakao/callback/page.tsx:31-34`
+- `frontend/app/auth/google/callback/page.tsx:31-34`
+
+## 핵심 변경사항
+- 기존: `isNew ? "/onboarding" : "/"` — 신규 여부만으로 분기
+- 수정: `!user?.onboarding_completed ? "/onboarding" : "/"` — 온보딩 완료 여부로 분기
+- 이제 "기존 사용자이지만 온보딩 미완료" 상태에서도 온보딩 페이지로 진입
+
+## 검증
+- Frontend 빌드 성공, push 완료
+
+---
+
+# 2026-03-13: 설정/평점 버그 2건 수정
 
 ## 근본 원인
 - `fetchAPI()`가 HTTP 204 No Content 응답에서 `response.json()`을 호출하여 파싱 에러 발생
