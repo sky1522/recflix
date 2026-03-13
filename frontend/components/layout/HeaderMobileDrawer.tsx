@@ -88,6 +88,7 @@ export default function HeaderMobileDrawer({
     } else {
       localStorage.setItem("guest_mbti", mbti);
       setGuestMBTIState(mbti);
+      window.dispatchEvent(new CustomEvent("guest_mbti_change", { detail: mbti }));
     }
   };
 
