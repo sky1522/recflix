@@ -36,6 +36,18 @@ WEATHER_TO_IDX = {w: i for i, w in enumerate(WEATHER_TYPES)}
 MOOD_TYPES = ["happy", "sad", "excited", "calm", "tired", "emotional"]
 MOOD_TO_IDX = {m: i for i, m in enumerate(MOOD_TYPES)}
 
+# 프론트엔드 mood enum → reranker mood vocabulary 매핑
+FRONTEND_MOOD_MAPPING: dict[str, str] = {
+    "relaxed": "calm",
+    "tense": "excited",
+    "excited": "excited",
+    "emotional": "emotional",
+    "imaginative": "happy",
+    "light": "happy",
+    "gloomy": "sad",
+    "stifled": "tired",
+}
+
 N_FEATURES = 76  # 16+19+19+1+7+4+6+2+2
 
 
@@ -105,7 +117,8 @@ class LGBMReranker:
 
         mbti = context.get("mbti", "")
         weather = context.get("weather", "")
-        mood = context.get("mood", "")
+        raw_mood = context.get("mood", "")
+        mood = FRONTEND_MOOD_MAPPING.get(raw_mood, raw_mood)
 
         # 공통 컨텍스트 피처 (모든 행 동일)
         mbti_idx = MBTI_TO_IDX.get(mbti)

@@ -144,7 +144,7 @@ export default function HomePage() {
 
       setLoading(true);
       try {
-        const mbtiParam = isAuthenticated ? undefined : guestMBTI;
+        const mbtiParam = isAuthenticated ? user?.mbti : guestMBTI;
         const data = await getHomeRecommendations(weather.condition, mood, mbtiParam);
         setRecommendations(data);
         setError(null);
