@@ -206,6 +206,8 @@ export function useWeather(options: UseWeatherOptions = {}): UseWeatherReturn {
 
     setWeather(manualWeather);
     setIsManual(true);
+    // 다른 useWeather 인스턴스(홈 페이지 등)에 변경 알림
+    window.dispatchEvent(new CustomEvent("manual_weather_change", { detail: manualWeather }));
     // 가상 날씨는 캐시하지 않음 (리셋 시 실시간 날씨로 복귀 위해)
   }, []);
 
@@ -216,6 +218,30 @@ export function useWeather(options: UseWeatherOptions = {}): UseWeatherReturn {
       localStorage.removeItem(WEATHER_CACHE_KEY);
     }
     await fetchWeather();
+    // 다른 인스턴스에도 리셋 알림 (fetchWeather 완료 후 현재 weather로)
+    window.dispatchEvent(new CustomEvent("weather_reset"));
+  }, [fetchWeather]);
+
+  // 다른 인스턴스에서 수동 날씨 변경/리셋 시 동기화
+  useEffect(() => {
+    const handleManualWeatherChange = (e: Event) => {
+      const w = (e as CustomEvent<Weather>).detail;
+      setWeather(w);
+      setIsManual(true);
+    };
+    const handleWeatherReset = () => {
+      setIsManual(false);
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(WEATHER_CACHE_KEY);
+      }
+      fetchWeather();
+    };
+    window.addEventListener("manual_weather_change", handleManualWeatherChange);
+    window.addEventListener("weather_reset", handleWeatherReset);
+    return () => {
+      window.removeEventListener("manual_weather_change", handleManualWeatherChange);
+      window.removeEventListener("weather_reset", handleWeatherReset);
+    };
   }, [fetchWeather]);
 
   useEffect(() => {

@@ -1,44 +1,144 @@
-## 리뷰 대상: Step 05A — 다중 모델 비교 + Interleaving
+# RecFlix 서비스 시연 전 전체 리뷰 요청
 
-### 리뷰 범위
-- backend/scripts/compare_models.py (신규)
-- backend/scripts/run_interleaving.py (신규)
-- backend/app/services/interleaving.py (신규)
+## 배경
+최종 발표 시연이 임박했습니다. 현재 프로덕션(jnsquery-reflix.vercel.app)에서
+시연 시나리오를 점검하는 중 여러 문제가 발견되고 있습니다.
+시연 흐름: 비로그인 접속 → MBTI/기분/날씨 변경 → 시맨틱 검색 → 영화 상세 → 카카오 로그인 → 개인화 → 다크모드
 
-### 체크리스트
+아래 영역을 순서대로 점검하고, 발견된 문제를 모두 리포트해주세요.
+수정은 하지 말고 조사 결과만 정리해주세요.
 
-#### compare_models.py
-- [ ] 5개 모델 랭킹 생성 (Popularity, MBTI, Hybrid, TwoTower only, TwoTower+LGBM)
-- [ ] LGBM 모델 없으면 해당 모델 스킵하고 나머지만 비교
-- [ ] NDCG/Recall/MRR/HitRate × K=5,10,20 계산
-- [ ] Coverage, Novelty 다양성 지표 포함
-- [ ] Bootstrap CI 계산
-- [ ] Ablation Study 표 생성 (단계별 누적 개선)
-- [ ] Markdown + JSON 출력
-- [ ] DB 조회 없음 (JSONL + 모델 파일만 사용)
+---
 
-#### interleaving.py
-- [ ] team_draft_interleave: 팀 크기 균형 유지하며 교대 선택
-- [ ] 중복 movie_id 방지 (seen set)
-- [ ] compute_interleaving_result: clicked_ids ∩ team_a/b 비교
-- [ ] compute_win_rate: 승률 + 95% CI (binomial)
+## 1. 인증 및 회원 시스템 점검
 
-#### run_interleaving.py
-- [ ] test.jsonl에서 request별 두 모델 랭킹 생성
-- [ ] team_draft_interleave로 섞기
-- [ ] label > 0을 "클릭"으로 간주
-- [ ] 승률 + CI 출력
-- [ ] JSON 결과 저장
+### 1-1. 회원가입/로그인 흐름
+- 이메일 회원가입이 정상 작동하는지 (유효성 검증, 중복 체크, DB 저장)
+- 카카오 OAuth 로그인 흐름 (redirect URI, 토큰 교환, 사용자 생성/조회)
+- Google OAuth 로그인 흐름
+- 로그인 후 JWT 토큰 발급 및 저장 (localStorage, 쿠키)
+- Refresh Token 갱신 로직 (jti rotation)
+- 로그아웃 시 토큰 정리
 
-#### 안전성
-- [ ] scipy 미사용
-- [ ] 기존 코드 수정 없음
-- [ ] 빈 데이터 처리
+### 1-2. 온보딩
+- 신규 회원 → 온보딩(장르 선택 + 영화 평가) 진입이 정상인지
+- 온보딩 완료 후 홈 리다이렉트
+- onboarding_completed 플래그 업데이트
 
-### 발견사항 분류
-- CRITICAL: 지표 오류, 데이터 누수
-- WARNING: 모델 누락, CI 오류
-- INFO: 포맷팅
+### 1-3. DB 관련
+- users 테이블에 회원 데이터가 정상 저장되는지
+- kakao_id, google_id unique 제약 조건
+- password_hash 암호화 (bcrypt)
+- 기존 테스트 계정이 있다면 상태 확인
 
-### 출력
-결과를 codex_results.md에 저장하세요.
+---
+
+## 2. 날씨 시스템 점검
+
+### 2-1. 위치 정보
+- 프론트엔드 Geolocation API 호출 로직 (navigator.geolocation)
+- 위치 권한 거부 시 fallback 처리 (기본 좌표 또는 에러 메시지)
+- 획득한 좌표가 백엔드 API에 정상 전달되는지
+
+### 2-2. 날씨 API
+- GET /weather 엔드포인트: lat/lon 파라미터 처리
+- OpenWeatherMap API 호출 및 응답 파싱
+- 70개 한국 도시명 매핑 (영문→한글) 정상 작동 여부
+- 헤더에 "수원시 · 맑음 14°C" 형태로 표시되는지
+
+### 2-3. 날씨 → 추천 연동
+- 날씨 드롭다운 수동 변경 시 상태 업데이트 흐름 추적
+  (onChange → store/state → 추천 API 재호출 → 섹션 갱신)
+- 기분/MBTI 드롭다운의 동일 흐름과 비교하여 차이점 식별
+- 추천 API 호출 시 weather 파라미터가 실제로 전달되는지 확인
+
+---
+
+## 3. 홈 화면 추천 섹션 점검
+
+### 3-1. 비로그인 상태
+- 기본 추천 섹션 표시 여부 (인기영화, 한국인기, 높은평점, 날씨추천, 기분추천)
+- 비로그인 시 MBTI 선택(localStorage guest_mbti) → MBTI 섹션 표시 여부
+- 각 섹션에 영화가 정상 로드되는지 (빈 섹션 없는지)
+- FeaturedBanner 렌더링
+
+### 3-2. 로그인 상태
+- 맞춤 추천 섹션 추가 표시 여부
+- Personal 축 데이터 반영 (찜/평점 기반)
+- A/B 테스트 그룹 배정 및 알고리즘 분기
+
+### 3-3. 드롭다운 반응성
+- MBTI 변경 → 즉시 갱신 확인
+- 기분 변경 → 즉시 갱신 확인
+- 날씨 변경 → 즉시 갱신 확인 (현재 안 되는 것으로 보고됨)
+- 세 드롭다운의 onChange → 상태 업데이트 → API 재호출 흐름을 각각 추적하여 비교
+
+---
+
+## 4. 핵심 기능 점검
+
+### 4-1. 시맨틱 검색
+- 검색 바에 자연어 입력 → 결과 반환 여부
+- Voyage AI 임베딩 호출 또는 캐시 히트
+- 검색 결과 렌더링
+
+### 4-2. 영화 상세
+- MovieModal 오픈 → 영화 정보, 출연진(한글), 트레일러 표시
+- 장르/키워드 태그 클릭 → 검색 페이지 이동
+- 유사 영화 섹션 표시
+
+### 4-3. 찜/평점
+- 별점 클릭 → Optimistic UI 즉시 반영 → 서버 동기화
+- 찜 버튼 → 즉시 반영 → 서버 동기화
+- 실패 시 Rollback 처리
+
+### 4-4. 다크/라이트 모드
+- 토글 시 전체 컴포넌트 색상 전환
+- FOUC 방지 인라인 스크립트 작동 여부
+- localStorage에 테마 설정 저장/복원
+
+---
+
+## 5. API 및 서버 상태 점검
+
+### 5-1. 백엔드 헬스체크
+- GET /health 응답 확인 (DB, Redis, SVD, 임베딩 상태)
+- Railway 서버 정상 가동 여부
+
+### 5-2. 주요 API 응답 확인
+- GET /movies/popular — 인기영화
+- GET /movies/top-rated — 높은평점
+- GET /recommendations — 추천 (weather, mood, mbti 파라미터)
+- GET /weather — 날씨
+- POST /auth/login — 로그인
+- GET /movies/search — 검색
+
+### 5-3. 에러 핸들링
+- API 실패 시 프론트엔드 에러 표시 (빈 화면이 아닌 에러 메시지)
+- 네트워크 타임아웃 처리
+- CORS 설정 (Vercel 도메인 허용)
+
+---
+
+## 6. 콘솔 에러 점검
+- 브라우저 콘솔(DevTools)에 출력되는 에러/경고 목록화
+- React hydration 에러 여부
+- 미사용 import, 타입 에러 등
+
+---
+
+## 리포트 형식
+
+각 항목별로 아래 형식으로 정리해주세요:
+[영역] 항목명
+
+상태: ✅ 정상 / ⚠️ 경고 / ❌ 문제
+위치: 파일 경로 및 라인
+증상: (문제인 경우) 구체적 증상
+원인: (문제인 경우) 코드 레벨 원인 분석
+영향: 시연에 미치는 영향 (차단/불편/무관)
+제안: 수정 방향
+
+
+시연 차단(❌) 이슈를 최상단에, 경고(⚠️)를 그 다음에, 정상(✅)은 마지막에 배치해주세요.
+결과를 codex_results.md에 기록해주세요.

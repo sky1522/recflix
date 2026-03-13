@@ -1,3 +1,42 @@
+# 2026-03-13: 날씨 드롭다운 변경 시 추천 섹션 즉시 갱신 안 되는 버그 수정
+
+## 변경 파일
+- `frontend/hooks/useWeather.ts` — CustomEvent 기반 인스턴스 간 상태 동기화 추가
+
+## 원인
+- Header와 Home page가 각각 독립적인 `useWeather()` 훅 인스턴스를 사용
+- `useWeather`는 로컬 `useState`로 상태 관리 → 인스턴스 간 공유 안 됨
+- Mood는 Zustand store(전역), MBTI는 Zustand + CustomEvent(전역)이라 즉시 반영되었음
+- Weather만 로컬 state여서 Header에서 변경해도 Home page에 전파되지 않았음
+
+## 수정 내용
+1. `setManualWeather()` 호출 시 `manual_weather_change` CustomEvent 발행
+2. `resetToRealWeather()` 호출 시 `weather_reset` CustomEvent 발행
+3. 모든 `useWeather` 인스턴스가 위 이벤트를 수신하여 자체 상태를 동기화
+4. 기존 `guest_mbti_change` 패턴과 동일한 접근 방식
+
+## 검증
+- Frontend 빌드 성공
+- 동작 흐름: 헤더 날씨 드롭다운 변경 → CustomEvent 발행 → Home page의 useWeather가 수신 → weather state 업데이트 → useEffect dependency 트리거 → 추천 API 재호출 → 섹션 갱신
+
+---
+
+# 2026-03-11: 홈 화면 추천 섹션 순서 변경
+
+## 변경 파일
+- `backend/app/api/v1/recommendations.py` — rows 순서: 날씨 → 기분 → MBTI (헤더 드롭다운 순서와 일치)
+- `frontend/app/page.tsx` — 한국인기영화를 첫 번째 row 뒤(2번째)로 이동, React.Fragment 사용
+
+## 핵심 변경사항
+- **비로그인 순서**: 인기영화 → 한국인기영화 → 높은평점 → 날씨 → 기분 → MBTI
+- **로그인 순서**: 맞춤추천(hybrid) → 날씨 → 기분 → MBTI → 인기영화 → 한국인기영화 → 높은평점
+- 헤더 드롭다운 버튼 순서(날씨 · 기분 · MBTI)와 일치시킴
+
+## 검증
+- Frontend 빌드 성공, Backend ruff 린트 통과
+
+---
+
 # 2026-03-11: 비로그인 MBTI 추천 섹션 홈 화면 노출
 
 ## 변경 파일
