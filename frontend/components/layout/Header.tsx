@@ -320,7 +320,7 @@ export default function Header() {
                   {openDropdown === "mood" && (
                     <motion.div
                       {...dropdownAnimation}
-                      className="absolute right-0 top-full mt-2 w-64 bg-surface-card/95 backdrop-blur-md rounded-xl border border-divider/15 shadow-2xl p-3 z-50"
+                      className="absolute right-0 top-full mt-2 w-72 bg-surface-card/95 backdrop-blur-md rounded-xl border border-divider/15 shadow-2xl p-3 z-50"
                       role="menu"
                     >
                       <p className="text-xs text-fg/50 mb-2 px-1">지금 기분이 어떠세요?</p>
