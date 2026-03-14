@@ -13,6 +13,7 @@ import { useAuthStore } from "@/stores/authStore";
 import type { Movie, MovieDetail } from "@/types";
 import MovieCard from "./MovieCard";
 import TrailerModal from "./TrailerModal";
+import CertificationBadge from "@/components/ui/CertificationBadge";
 
 interface MovieModalProps {
   movie: Movie;
@@ -225,9 +226,7 @@ export default function MovieModal({ movie, onClose, requestId }: MovieModalProp
               {movie.certification && (
                 <>
                   <span>|</span>
-                  <span className="px-2 py-0.5 border border-divider/30 rounded text-xs">
-                    {movie.certification}
-                  </span>
+                  <CertificationBadge certification={movie.certification} variant="outlined" />
                 </>
               )}
             </div>

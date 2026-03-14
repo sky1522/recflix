@@ -10,19 +10,7 @@ import { trackEvent } from "@/lib/eventTracker";
 import type { Movie } from "@/types";
 import MovieModal from "./MovieModal";
 import HighlightText from "@/components/ui/HighlightText";
-
-const CERT_BADGE_COLORS: Record<string, string> = {
-  ALL: "bg-green-600",
-  G: "bg-green-600",
-  PG: "bg-blue-600",
-  "12": "bg-blue-600",
-  "PG-13": "bg-yellow-600",
-  "15": "bg-yellow-600",
-  R: "bg-red-600",
-  "18": "bg-red-600",
-  "19": "bg-red-600",
-  "NC-17": "bg-red-600",
-};
+import CertificationBadge from "@/components/ui/CertificationBadge";
 
 interface MovieCardProps {
   movie: Movie;
@@ -90,11 +78,7 @@ export default function MovieCard({ movie, index = 0, showQuickView = true, high
             )}
 
             {/* Certification badge */}
-            {movie.certification && CERT_BADGE_COLORS[movie.certification] && (
-              <span className={`absolute top-1.5 left-1.5 px-1.5 py-0.5 text-[10px] font-bold text-white rounded ${CERT_BADGE_COLORS[movie.certification]} z-10`}>
-                {movie.certification}
-              </span>
-            )}
+            <CertificationBadge certification={movie.certification} className="absolute top-1.5 left-1.5 z-10" />
 
             {/* Trailer indicator — always visible on mobile, hover on desktop */}
             {movie.trailer_key && (

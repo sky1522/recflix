@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { getImageUrl, formatRuntime, formatDate, getGenreName } from "@/lib/utils";
 import TrailerModal from "@/components/movie/TrailerModal";
+import CertificationBadge from "@/components/ui/CertificationBadge";
 import type { MovieDetail } from "@/types";
 
 interface MovieHeroProps {
@@ -165,11 +166,7 @@ export default function MovieHero({
                   <span>{formatRuntime(movie.runtime)}</span>
                 </div>
               )}
-              {movie.certification && (
-                <span className="px-1.5 md:px-2 py-0.5 border border-white/30 rounded text-xs">
-                  {movie.certification}
-                </span>
-              )}
+              <CertificationBadge certification={movie.certification} variant="outlined-white" />
             </div>
 
             {/* Genres */}

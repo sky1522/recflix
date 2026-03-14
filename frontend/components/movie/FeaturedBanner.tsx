@@ -13,6 +13,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { useInteractionStore } from "@/stores/interactionStore";
 import type { Movie } from "@/types";
 import MovieModal from "./MovieModal";
+import CertificationBadge from "@/components/ui/CertificationBadge";
 
 interface FeaturedBannerProps {
   movie: Movie;
@@ -132,21 +133,7 @@ export default function FeaturedBanner({ movie }: FeaturedBannerProps) {
                   <span>{formatRuntime(movie.runtime)}</span>
                 </>
               )}
-              {movie.certification && (
-                <span className={`px-1.5 py-0.5 rounded text-xs font-medium border ${
-                  ["ALL", "G"].includes(movie.certification.toUpperCase())
-                    ? "border-green-500/50 text-green-400"
-                    : ["PG", "12", "12+"].includes(movie.certification.toUpperCase())
-                    ? "border-blue-500/50 text-blue-400"
-                    : ["PG-13", "15", "15+"].includes(movie.certification.toUpperCase())
-                    ? "border-yellow-500/50 text-yellow-400"
-                    : ["R", "18", "18+", "19", "19+", "NC-17"].includes(movie.certification.toUpperCase())
-                    ? "border-red-500/50 text-red-400"
-                    : "border-white/30 text-white/60"
-                }`}>
-                  {movie.certification}
-                </span>
-              )}
+              <CertificationBadge certification={movie.certification} variant="outlined" />
             </div>
 
             {/* Genre Tags */}
