@@ -79,10 +79,10 @@ export default function FeaturedBanner({ movie }: FeaturedBannerProps) {
             className="object-cover"
             priority
           />
-          {/* Gradient Overlays */}
-          <div className="absolute inset-0 bg-gradient-to-r from-surface via-surface/70 to-surface/30" />
-          <div className="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-surface/50" />
-          <div className="absolute inset-0 bg-gradient-to-b from-surface/60 via-transparent to-surface" />
+          {/* Gradient Overlays — dark overlays for text readability in both themes */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-black/10" />
+          <div className="absolute inset-0 bg-gradient-to-t from-surface via-black/40 to-black/30" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent" />
         </div>
 
         {/* Content Container */}

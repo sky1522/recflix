@@ -1,44 +1,58 @@
-# RecFlix — 헤더 로고에 클래퍼보드 아이콘 추가
+# RecFlix — 라이트 모드 가독성 긴급 수정
 
-## 목표
-헤더의 RecFlix 로고 좌측에 영화 클래퍼보드 아이콘을 추가하여 시각적 완성도를 높인다.
+## 문제
+라이트 모드에서 여러 영역의 텍스트 가독성이 심각하게 떨어짐. 다크 모드에서는 정상.
 
-## 수정 파일
-`frontend/components/layout/Header.tsx` — 로고 영역
+## 문제 영역 (우선순위순)
 
-## 구현
-- lucide-react의 `Clapperboard` 아이콘 사용 (`import { Clapperboard } from "lucide-react"`)
-- 아이콘 위치: 빨간 R 박스 왼쪽
-- 아이콘 크기: 20~22px (헤더 로고와 시각적 균형)
-- 아이콘 색상: 흰색 또는 RecFlix 레드(#C0392B) — 다크 헤더 배경에서 잘 보이는 쪽으로
-- 아이콘과 R 박스 사이 간격: gap 6~8px
-- 레이아웃: `flex items-center gap-1.5` 또는 `gap-2`로 아이콘 + 기존 로고(R박스 + ecflix) 배치
-- 모바일에서도 동일하게 표시 (아이콘 숨김 처리 불필요)
+### 1. FeaturedBanner 히어로 영역 (가장 심각)
+- 영화 제목, 태그라인, 평점, 장르, 버튼 텍스트가 밝은 배경 위에서 거의 안 보임
+- 원인: 배경 이미지 위 그래디언트 오버레이가 다크 모드 기준으로만 설계됨
+- 수정:
+  - 라이트 모드에서 히어로 영역의 그래디언트 오버레이를 더 어둡게 유지 (이 영역은 라이트 모드에서도 다크 배경이어야 함)
+  - 또는 `bg-gradient-to-t from-black/80 via-black/50 to-transparent` 같은 강한 오버레이를 라이트/다크 모드 공통으로 적용
+  - 히어로 위의 텍스트는 라이트 모드에서도 항상 흰색(text-white)으로 유지
+  - FeaturedBanner.tsx에서 시맨틱 토큰(var(--color-fg)) 대신 text-white를 명시적으로 사용
 
-## R 박스 글꼴 수정
-- 현재 빨간 R 박스의 "R" 글자에서 둥근 부분(bowl)이 글꼴 특성상 위로 많이 튀어나와 보이는 문제
-- 이것은 CSS 정렬 문제가 아니라 **폰트 디자인** 문제
-- 수정: R 글자에 사용하는 폰트를 변경하여 균형 잡힌 R로 교체
-  - 후보 1: `font-family: 'Arial Black', sans-serif` — R의 bowl이 컴팩트
-  - 후보 2: `font-family: 'Helvetica Neue', 'Helvetica', sans-serif` — 깔끔한 산세리프
-  - 후보 3: `font-family: 'Inter', sans-serif` — 모던하고 균형 잡힌 R
-  - 후보 4: `font-family: 'Montserrat', sans-serif` — Netflix 스타일 굵은 산세리프 (Google Fonts)
-- R 박스에만 적용, "ecflix" 텍스트의 폰트는 변경하지 않음 (또는 함께 변경해도 무방, 어울리는 쪽으로)
-- 변경 후 R의 둥근 부분이 박스 안에 균형 있게 들어가는지 시각적으로 확인할 것
+### 2. 맞춤 추천 섹션 배경
+- 보라/핑크 그래디언트 배경 위 텍스트 가독성 확인
+- 라이트 모드에서 배경이 너무 밝아지면 텍스트가 안 보일 수 있음
 
-## 주의
-- "ecflix" 텍스트도 같은 폰트로 통일하는 것이 자연스러울 수 있음 — 적용 후 판단
-- 모바일 드로어(HeaderMobileDrawer.tsx)에도 로고가 있으면 동일하게 적용
-- MobileNav.tsx 하단 바에는 적용 불필요
+### 3. MovieCard 호버 오버레이
+- 호버 시 나타나는 영화 제목, 평점, 버튼 텍스트의 가독성
+- 오버레이 배경이 라이트 모드에서 충분히 어두운지 확인
+
+### 4. 헤더 영역
+- 현재 스크린샷에서 헤더는 정상으로 보이지만, 스크롤 시 배경 투명도 변화가 있다면 확인 필요
+
+## 수정 원칙
+
+**영화 서비스의 히어로/배너/카드 오버레이 영역은 라이트 모드에서도 다크 배경을 유지해야 한다.** 영화 포스터/배경 이미지 위에 텍스트를 올리는 UI는 넷플릭스/디즈니+ 등 모든 OTT에서 다크 오버레이 + 흰색 텍스트를 사용한다. 이 영역에서 시맨틱 토큰(--color-fg)을 사용하면 라이트 모드에서 어두운 텍스트가 밝은 오버레이 위에 놓여 안 보이게 된다.
+
+수정 방향:
+- 이미지 오버레이 위 텍스트: `text-white` 하드코딩 (시맨틱 토큰 사용 안 함)
+- 이미지 오버레이 그래디언트: 라이트/다크 모두 `from-black/70` 이상의 어두운 오버레이 유지
+- 순수 배경색 위 텍스트: 기존 시맨틱 토큰 유지 (이건 정상 동작)
+
+## 수정 대상 파일 (예상)
+
+1. `frontend/components/movie/FeaturedBanner.tsx` — 히어로 그래디언트 + 텍스트 색상
+2. `frontend/components/movie/MovieCard.tsx` — 호버 오버레이 텍스트
+3. `frontend/components/movie/HybridMovieRow.tsx` — 맞춤 추천 섹션 배경
+4. `frontend/components/movie/HybridMovieCard.tsx` — 추천 카드 오버레이
+5. 기타 이미지 위 텍스트를 렌더링하는 모든 컴포넌트
 
 ## 검증
-1. 데스크톱: 헤더에서 클래퍼보드 아이콘 + R + ecflix 조합 확인
-2. R 글자의 둥근 부분(bowl)이 박스 안에 균형 있게 들어가는지 확인
-3. 모바일: 아이콘이 헤더 영역을 넘치지 않는지 확인
-4. 다크/라이트 모드 양쪽에서 아이콘 + R 가시성 확인
-5. npx next build 성공
+
+1. 라이트 모드:
+   - 히어로 배너 영화 제목/태그라인/버튼 선명하게 보이는지
+   - MovieCard 호버 시 텍스트 읽히는지
+   - 맞춤 추천 섹션 제목/서브타이틀 읽히는지
+   - 전체 페이지 스크롤하면서 안 보이는 텍스트 없는지
+2. 다크 모드: 기존 디자인 깨지지 않았는지
+3. npx next build 성공
 
 ## 완료 후
-1. git add -A && git commit -m "style: 헤더 로고 클래퍼보드 아이콘 추가 + R 글꼴 변경"
+1. git add -A && git commit -m "fix: 라이트 모드 가독성 개선 (히어로/카드 오버레이 텍스트 대비)"
 2. git push origin main
 3. 결과를 claude_results.md에 저장

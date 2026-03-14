@@ -1,3 +1,34 @@
+# 2026-03-14: 헤더 로고 클래퍼보드 아이콘 추가 + R 글꼴 변경
+
+---
+
+## 변경 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `frontend/components/layout/Header.tsx:196-203` | 로고에 Clapperboard 아이콘 추가, R 박스 SVG→텍스트 변환, Arial Black 폰트 적용 |
+
+## 핵심 변경사항
+
+- **Clapperboard 아이콘**: lucide-react에서 import, 흰색 20-22px, R 박스 좌측에 배치
+- **R 박스 글꼴 변경**: SVG path → `<span>` + `font-family: 'Arial Black'`로 교체, bowl 균형 개선
+- **ecflix 텍스트**: 동일하게 Arial Black 폰트 통일
+- **레이아웃**: `gap-1.5`로 아이콘-로고 간격 설정
+- **모바일 드로어**: 로고 없음 — 수정 불필요
+
+## 검증 결과
+
+- [x] `npx next build` — 빌드 성공
+- [x] `git push origin HEAD:main` — 푸시 완료
+- [ ] 프로덕션 시각 확인
+
+## 커밋
+
+- `2e4757f` style: 헤더 로고 클래퍼보드 아이콘 추가 + R 글꼴 변경
+
+---
+---
+
 # 2026-03-14: 기분 드롭다운 너비 확장
 
 ---

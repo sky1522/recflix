@@ -57,8 +57,9 @@ export default function MovieHero({
           <div className="w-full h-full bg-surface-card" />
         )}
         {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/70 to-surface/30" />
-        <div className="absolute inset-0 bg-gradient-to-r from-surface/90 via-transparent to-transparent" />
+        {/* Gradient overlays — dark overlays for text readability in both themes */}
+        <div className="absolute inset-0 bg-gradient-to-t from-surface via-black/50 to-black/20" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-transparent to-transparent" />
       </div>
 
       {/* Back Button */}
