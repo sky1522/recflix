@@ -1,6 +1,6 @@
 # RecFlix 개발 진행 상황
 
-**최종 업데이트**: 2026-03-13 (v2.0.0 + 시연 품질 개선)
+**최종 업데이트**: 2026-03-14 (v2.0.0 + UI 폴리싱)
 
 ---
 
@@ -674,6 +674,18 @@
 | MBTI 쿼리 override | ✅ | 쿼리 파라미터 우선, 없으면 user.mbti fallback |
 | 한국 인기 영화 백엔드 이동 | ✅ | Top 100 → sample 50 + shuffle + dedup, weighted_score 필터 제거 |
 
+### Phase 56: UI 폴리싱 (2026-03-14)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| CertificationBadge 공통 컴포넌트 | ✅ | 12개 등급 한국어 툴팁, 포탈 기반, 3 variant (filled/outlined/outlined-white) |
+| 등급 매핑 상수 | ✅ | `certificationTooltips.ts` (G~ALL 12종 + fallback) |
+| 4개 컴포넌트 배지 교체 | ✅ | MovieCard, MovieModal, MovieHero, FeaturedBanner |
+| 기분 드롭다운 너비 확장 | ✅ | w-64→w-72 (288px), 5글자 라벨 줄바꿈 해소 |
+| 헤더 로고 클래퍼보드 아이콘 | ✅ | lucide-react Clapperboard, R 좌측 배치 |
+| R 박스 글꼴 변경 | ✅ | SVG→텍스트 기반, Arial Black 폰트 (bowl 균형 개선) |
+| 라이트 모드 가독성 수정 | ✅ | FeaturedBanner/MovieHero 그래디언트 다크 오버레이 강화 |
+
 ---
 
 ## 프로젝트 구조
@@ -762,6 +774,7 @@ C:\dev\recflix\
 │   │   │   ├── SearchAutocomplete.tsx
 │   │   │   └── SearchResults.tsx
 │   │   ├── ui/
+│   │   │   ├── CertificationBadge.tsx
 │   │   │   ├── HighlightText.tsx
 │   │   │   └── Skeleton.tsx
 │   │   └── ErrorBoundary.tsx
@@ -778,6 +791,7 @@ C:\dev\recflix\
 │   ├── lib/
 │   │   ├── api.ts
 │   │   ├── eventTracker.ts
+│   │   ├── certificationTooltips.ts
 │   │   ├── curationMessages.ts
 │   │   ├── contextCuration.ts
 │   │   ├── searchUtils.ts
@@ -930,6 +944,10 @@ WEATHER_API_KEY=e9fcc611acf478ac0ac1e7bddeaea70e
 - [x] **다크/라이트 모드** (CSS 변수 시맨틱 토큰, 40개+ 컴포넌트 적용, FOUC 방지) (2026-03-03)
 - [x] **MBTI 비로그인 + 프로필 드롭다운 + 설정 페이지** (2026-03-03)
 - [x] **MBTI 드롭다운 일관성 + 중복 메뉴 제거** (날씨/기분과 동일 패턴, 프로필/설정 중복 정리) (2026-03-03)
+- [x] **CertificationBadge 공통 컴포넌트** (등급 배지 한국어 툴팁, 포탈 기반, 12종 매핑) (2026-03-14)
+- [x] **기분 드롭다운 너비 확장** (w-72, 5글자 라벨 줄바꿈 해소) (2026-03-14)
+- [x] **헤더 로고 클래퍼보드 아이콘 + R 글꼴 변경** (Arial Black) (2026-03-14)
+- [x] **라이트 모드 가독성 수정** (히어로/배너 다크 오버레이 강화) (2026-03-14)
 
 ### 향후 개선사항
 - [ ] PWA 지원

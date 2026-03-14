@@ -109,12 +109,14 @@ frontend/
       SearchAutocomplete.tsx # 자동완성 (키보드, 하이라이팅)
       SearchResults.tsx    # 검색 결과 컴포넌트
     ui/
+      CertificationBadge.tsx # 등급 배지 + 한국어 툴팁 (포탈 기반)
       HighlightText.tsx    # 검색어 하이라이팅
       Skeleton.tsx         # 스켈레톤 로딩 UI
     ErrorBoundary.tsx      # 에러 바운더리 (전역)
   lib/
     api.ts                 # 24개 API 함수 (fetchAPI 래퍼)
     eventTracker.ts        # 사용자 행동 이벤트 배치 전송 (Beacon API)
+    certificationTooltips.ts # 등급 한국어 매핑 (12종 + fallback)
     curationMessages.ts    # 258개 큐레이션 문구
     contextCuration.ts     # 시간대/계절/기온 컨텍스트 감지
     searchUtils.ts         # 검색 필터 유틸리티

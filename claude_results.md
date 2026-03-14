@@ -1,3 +1,41 @@
+# 2026-03-14: 라이트 모드 가독성 개선
+
+---
+
+## 변경 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `frontend/components/movie/FeaturedBanner.tsx:82-85` | 그래디언트 오버레이를 다크 기반으로 변경 (`from-surface` → `from-black/80`) |
+| `frontend/app/movies/[id]/components/MovieHero.tsx:59-61` | 동일하게 다크 오버레이 강화 |
+
+## 핵심 변경사항
+
+- **FeaturedBanner 히어로**: 좌→우 `from-black/80 via-black/50`, 하→상 `from-surface via-black/40` (하단은 페이지 배경과 자연스럽게 전환)
+- **MovieHero 상세 페이지**: 하→상 `from-surface via-black/50`, 좌→우 `from-black/80`
+- 상단/측면은 항상 다크 오버레이로 텍스트(text-white) 가독성 보장
+- 하단은 `from-surface`를 유지하여 다크/라이트 모두 페이지 배경과 자연스러운 전환
+
+## 수정 불필요 영역
+
+- **MovieCard**: 호버 오버레이 `bg-black/60` — 이미 라이트 모드에서도 충분한 대비
+- **HybridMovieCard**: 호버 `from-black/90` — 이미 정상
+- **HybridMovieRow**: `text-fg` 시맨틱 토큰 사용 — 라이트 모드에서 정상 전환
+- **헤더**: 스크롤 시 `bg-surface/95` — 라이트/다크 모두 정상
+
+## 검증 결과
+
+- [x] `npx next build` — 빌드 성공
+- [x] `git push origin HEAD:main` — 푸시 완료
+- [ ] 프로덕션 라이트/다크 모드 시각 확인
+
+## 커밋
+
+- `059ace0` fix: 라이트 모드 가독성 개선 (히어로/카드 오버레이 텍스트 대비)
+
+---
+---
+
 # 2026-03-14: 헤더 로고 클래퍼보드 아이콘 추가 + R 글꼴 변경
 
 ---
