@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Search, Heart, Star, Film, Home, Sun, CloudRain, Cloud, CloudSnow, RotateCcw, Settings, LogOut } from "lucide-react";
+import { Menu, X, Search, Heart, Star, Film, Home, Sun, CloudRain, Cloud, CloudSnow, RotateCcw, Settings, LogOut, Clapperboard } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { useMoodStore } from "@/stores/useMoodStore";
 import { useWeather } from "@/hooks/useWeather";
@@ -193,13 +193,13 @@ export default function Header() {
                   window.location.reload();
                 }
               }}
-              className="flex items-center gap-0.5 z-10"
+              className="flex items-center gap-1.5 z-10"
             >
-              <svg viewBox="0 0 32 32" className="w-7 h-7 md:w-8 md:h-8">
-                <rect width="32" height="32" rx="6" fill="#e50914"/>
-                <path d="M10 7h8a5 5 0 0 1 0 10h-1l5 8h-4l-5-8h-0V25h-3V7zm3 3v5h5a2.5 2.5 0 0 0 0-5z" fill="white"/>
-              </svg>
-              <span className="text-xl md:text-2xl font-bold text-primary-500">ecflix</span>
+              <Clapperboard className="w-5 h-5 md:w-[22px] md:h-[22px] text-white" />
+              <span className="flex items-center gap-0.5">
+                <span className="w-7 h-7 md:w-8 md:h-8 bg-[#e50914] rounded-md flex items-center justify-center text-white text-lg md:text-xl font-extrabold" style={{ fontFamily: "'Arial Black', 'Helvetica Neue', sans-serif" }}>R</span>
+                <span className="text-xl md:text-2xl font-bold text-primary-500" style={{ fontFamily: "'Arial Black', 'Helvetica Neue', sans-serif" }}>ecflix</span>
+              </span>
             </Link>
 
             {/* Desktop Navigation */}
